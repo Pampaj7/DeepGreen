@@ -7,6 +7,7 @@ from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader
 import os
 from tqdm import tqdm
+from codecarbon import EmissionsTracker
 
 def get_loaders(batch_size=128):
     transform = transforms.Compose([
@@ -14,8 +15,8 @@ def get_loaders(batch_size=128):
         transforms.Normalize((0.5071, 0.4867, 0.4408),
                              (0.2675, 0.2565, 0.2761))
     ])
-    train_set = datasets.CIFAR100(root='./data/cifar100', train=True, download=False, transform=transform)
-    test_set = datasets.CIFAR100(root='./data/cifar100', train=False, download=False, transform=transform)
+    train_set = datasets.CIFAR100(root='../data/cifar100', train=True, download=True, transform=transform)
+    test_set = datasets.CIFAR100(root='../data/cifar100', train=False, download=True, transform=transform)
 
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=2)
@@ -67,9 +68,11 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    for epoch in range(10):
-        print(f"Epoch {epoch + 1}/10")
+    for epoch in range(30):
+        print(f"Epoch {epoch + 1}/30")
+        tracker.start()
         train_loss = train(model, train_loader, criterion, optimizer, device)
+        tracker.stop()
         test_loss, test_acc = evaluate(model, test_loader, criterion, device)
         print(f"Train Loss={train_loss:.4f}, Test Loss={test_loss:.4f}, Test Acc={test_acc:.2f}%")
 
@@ -78,4 +81,5 @@ def main():
 
 
 if __name__ == "__main__":
+    tracker = EmissionsTracker(output_dir="emissions/", output_file="vgg16.csv")
     main()

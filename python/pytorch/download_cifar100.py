@@ -32,5 +32,5 @@ def convert_to_npz():
 
 
 if __name__ == '__main__':
-    #download_cifar100()
-    convert_to_npz()
+    download_cifar100()
+    #convert_to_npz()
