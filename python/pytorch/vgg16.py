@@ -9,6 +9,7 @@ import os
 from tqdm import tqdm
 from codecarbon import EmissionsTracker
 
+
 def get_loaders(batch_size=128):
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -58,7 +59,8 @@ def evaluate(model, test_loader, criterion, device):
 
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     train_loader, test_loader = get_loaders()
 
     model = models.vgg16(pretrained=False)
