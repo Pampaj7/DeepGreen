@@ -11,10 +11,13 @@ def save_image(img_tensor, path):
     img = transforms.ToPILImage()(img_tensor)
     img.save(path)
 
-
-def convert_cifar100_to_png(output_root="../data/cifar100_png"):
-    os.makedirs(output_root, exist_ok=True)
-
+# be careful on remote machine you probably need to change path
+def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_png"):
+    try:
+        os.makedirs(output_root, exist_ok=True)
+    except Exception as e:
+        print("❌ Errore nella creazione della cartella:", e)
+        
     transform = transforms.Compose([transforms.ToTensor()])
 
     train_data = CIFAR100(root="../data", train=True, download=True, transform=transform)

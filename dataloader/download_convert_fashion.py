@@ -10,8 +10,9 @@ def save_image(img_tensor, path):
     img = transforms.ToPILImage()(img_tensor)
     img.save(path)
 
+# be careful on remote machine you probably need to change path
 
-def convert_fashionmnist_to_png(output_root="../data/fashion_mnist_png"):
+def convert_fashionmnist_to_png(output_root="/home/pampaj/DeepGreen/data/fashion_mnist_png"):
     os.makedirs(output_root, exist_ok=True)
 
     transform = transforms.Compose([transforms.ToTensor()])

@@ -9,3 +9,5 @@ if __name__ == "__main__":
         grayscale=False,
         test_split="val"
     )
+    
+#PYTHONPATH=. python3 python/pytorch/train/vgg16/train_tiny.py
