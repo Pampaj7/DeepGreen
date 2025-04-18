@@ -25,8 +25,9 @@ def download_and_extract_tiny_imagenet(dest_dir="./data"):
 
     return extract_path
 
+# be careful on remote machine you probably need to change path
 
-def convert_tiny_imagenet_to_png(dataset_root="./data/tiny-imagenet-200", output_root="../data/tiny_imagenet_png"):
+def convert_tiny_imagenet_to_png(dataset_root="./data/tiny-imagenet-200", output_root="/home/pampaj/DeepGreen/data/tiny_imagenet_png"):
     os.makedirs(output_root, exist_ok=True)
 
     wnids_path = os.path.join(dataset_root, "wnids.txt")

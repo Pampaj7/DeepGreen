@@ -8,3 +8,6 @@ if __name__ == "__main__":
         img_size=(32, 32),
         grayscale=False
     )
+
+# go with:
+# PYTHONPATH=. python3 python/pytorch/train/vgg16/train_cifar100.py

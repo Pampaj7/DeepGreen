@@ -8,3 +8,5 @@ if __name__ == "__main__":
         img_size=(32, 32),
         grayscale=True
     )
+    
+# PYTHONPATH=. python3 python/pytorch/train/vgg16/train_fashion.py
