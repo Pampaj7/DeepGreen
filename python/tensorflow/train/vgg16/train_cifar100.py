@@ -1,4 +1,4 @@
-from python.tensorflow.models.resnet18 import run_experiment
+from python.tensorflow.models.vgg16 import run_experiment
 
 if __name__ == "__main__":
     run_experiment(
