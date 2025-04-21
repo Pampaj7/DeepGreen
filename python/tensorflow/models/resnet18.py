@@ -4,6 +4,7 @@ import os
 from codecarbon import EmissionsTracker
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # --- Custom ResNet18 Implementation --- following paper description
 class ResnetBlock(tf.keras.Model):
@@ -60,7 +61,7 @@ class ResNet18(tf.keras.Model):
 
 def build_resnet18(input_shape=(32, 32, 3), num_classes=100):
     model = ResNet18(num_classes)
-    model.build((None, *input_shape))
+    model(tf.random.uniform((1, *input_shape)))  # forza la costruzione completa
     return model
 
 
