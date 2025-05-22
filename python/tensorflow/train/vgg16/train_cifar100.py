@@ -9,3 +9,5 @@ if __name__ == "__main__":
         epochs=30,
         batch_size=128
     )
+    
+# PYTHONPATH=. python3 python/tensorflow/train/vgg16/train_cifar100.py
