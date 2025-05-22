@@ -1,0 +1,1 @@
+# PYTHONPATH=. python3 python/jax/train/resnet18/train_cifar100.py
