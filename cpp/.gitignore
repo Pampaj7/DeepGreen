@@ -1,6 +1,5 @@
 ### CMake ###
 cmake-build-*/
-build/
 
 
 ### C++ ###
