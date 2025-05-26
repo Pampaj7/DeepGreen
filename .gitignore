@@ -5,8 +5,3 @@ build/
 
 # JetBrains
 .idea/
-
-
-### Runtime folders ###
-# Dataset
-data/
