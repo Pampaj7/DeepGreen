@@ -1,6 +1,7 @@
 ### IDE ###
 # VSCode
 .vscode/
+build/
 
 # JetBrains
 .idea/
