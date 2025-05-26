@@ -1,11 +1,3 @@
-### IDE ###
-# VSCode
-.vscode/
-
-# JetBrains
-.idea/*
-
-
 ### CMake ###
 cmake-build-*/
 build/
