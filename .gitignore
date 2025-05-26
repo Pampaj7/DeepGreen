@@ -1,0 +1,11 @@
+### IDE ###
+# VSCode
+.vscode/
+
+# JetBrains
+.idea/
+
+
+### Runtime folders ###
+# Dataset
+data/
