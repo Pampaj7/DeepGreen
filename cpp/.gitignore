@@ -1,0 +1,5 @@
+# VSCode
+.vscode/
+
+# JetBrains (IntelliJ, PyCharm, etc.)
+.idea/
