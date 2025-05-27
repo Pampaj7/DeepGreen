@@ -1,25 +1,50 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 project(DeepGreen_cpp)
 
-# set output of FetchContent before using the command
-set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
-
+# Configure OpenCV
 if (WIN32)
-    # Configure OpenCV
     # set(OpenCV_DIR "C:/Program Files (x86)/OpenCV/opencv_4.10.0/build")
     # or add "path/to/openCV/build/bin" to PATH env var
-
-    # Configure LibTorch
-    set(LIBTORCH_SPEC "libtorch_win32")
-    set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-debug-2.7.0%2Bcpu.zip")
 elseif (LINUX)
-    # Configure OpenCV
     set(OpenCV_DIR "/home/marcopaglio/tools/opencv-4.11.0/build")
+endif ()
+
+find_package(OpenCV REQUIRED)
+MESSAGE(STATUS "OpenCV found.")
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+
+
+option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
+if(CUDA_ENABLED) # Using GPU
+    enable_language(CUDA)
+    # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
+    # Da inserire prima di "find_package(Torch REQUIRED)"
+    set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+    set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
+    include_directories(${NVTX3_INCLUDE_DIR})
 
     # Configure LibTorch
-    set(LIBTORCH_SPEC "libtorch_linux")
-    set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcpu.zip")
+    if (WIN32)
+        set(LIBTORCH_SPEC "libtorch_win32_cuda")
+        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
+    elseif (LINUX)
+        set(LIBTORCH_SPEC "libtorch_linux_cuda")
+        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcu128.zip")
+    endif ()
+else () # Using CPU
+    # Configure LibTorch
+    if (WIN32)
+        set(LIBTORCH_SPEC "libtorch_win32_cpu")
+        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-debug-2.7.0%2Bcpu.zip")
+    elseif (LINUX)
+        set(LIBTORCH_SPEC "libtorch_linux_cpu")
+        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcpu.zip")
+    endif ()
 endif ()
+
+# set output of FetchContent before using the command
+set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
 
 # Download LibTorch
 include(FetchContent)
@@ -33,14 +58,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(${LIBTORCH_SPEC})
 
+# Aggiungi path a versione build di LibTorch
 set(CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/${LIBTORCH_SPEC}-src")
 
 find_package(Torch REQUIRED)
 MESSAGE(STATUS "LibTorch found.")
 
-find_package(OpenCV REQUIRED)
-MESSAGE(STATUS "OpenCV found.")
-include_directories(${OpenCV_INCLUDE_DIRS})
+
+# Mettere dopo "find_package(Torch REQUIRED)"
+if (CUDA_ENABLED)
+    # Workaround per simulare CUDA::nvToolsExt con NVTX3 (header-only)
+    if(NOT TARGET CUDA::nvToolsExt)
+        message(STATUS "CUDA::nvToolsExt non trovato: creo un target fittizio con NVTX3 header-only")
+        add_library(nvtx3_dummy INTERFACE)
+        target_include_directories(nvtx3_dummy INTERFACE "${NVTX3_INCLUDE_DIR}")
+        add_library(CUDA::nvToolsExt ALIAS nvtx3_dummy)
+    endif()
+endif ()
 
 
 set(CMAKE_CXX_STANDARD 17)
@@ -67,6 +101,19 @@ foreach (target ${TARGETS})
                 ${TORCH_DLLS}
                 $<TARGET_FILE_DIR:${target}>)
     endif (MSVC)
+
+    if(CUDA_ENABLED)
+        set_target_properties(${target} PROPERTIES
+                CUDA_SEPARABLE_COMPILATION ON
+                CUDA_STANDARD 17
+                CXX_STANDARD 17 # NECESSARIO altrimenti fallisce
+                # Se usi file .cu/.cu.cc/.cuh, questa parte aiuta CMake a trattarli bene
+                CUDA_ARCHITECTURES 86  # Adatta alla tua GPU:
+                # per RTX 30xx è 86
+                # per RTX 20xx è 75
+                # per GTX 10xx è 61
+        )
+    endif ()
 endforeach ()
 
 add_compile_definitions(PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
