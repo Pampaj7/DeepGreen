@@ -71,10 +71,10 @@ MESSAGE(STATUS "LibTorch found.")
 
 
 
-if (CUDA_ENABLED AND LINUX)
-    # Abilita compilazione con CUDA
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_89,code=sm_89")
-endif ()
+#if (CUDA_ENABLED AND LINUX)
+#    # Abilita compilazione con CUDA
+#    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_89,code=sm_89")
+#endif ()
 
 
 
