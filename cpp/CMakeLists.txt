@@ -17,6 +17,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
+    set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_ARCHITECTURES 89) # Adatta alla tua GPU:
     # 89 per L40S
     # 86 per RTX 30xx
@@ -116,8 +117,6 @@ foreach (target ${TARGETS})
     if(CUDA_ENABLED)
         set_target_properties(${target} PROPERTIES
                 CUDA_SEPARABLE_COMPILATION ON
-                CUDA_STANDARD 17
-                CXX_STANDARD 17 # NECESSARIO altrimenti fallisce
         )
     endif ()
 endforeach ()
