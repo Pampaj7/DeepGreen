@@ -113,7 +113,7 @@ foreach (target ${TARGETS})
         # Linka LibTorch e CUDA
         target_link_directories(${target} PRIVATE "${CUDA_TOOLKIT_ROOT_DIR}/lib64")
         # Definisci il preprocessor macro per usare CUDA
-        target_compile_definitions(${target} PRIVATE TORCH_USE_CUDA)
+        #target_compile_definitions(${target} PRIVATE TORCH_USE_CUDA)
     endif ()
 
     target_link_libraries(${target} "${TORCH_LIBRARIES}")
