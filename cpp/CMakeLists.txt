@@ -17,6 +17,11 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
+    set(CMAKE_CUDA_ARCHITECTURES 89) # Adatta alla tua GPU:
+    # 89 per L40S
+    # 86 per RTX 30xx
+    # 75 per RTX 20xx
+    # 61 per GTX 10xx
     if (WIN32)
         # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
         # Da inserire prima di "find_package(Torch REQUIRED)"
@@ -138,12 +143,6 @@ foreach (target ${TARGETS})
                 CUDA_SEPARABLE_COMPILATION ON
                 CUDA_STANDARD 17
                 CXX_STANDARD 17 # NECESSARIO altrimenti fallisce
-                # Se usi file .cu/.cu.cc/.cuh, questa parte aiuta CMake a trattarli bene
-                CUDA_ARCHITECTURES 89  # Adatta alla tua GPU:
-                # per L40S è 89
-                # per RTX 30xx è 86
-                # per RTX 20xx è 75
-                # per GTX 10xx è 61
         )
     endif ()
 endforeach ()
