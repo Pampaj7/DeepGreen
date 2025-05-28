@@ -17,12 +17,20 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
-    enable_language(CUDA)
-    # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
-    # Da inserire prima di "find_package(Torch REQUIRED)"
-    set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
-    set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
-    include_directories(${NVTX3_INCLUDE_DIR})
+    if (WIN32)
+        enable_language(CUDA)
+        # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
+        # Da inserire prima di "find_package(Torch REQUIRED)"
+        set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+        set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
+        include_directories(${NVTX3_INCLUDE_DIR})
+    elseif (LINUX)
+        set(CMAKE_CUDA_STANDARD 17)
+        set(CMAKE_CUDA_ARCHITECTURES 89)
+        set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
+        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
+        enable_language(CUDA)
+    endif ()
 
     # Configure LibTorch
     if (WIN32)
@@ -65,8 +73,16 @@ find_package(Torch REQUIRED)
 MESSAGE(STATUS "LibTorch found.")
 
 
+
+if (CUDA_ENABLED AND LINUX)
+    # Abilita compilazione con CUDA
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_89,code=sm_89")
+endif ()
+
+
+
 # Mettere dopo "find_package(Torch REQUIRED)"
-if (CUDA_ENABLED)
+if (CUDA_ENABLED AND WIN32)
     # Workaround per simulare CUDA::nvToolsExt con NVTX3 (header-only)
     if(NOT TARGET CUDA::nvToolsExt)
         message(STATUS "CUDA::nvToolsExt non trovato: creo un target fittizio con NVTX3 header-only")
@@ -86,10 +102,28 @@ set(TARGETS
         resnet18_cifar100
 )
 
+
+
 foreach (target ${TARGETS})
     target_link_libraries(${target} ${OpenCV_LIBS})
 
-    target_link_libraries(${target} "${TORCH_LIBRARIES}")
+    if (WIN32)
+        target_link_libraries(${target} "${TORCH_LIBRARIES}")
+    endif ()
+
+    if (LINUX AND CUDA_ENABLED)
+        # Linka LibTorch e CUDA
+        target_link_directories(${target} PRIVATE "${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+        target_link_libraries(${target} "${TORCH_LIBRARIES}")
+
+        # Definisci il preprocessor macro per usare CUDA
+        target_compile_definitions(${target} PRIVATE TORCH_USE_CUDA)
+
+        # Include directory di LibTorch
+        #target_include_directories(${target} PRIVATE ${TORCH_INCLUDE_DIRS})
+    elseif (LINUX AND NOT CUDA_ENABLED)
+        target_link_libraries(${target} "${TORCH_LIBRARIES}")
+    endif ()
     # The following code block is suggested to be used on Windows.
     # According to https://github.com/pytorch/pytorch/issues/25457,
     # the DLLs need to be copied to avoid memory errors.
@@ -108,7 +142,8 @@ foreach (target ${TARGETS})
                 CUDA_STANDARD 17
                 CXX_STANDARD 17 # NECESSARIO altrimenti fallisce
                 # Se usi file .cu/.cu.cc/.cuh, questa parte aiuta CMake a trattarli bene
-                CUDA_ARCHITECTURES 86  # Adatta alla tua GPU:
+                CUDA_ARCHITECTURES 89  # Adatta alla tua GPU:
+                # per L40S è 89
                 # per RTX 30xx è 86
                 # per RTX 20xx è 75
                 # per GTX 10xx è 61
