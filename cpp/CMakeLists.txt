@@ -23,26 +23,29 @@ if(CUDA_ENABLED) # Using GPU
     # 86 per RTX 30xx
     # 75 per RTX 20xx
     # 61 per GTX 10xx
-    if (WIN32)
-        # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
-        # Da inserire prima di "find_package(Torch REQUIRED)"
-        set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
-        set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
-        include_directories(${NVTX3_INCLUDE_DIR})
-    elseif (LINUX)
-        set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
-        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
-    endif ()
-    enable_language(CUDA)
 
-    # Configure LibTorch
     if (WIN32)
+        # Configure CUDA
+        set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+
+        # Configure LibTorch
         set(LIBTORCH_SPEC "libtorch_win32_cuda")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
     elseif (LINUX)
+        # Configure CUDA
+        set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
+        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
+
+        # Configure LibTorch
         set(LIBTORCH_SPEC "libtorch_linux_cuda")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcu128.zip")
     endif ()
+
+    # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
+    # Da inserire prima di "find_package(Torch REQUIRED)"
+    set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
+    include_directories(${NVTX3_INCLUDE_DIR})
+    enable_language(CUDA)
 else () # Using CPU
     # Configure LibTorch
     if (WIN32)
