@@ -18,19 +18,16 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
     if (WIN32)
-        enable_language(CUDA)
         # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
         # Da inserire prima di "find_package(Torch REQUIRED)"
         set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
         set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
         include_directories(${NVTX3_INCLUDE_DIR})
     elseif (LINUX)
-        set(CMAKE_CUDA_STANDARD 17)
-        set(CMAKE_CUDA_ARCHITECTURES 89)
         set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
         set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
-        enable_language(CUDA)
     endif ()
+    enable_language(CUDA)
 
     # Configure LibTorch
     if (WIN32)
