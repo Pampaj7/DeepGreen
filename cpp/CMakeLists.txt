@@ -75,14 +75,6 @@ find_package(Torch REQUIRED)
 MESSAGE(STATUS "LibTorch found.")
 
 
-
-#if (CUDA_ENABLED AND LINUX)
-#    # Abilita compilazione con CUDA
-#    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_89,code=sm_89")
-#endif ()
-
-
-
 # Mettere dopo "find_package(Torch REQUIRED)"
 if (CUDA_ENABLED AND WIN32)
     # Workaround per simulare CUDA::nvToolsExt con NVTX3 (header-only)
@@ -105,19 +97,10 @@ set(TARGETS
 )
 
 
-
 foreach (target ${TARGETS})
     target_link_libraries(${target} ${OpenCV_LIBS})
 
-    if (LINUX AND CUDA_ENABLED)
-        # Linka LibTorch e CUDA
-        target_link_directories(${target} PRIVATE "${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-        # Definisci il preprocessor macro per usare CUDA
-        #target_compile_definitions(${target} PRIVATE TORCH_USE_CUDA)
-    endif ()
-
     target_link_libraries(${target} "${TORCH_LIBRARIES}")
-
     # The following code block is suggested to be used on Windows.
     # According to https://github.com/pytorch/pytorch/issues/25457,
     # the DLLs need to be copied to avoid memory errors.
