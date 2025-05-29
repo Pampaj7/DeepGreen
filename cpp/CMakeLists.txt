@@ -18,11 +18,11 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
     set(CMAKE_CUDA_STANDARD 17)
-    set(CMAKE_CUDA_ARCHITECTURES 89) # Adatta alla tua GPU:
-    # 89 per L40S
-    # 86 per RTX 30xx
-    # 75 per RTX 20xx
-    # 61 per GTX 10xx
+    set(CMAKE_CUDA_ARCHITECTURES 89) # Based on your GPU:
+    # 89 for L40S
+    # 86 for RTX 30xx
+    # 75 for RTX 20xx
+    # 61 for GTX 10xx
 
     if (WIN32)
         # Configure CUDA
@@ -34,15 +34,15 @@ if(CUDA_ENABLED) # Using GPU
     elseif (LINUX)
         # Configure CUDA
         set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
-        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
+        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc") # only needed when run cmake remotely
 
         # Configure LibTorch
         set(LIBTORCH_SPEC "libtorch_linux_cuda")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcu128.zip")
     endif ()
 
-    # Aggiungi path a nvxt3 (profiler di cuda) che LibTorch non riesce ancora a trovare (v.2.7.0)
-    # Da inserire prima di "find_package(Torch REQUIRED)"
+    # Add path to nvxt3 (cuda's profiler) which Libtorch (v.2.7.0) cannot be found.
+    # Important: insert before "find_package(Torch REQUIRED)"
     set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
     include_directories(${NVTX3_INCLUDE_DIR})
     enable_language(CUDA)
@@ -79,11 +79,11 @@ find_package(Torch REQUIRED)
 MESSAGE(STATUS "LibTorch found.")
 
 
-# Mettere dopo "find_package(Torch REQUIRED)"
+# Insert after "find_package(Torch REQUIRED)"
 if (CUDA_ENABLED AND WIN32)
-    # Workaround per simulare CUDA::nvToolsExt con NVTX3 (header-only)
+    # Workaround to simulate CUDA::nvToolsExt with NVTX3 (header-only)
     if(NOT TARGET CUDA::nvToolsExt)
-        message(STATUS "CUDA::nvToolsExt non trovato: creo un target fittizio con NVTX3 header-only")
+        message(STATUS "CUDA::nvToolsExt not found: creating a NVTX3 header-only fake target.")
         add_library(nvtx3_dummy INTERFACE)
         target_include_directories(nvtx3_dummy INTERFACE "${NVTX3_INCLUDE_DIR}")
         add_library(CUDA::nvToolsExt ALIAS nvtx3_dummy)
@@ -99,7 +99,6 @@ add_executable(resnet18_cifar100 src/train_cifar100.cpp)
 set(TARGETS
         resnet18_cifar100
 )
-
 
 foreach (target ${TARGETS})
     target_link_libraries(${target} ${OpenCV_LIBS})
