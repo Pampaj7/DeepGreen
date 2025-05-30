@@ -7,7 +7,6 @@ function(run_python_script_with_auto_install)
 
     set(MAX_ATTEMPTS 10)
     set(EXEC_OK FALSE)
-    message(STATUS ${Python3_EXECUTABLE})
 
     foreach(i RANGE ${MAX_ATTEMPTS})
         execute_process(
