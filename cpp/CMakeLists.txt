@@ -1,6 +1,19 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 project(DeepGreen_cpp)
 
+option(GENERATE_RESNET "Export ResNet-18 from Python" ON)
+option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" ON)
+
+if (GENERATE_RESNET OR
+    DOWNLOAD_AND_CONVERT_CIFAR100
+)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
+    include(RunPythonWithAutoInstall)
+
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif ()
+
+
 # Configure OpenCV
 if (WIN32)
     # set(OpenCV_DIR "C:/Program Files (x86)/OpenCV/opencv_4.10.0/build")
@@ -12,6 +25,11 @@ endif ()
 find_package(OpenCV REQUIRED)
 MESSAGE(STATUS "OpenCV found.")
 include_directories(${OpenCV_INCLUDE_DIRS})
+
+# TODO
+#include(FetchContent)
+#FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/tag/v3.12.0/json.tar.xz)
+#FetchContent_MakeAvailable(json)
 
 
 
@@ -95,7 +113,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
-add_executable(resnet18_cifar100 src/train_cifar100.cpp)
+add_executable(resnet18_cifar100
+        src/train_cifar100.cpp
+        src/CIFAR100.cpp
+        src/CIFAR100.h
+        tools/json_reader/json.hpp)
 set(TARGETS
         resnet18_cifar100
 )
@@ -123,4 +145,41 @@ foreach (target ${TARGETS})
     endif ()
 endforeach ()
 
+
 add_compile_definitions(PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
+
+
+
+if (GENERATE_RESNET)
+    message(STATUS "Exporting ResNet-18 model...")
+    run_python_script_with_auto_install(
+            SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/py_script/resnet18.py" #TODO: usare modello pytorch
+            RESULT_VARIABLE resnet_success
+            ERROR_VARIABLE resnet_error
+    )
+    if(resnet_success)
+        message(STATUS "ResNet-18 successfully exported.")
+    else()
+        message(FATAL_ERROR "Error exporting ResNet-18 model:\n${resnet_error}")
+    endif()
+endif()
+
+
+if (DOWNLOAD_AND_CONVERT_CIFAR100)
+    set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/cifar100_png")
+    #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
+
+    message(STATUS "Downloading and converting CIFAR100 dataset...")
+    run_python_script_with_auto_install(
+            SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../dataloader/download_convert_cifar100.py"
+            ARGS ${OUTPUT_ROOT} #${DATASET_ROOT}
+            RESULT_VARIABLE cifar_success
+            ERROR_VARIABLE cifar_error
+    )
+    if(cifar_success)
+        message(STATUS "CIFAR-100 successfully downloaded and converted.")
+    else()
+        message(FATAL_ERROR "Error downloading or converting CIFAR-100:\n${cifar_error}")
+    endif()
+endif()

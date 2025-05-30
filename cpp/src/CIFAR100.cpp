@@ -1,0 +1,142 @@
+#include "CIFAR100.h"
+
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <torch/torch.h>
+#include <vector>
+#include <opencv2/opencv.hpp>
+#include <filesystem>
+
+
+constexpr const uint32_t num_train_samples{50000};
+constexpr const uint32_t num_test_samples{10000};
+constexpr const uint32_t image_height{32};
+constexpr const uint32_t image_width{32};
+constexpr const uint32_t image_channels{3};
+
+std::string join_paths(std::string head, const std::string& tail)
+{
+    if (head.back() != '/')
+    {
+        head.push_back('/');
+    }
+    head += tail;
+    return head;
+}
+
+
+CIFAR100::CIFAR100(const std::string& root, const std::string& classes_json_path, const bool train) : train_(train)
+{
+    class_to_index_  = loadClassesToIndexMap(join_paths(PROJECT_SOURCE_DIR, classes_json_path));
+
+    std::string data_set_file_name;
+    uint32_t num_samples_per_file;
+    if (train_)
+    {
+        data_set_file_name = "train";
+        num_samples_per_file = num_train_samples;
+    }
+    else
+    {
+        data_set_file_name = "test";
+        num_samples_per_file = num_test_samples;
+    }
+
+    std::string data_set_file_path = join_paths(join_paths(PROJECT_SOURCE_DIR, root), data_set_file_name);
+
+
+    std::vector<torch::Tensor> images;
+    images.reserve(num_samples_per_file);
+
+    std::vector<int64_t> labels;
+    labels.reserve(num_samples_per_file);
+
+    for (const auto& [class_name, label] : class_to_index_)
+    {
+        std::string class_path = join_paths(data_set_file_path, class_name);
+        for (const auto& img_path : std::filesystem::directory_iterator(class_path)) {
+            cv::Mat img = cv::imread(img_path.path().string(), cv::IMREAD_COLOR);
+            if (img.empty()) {
+                throw std::runtime_error("Failed to load image: " + img_path.path().string());
+            }
+            cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+
+            //cv::resize(img, img, cv::Size(32, 32));  // Ensure correct size
+            img.convertTo(img, CV_32F, 1.0f / 255.0f); // Normalize to [0,1]
+
+            // Convert from HWC to CHW and then to torch::Tensor
+            auto img_tensor = torch::from_blob(img.data, {img.rows, img.cols, 3}, torch::kFloat32); //, torch::kUInt8);//
+            img_tensor = img_tensor.permute({2, 0, 1}).clone(); // Make it contiguous
+
+            images.push_back(img_tensor);
+            labels.push_back(label);
+        }
+    }
+
+    assert(
+        (images.size() == num_samples_per_file) &&
+        "Insufficient number of images. Data files might have been corrupted.");
+    images_ = torch::stack(images); //.to(torch::kFloat32).div_(255)
+    //std::cout << "images_ dim: " << images_.sizes() << std::endl;
+
+
+    assert(
+        (labels.size() == num_samples_per_file) &&
+        "Insufficient number of labels. Data files might have been corrupted.");
+    targets_ = torch::tensor(labels, torch::kInt64);
+    //std::cout << "targets_ dim: " << targets_.sizes() << std::endl;
+}
+
+
+torch::data::Example<> CIFAR100::get(size_t index) {
+    return {images_[index], targets_[index]};
+}
+
+torch::optional<size_t> CIFAR100::size() const {
+    return images_.size(0);
+}
+
+bool CIFAR100::is_train() const noexcept
+{
+    return train_;
+}
+
+const torch::Tensor& CIFAR100::images() const { return images_; }
+
+const torch::Tensor& CIFAR100::targets() const { return targets_; }
+
+c10::ArrayRef<double> CIFAR100::getMean() const
+{
+    return c10::ArrayRef<double>({0.4914, 0.4822, 0.4465});
+}
+
+c10::ArrayRef<double> CIFAR100::getStd() const
+{
+    return c10::ArrayRef<double>({0.2470, 0.2434, 0.2616});
+}
+
+
+const std::map<std::string, int>& CIFAR100::loadClassesToIndexMap(const std::string& path)
+{
+    static std::map<std::string, int> class_to_index;
+    static std::once_flag load_flag;
+
+    std::call_once(load_flag, [&]() {
+        std::ifstream json_file(path);
+        if (!json_file.is_open()) {
+            throw std::runtime_error("Impossibile aprire il file JSON: " + path);
+        }
+
+        json class_json;
+        json_file >> class_json;
+
+        for (auto& [key, value] : class_json.items()) {
+            int idx = std::stoi(key);
+            class_to_index[value] = idx;
+        }
+    });
+
+    return class_to_index;
+}
