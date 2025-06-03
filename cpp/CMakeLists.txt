@@ -58,6 +58,7 @@ endif ()
 
 ### FETCH CONTENT ###
 include(FetchContent)
+Set(FETCHCONTENT_QUIET FALSE)
 
 # Download nlohmann JSON Reader
 set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/json_reader")
@@ -73,7 +74,7 @@ FetchContent_MakeAvailable(json)
 
 list(APPEND CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/json-build")
 find_package(nlohmann_json REQUIRED)
-MESSAGE(STATUS "nlohmann_json found.")
+MESSAGE(STATUS "Tool 'nlohmann_json' found.")
 
 # Download LibTorch
 set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
@@ -89,7 +90,7 @@ FetchContent_MakeAvailable(${LIBTORCH_SPEC})
 
 list(APPEND CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/${LIBTORCH_SPEC}-src")
 find_package(Torch REQUIRED)
-MESSAGE(STATUS "LibTorch found.")
+MESSAGE(STATUS "Tool 'LibTorch' found.")
 
 
 # Insert after "find_package(Torch REQUIRED)"
