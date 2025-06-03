@@ -1,7 +1,7 @@
 #ifndef CIFAR100_H
 #define CIFAR100_H
 #include <torch/torch.h>
-#include "../tools/json_reader//json.hpp"
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 

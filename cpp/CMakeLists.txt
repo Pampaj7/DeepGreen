@@ -1,19 +1,6 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 project(DeepGreen_cpp)
 
-option(GENERATE_RESNET "Export ResNet-18 from Python" ON)
-option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" ON)
-
-if (GENERATE_RESNET OR
-    DOWNLOAD_AND_CONVERT_CIFAR100
-)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
-    include(RunPythonWithAutoInstall)
-
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
-endif ()
-
-
 # Configure OpenCV
 if (WIN32)
     # set(OpenCV_DIR "C:/Program Files (x86)/OpenCV/opencv_4.10.0/build")
@@ -25,12 +12,6 @@ endif ()
 find_package(OpenCV REQUIRED)
 MESSAGE(STATUS "OpenCV found.")
 include_directories(${OpenCV_INCLUDE_DIRS})
-
-# TODO
-#include(FetchContent)
-#FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/tag/v3.12.0/json.tar.xz)
-#FetchContent_MakeAvailable(json)
-
 
 
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
@@ -75,11 +56,27 @@ else () # Using CPU
     endif ()
 endif ()
 
-# set output of FetchContent before using the command
-set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
+### FETCH CONTENT ###
+include(FetchContent)
+
+# Download nlohmann JSON Reader
+set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/json_reader")
+FetchContent_Declare(
+        json
+        URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+        # the following option is necessary when cmake version is 3.23 or lower
+        # it defines the default behavior of cmake >= 3.24, as recommended at
+        # https://cmake.org/cmake/help/latest/policy/CMP0135.html
+        DOWNLOAD_EXTRACT_TIMESTAMP NEW
+)
+FetchContent_MakeAvailable(json)
+
+list(APPEND CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/json-build")
+find_package(nlohmann_json REQUIRED)
+MESSAGE(STATUS "nlohmann_json found.")
 
 # Download LibTorch
-include(FetchContent)
+set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
 FetchContent_Declare(
         ${LIBTORCH_SPEC}
         URL ${LIBTORCH_URL}
@@ -90,9 +87,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(${LIBTORCH_SPEC})
 
-# Aggiungi path a versione build di LibTorch
-set(CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/${LIBTORCH_SPEC}-src")
-
+list(APPEND CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/${LIBTORCH_SPEC}-src")
 find_package(Torch REQUIRED)
 MESSAGE(STATUS "LibTorch found.")
 
@@ -117,13 +112,15 @@ add_executable(resnet18_cifar100
         src/train_cifar100.cpp
         src/CIFAR100.cpp
         src/CIFAR100.h
-        tools/json_reader/json.hpp)
+)
 set(TARGETS
         resnet18_cifar100
 )
 
 foreach (target ${TARGETS})
     target_link_libraries(${target} ${OpenCV_LIBS})
+
+    target_link_libraries(${target} nlohmann_json::nlohmann_json)
 
     target_link_libraries(${target} "${TORCH_LIBRARIES}")
     # The following code block is suggested to be used on Windows.
@@ -150,6 +147,19 @@ add_compile_definitions(PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 
+
+### PYTHON SCRIPTS ###
+option(GENERATE_RESNET "Export ResNet-18 from Python" ON)
+option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
+
+if (GENERATE_RESNET OR
+        DOWNLOAD_AND_CONVERT_CIFAR100
+)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
+    include(RunPythonWithAutoInstall)
+
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif ()
 
 if (GENERATE_RESNET)
     message(STATUS "Exporting ResNet-18 model...")
