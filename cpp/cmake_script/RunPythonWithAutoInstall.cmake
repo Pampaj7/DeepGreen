@@ -1,3 +1,15 @@
+# The run_python_script_with_auto_install() function can be used to
+# run python scripts, even with arguments. If the script needs some
+# dependencies, this function can install them via pip command, up
+# to a maximum of 10 dependencies before failing.
+#
+#    run_python_script_with_auto_install(
+#         SCRIPT <"path/to/script.py">
+#         [ARGS <arg1> [<arg2> ... ]]
+#         [RESULT_VARIABLE <result_var_name>]
+#         [ERROR_VARIABLE <error_var_name>]
+#    )
+#
 function(run_python_script_with_auto_install)
     cmake_parse_arguments(RUNPY "" "SCRIPT;RESULT_VARIABLE;ERROR_VARIABLE" "ARGS" ${ARGN})
 
