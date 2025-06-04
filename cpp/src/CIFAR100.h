@@ -20,12 +20,15 @@ public:
     [[nodiscard]] const torch::Tensor& targets() const { return targets_; }
 
     static const std::map<std::string, int>& loadClassesToIndexMap(const std::string& path);
-    static c10::ArrayRef<double> getMean() { return {0.4914, 0.4822, 0.4465}; }
-    static c10::ArrayRef<double> getStd() { return {0.2470, 0.2434, 0.2616}; }
+    static c10::ArrayRef<double> getMean() { return mean; }
+    static c10::ArrayRef<double> getStd() { return std; }
 
 private:
     bool train_;
     torch::Tensor images_, targets_;
+
+    static constexpr std::array<double, 3> mean = {0.4914, 0.4822, 0.4465};
+    static constexpr std::array<double, 3> std = {0.2470, 0.2434, 0.2616};
 };
 
 
