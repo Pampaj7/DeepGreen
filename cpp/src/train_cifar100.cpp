@@ -10,15 +10,15 @@
 // Where to find the CIFAR100 dataset.
 const char* kDataRootRelativePath = "../data/cifar100_png";
 const char* kClassesJson = "classes.json";
+// Model filename
+const char* kModelTorchScript = "resnet18.pt";
 
 // The batch size for training.
-const int64_t kTrainBatchSize = 64;
-
+constexpr int64_t kTrainBatchSize = 64;
 // The batch size for testing.
-const int64_t kTestBatchSize = 1000; //TODO
-
+constexpr int64_t kTestBatchSize = 1000; //TODO
 // The number of epochs to train.
-const int64_t kNumberOfEpochs = 1;
+constexpr int64_t kNumberOfEpochs = 1;
 
 
 
@@ -27,10 +27,10 @@ int main() {
         // device (CPU or GPU)
         torch::Device device = CNNSetup::get_device_available();
 
+        // dataset
         std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, kDataRootRelativePath);
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
 
-        // dataset
         CIFAR100 train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
@@ -64,10 +64,8 @@ int main() {
 
 
         // model
-        std::stringstream modelPath;
-        modelPath << CMAKE_BINARY_DIR << "/resnet18.pt"; //TODO: necessario binary dir?
-        torch::jit::script::Module model = CNNSetup::load_model(modelPath.str()); // TODO: rendere programmabili alcuni parametri come numero di classi
-        modelPath.str(std::string());
+        torch::jit::script::Module model = CNNSetup::load_model(
+            Utils::join_paths(CMAKE_BINARY_DIR, kModelTorchScript)); // TODO: rendere programmabili alcuni parametri come numero di classi
         model.to(device);
 
 
@@ -95,7 +93,7 @@ int main() {
                 kNumberOfEpochs);
 
             // TODO: tracker.start()
-            CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, parameters);
+            CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size);
             CNNFunction::test(model, device, *test_loader, test_dataset_size);
             //TODO: tracker.stop()
         }
