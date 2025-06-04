@@ -3,30 +3,28 @@
 #include <torch/torch.h>
 #include <nlohmann/json.hpp>
 
+#include "cnn_function.h"
+
 using json = nlohmann::json;
 
 class CIFAR100 final : public torch::data::datasets::Dataset<CIFAR100> {
 public:
-    explicit CIFAR100(const std::string& root, const std::string& classes_json_path, bool train = false);
+    explicit CIFAR100(const std::string& dataset_path, const std::string& classes_json_path, bool train = false);
 
     torch::data::Example<> get(size_t index) override;
-
     [[nodiscard]] torch::optional<size_t> size() const override;
 
-    [[nodiscard]] bool is_train() const noexcept;
-
+    [[nodiscard]] bool is_train() const noexcept { return train_; }
     // Returns all images stacked into a single tensor.
-    [[nodiscard]] const torch::Tensor& images() const;
-    [[nodiscard]] const torch::Tensor& targets() const;
-
-    [[nodiscard]] c10::ArrayRef<double> getMean() const;
-    [[nodiscard]] c10::ArrayRef<double> getStd() const;
+    [[nodiscard]] const torch::Tensor& images() const { return images_; }
+    [[nodiscard]] const torch::Tensor& targets() const { return targets_; }
 
     static const std::map<std::string, int>& loadClassesToIndexMap(const std::string& path);
+    static c10::ArrayRef<double> getMean() { return {0.4914, 0.4822, 0.4465}; }
+    static c10::ArrayRef<double> getStd() { return {0.2470, 0.2434, 0.2616}; }
 
 private:
     bool train_;
-    std::map<std::string, int> class_to_index_;
     torch::Tensor images_, targets_;
 };
 

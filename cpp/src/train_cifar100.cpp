@@ -4,11 +4,12 @@
 #include "CIFAR100.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
+#include "utils.h"
 
 
-// Where to find the CIFAR10 dataset.
-const char* kDataRoot = "/../data/cifar100_png";
-const char* kClassesPath = "/../data/cifar100_png/classes.json";
+// Where to find the CIFAR100 dataset.
+const char* kDataRootRelativePath = "../data/cifar100_png";
+const char* kClassesJson = "classes.json";
 
 // The batch size for training.
 const int64_t kTrainBatchSize = 64;
@@ -26,23 +27,23 @@ int main() {
         // device (CPU or GPU)
         torch::Device device = CNNSetup::get_device_available();
 
+        std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, kDataRootRelativePath);
+        std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
+
         // dataset
-        CIFAR100 train_set{kDataRoot, kClassesPath, true};
+        CIFAR100 train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
-                .map(torch::data::transforms::Normalize<>({0.4914, 0.4822, 0.4465},
-                                                        {0.2470, 0.2434, 0.2616}))
+                .map(torch::data::transforms::Normalize<>(CIFAR100::getMean(), CIFAR100::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t train_dataset_size = train_set_transformed.size().value();
 
-        CIFAR100 test_set{kDataRoot, kClassesPath, false};
+        CIFAR100 test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
-                .map(torch::data::transforms::Normalize<>({0.4914, 0.4822, 0.4465},
-                                                        {0.2470, 0.2434, 0.2616}))
+                .map(torch::data::transforms::Normalize<>(CIFAR100::getMean(), CIFAR100::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t test_dataset_size = test_set_transformed.size().value();
-
 
 
         // dataloader
@@ -62,9 +63,6 @@ int main() {
                     .enforce_ordering(false)); // TODO: is same of shuffle?
 
 
-
-
-
         // model
         std::stringstream modelPath;
         modelPath << CMAKE_BINARY_DIR << "/resnet18.pt"; //TODO: necessario binary dir?
@@ -72,8 +70,10 @@ int main() {
         modelPath.str(std::string());
         model.to(device);
 
+
         // loss
         // auto criterion = TODO: vedere se si può modificare options dopo aver creato la loss
+
 
         // optimizer
         auto params_list = model.parameters();
