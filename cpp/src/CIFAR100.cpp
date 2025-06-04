@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <fstream>
-#include <iostream>
 #include <string>
 #include <torch/torch.h>
 #include <vector>
@@ -12,31 +11,20 @@
 #include "utils.h"
 
 
-constexpr const uint32_t num_train_samples{50000};
-constexpr const uint32_t num_test_samples{10000};
-constexpr const uint32_t image_height{32};
-constexpr const uint32_t image_width{32};
-constexpr const uint32_t image_channels{3};
-
-
 CIFAR100::CIFAR100(const std::string& dataset_path, const std::string& classes_json_path, const bool train) : train_(train)
 {
     auto class_to_index  = loadClassesToIndexMap(classes_json_path);
 
-    std::string data_set_file_name;
+    std::string dataset_file_name;
     uint32_t num_samples_per_file;
-    if (train_)
-    {
-        data_set_file_name = "train";
+    if (train_) {
+        dataset_file_name = "train";
         num_samples_per_file = num_train_samples;
-    }
-    else
-    {
-        data_set_file_name = "test";
+    } else {
+        dataset_file_name = "test";
         num_samples_per_file = num_test_samples;
     }
-
-    std::string data_set_file_path = Utils::join_paths(dataset_path, data_set_file_name);
+    const std::string data_set_file_path = Utils::join_paths(dataset_path, dataset_file_name);
 
 
     std::vector<torch::Tensor> images;
@@ -45,9 +33,9 @@ CIFAR100::CIFAR100(const std::string& dataset_path, const std::string& classes_j
     std::vector<int64_t> labels;
     labels.reserve(num_samples_per_file);
 
-    for (const auto& [class_name, label] : class_to_index)
-    {
+    for (const auto& [class_name, label] : class_to_index) {
         std::string class_path = Utils::join_paths(data_set_file_path, class_name);
+
         for (const auto& img_path : std::filesystem::directory_iterator(class_path)) {
             cv::Mat img = cv::imread(img_path.path().string(), cv::IMREAD_COLOR);
             if (img.empty()) {
@@ -67,29 +55,26 @@ CIFAR100::CIFAR100(const std::string& dataset_path, const std::string& classes_j
         }
     }
 
-    assert(
-        (images.size() == num_samples_per_file) &&
+    assert(images.size() == num_samples_per_file &&
         "Insufficient number of images. Data files might have been corrupted.");
     images_ = torch::stack(images); //.to(torch::kFloat32).div_(255)
-    //std::cout << "images_ dim: " << images_.sizes() << std::endl;
 
-
-    assert(
-        (labels.size() == num_samples_per_file) &&
+    assert(labels.size() == num_samples_per_file &&
         "Insufficient number of labels. Data files might have been corrupted.");
     targets_ = torch::tensor(labels, torch::kInt64);
-    //std::cout << "targets_ dim: " << targets_.sizes() << std::endl;
 }
 
 
-torch::data::Example<> CIFAR100::get(size_t index) {
+torch::data::Example<> CIFAR100::get(const size_t index)
+{
     return {images_[index], targets_[index]};
 }
 
-torch::optional<size_t> CIFAR100::size() const {
+
+torch::optional<size_t> CIFAR100::size() const
+{
     return images_.size(0);
 }
-
 
 
 const std::map<std::string, int>& CIFAR100::loadClassesToIndexMap(const std::string& path)
@@ -100,16 +85,14 @@ const std::map<std::string, int>& CIFAR100::loadClassesToIndexMap(const std::str
     std::call_once(load_flag, [&]() {
         std::ifstream json_file(path);
         if (!json_file.is_open()) {
-            throw std::runtime_error("Impossibile aprire il file JSON: " + path);
+            throw std::runtime_error("Unable to open the JSON file at: " + path);
         }
 
         json class_json;
         json_file >> class_json;
 
-        for (auto& [key, value] : class_json.items()) {
-            int idx = std::stoi(key);
-            class_to_index[value] = idx;
-        }
+        for (auto& [key, value] : class_json.items())
+            class_to_index[value] = std::stoi(key);
     });
 
     return class_to_index;

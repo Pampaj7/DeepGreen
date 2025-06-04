@@ -27,8 +27,14 @@ private:
     bool train_;
     torch::Tensor images_, targets_;
 
-    static constexpr std::array<double, 3> mean = {0.4914, 0.4822, 0.4465};
-    static constexpr std::array<double, 3> std = {0.2470, 0.2434, 0.2616};
+    static constexpr uint32_t num_train_samples{50000};
+    static constexpr uint32_t num_test_samples{10000};
+    static constexpr uint32_t image_height{32};
+    static constexpr uint32_t image_width{32};
+    static constexpr uint32_t image_channels{3};
+    static constexpr std::array<double, 3> mean{0.4914, 0.4822, 0.4465};
+    static constexpr std::array<double, 3> std{0.2470, 0.2434, 0.2616};
+
 };
 
 

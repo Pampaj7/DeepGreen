@@ -2,21 +2,20 @@
 #define CNNFUNCTION_H
 #include <torch/torch.h>
 
-// After how many batches to log a new update with the loss value.
-const int64_t kLogInterval = 10;
 
+// After how many batches to log a new update with the loss value.
+constexpr int64_t kLogInterval = 10;
 
 namespace CNNFunction {
 
     template <typename DataLoader>
     void train(
-            size_t epoch,
+            const size_t epoch,
             torch::jit::script::Module& model,
             torch::Device device,
             DataLoader& data_loader,
             torch::optim::Optimizer& optimizer,
-            size_t dataset_size,
-            std::vector<torch::Tensor> parameters) {
+            const size_t dataset_size) {
 
         torch::nn::CrossEntropyLoss criterion(torch::nn::CrossEntropyLossOptions().reduction(torch::kMean));
         model.train();
@@ -48,14 +47,11 @@ namespace CNNFunction {
             // std::cout << "Loss value: " << loss.template item<float>() << std::endl;
             TORCH_INTERNAL_ASSERT(!std::isnan(loss.template item<float>()));
             loss.backward();
-
-            //auto total_norm = torch::nn::utils::clip_grad_norm_(parameters,50);
-            //std::cout << "Gradient norm: " << total_norm << std::endl;
             optimizer.step();
 
             if (batch_idx++ % kLogInterval == 0) {
                 std::printf(
-                    "\rTrain Epoch: %ld [%5ld/%5ld] Loss: %.4f\n",
+                    "\rTrain Epoch: %llu [%5ld/%5llu] Loss: %.4f\n",
                     epoch,
                     batch_idx * batch.data.size(0),
                     dataset_size,
@@ -69,7 +65,7 @@ namespace CNNFunction {
         torch::jit::script::Module& model,
         torch::Device device,
         DataLoader& data_loader,
-        size_t dataset_size) {
+        const size_t dataset_size) {
         torch::NoGradGuard no_grad;
         model.eval();
         double test_loss = 0;
