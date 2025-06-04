@@ -1,7 +1,7 @@
 #include <iostream>
 #include <torch/torch.h>
 
-#include "CIFAR100.h"
+#include "dataset/CIFAR100.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "utils.h"

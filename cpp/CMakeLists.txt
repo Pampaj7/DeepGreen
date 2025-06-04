@@ -111,8 +111,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 add_executable(resnet18_cifar100
         src/train_cifar100.cpp
-        src/CIFAR100.cpp
-        src/CIFAR100.h
+        src/dataset/CIFAR100.cpp
+        src/dataset/CIFAR100.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h

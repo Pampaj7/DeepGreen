@@ -3,8 +3,6 @@
 #include <torch/torch.h>
 #include <nlohmann/json.hpp>
 
-#include "cnn_function.h"
-
 using json = nlohmann::json;
 
 class CIFAR100 final : public torch::data::datasets::Dataset<CIFAR100> {
