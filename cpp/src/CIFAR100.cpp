@@ -9,6 +9,8 @@
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 
+#include "utils.h"
+
 
 constexpr const uint32_t num_train_samples{50000};
 constexpr const uint32_t num_test_samples{10000};
@@ -16,20 +18,10 @@ constexpr const uint32_t image_height{32};
 constexpr const uint32_t image_width{32};
 constexpr const uint32_t image_channels{3};
 
-std::string join_paths(std::string head, const std::string& tail)
-{
-    if (head.back() != '/')
-    {
-        head.push_back('/');
-    }
-    head += tail;
-    return head;
-}
 
-
-CIFAR100::CIFAR100(const std::string& root, const std::string& classes_json_path, const bool train) : train_(train)
+CIFAR100::CIFAR100(const std::string& dataset_path, const std::string& classes_json_path, const bool train) : train_(train)
 {
-    class_to_index_  = loadClassesToIndexMap(join_paths(PROJECT_SOURCE_DIR, classes_json_path));
+    auto class_to_index  = loadClassesToIndexMap(classes_json_path);
 
     std::string data_set_file_name;
     uint32_t num_samples_per_file;
@@ -44,7 +36,7 @@ CIFAR100::CIFAR100(const std::string& root, const std::string& classes_json_path
         num_samples_per_file = num_test_samples;
     }
 
-    std::string data_set_file_path = join_paths(join_paths(PROJECT_SOURCE_DIR, root), data_set_file_name);
+    std::string data_set_file_path = Utils::join_paths(dataset_path, data_set_file_name);
 
 
     std::vector<torch::Tensor> images;
@@ -53,9 +45,9 @@ CIFAR100::CIFAR100(const std::string& root, const std::string& classes_json_path
     std::vector<int64_t> labels;
     labels.reserve(num_samples_per_file);
 
-    for (const auto& [class_name, label] : class_to_index_)
+    for (const auto& [class_name, label] : class_to_index)
     {
-        std::string class_path = join_paths(data_set_file_path, class_name);
+        std::string class_path = Utils::join_paths(data_set_file_path, class_name);
         for (const auto& img_path : std::filesystem::directory_iterator(class_path)) {
             cv::Mat img = cv::imread(img_path.path().string(), cv::IMREAD_COLOR);
             if (img.empty()) {
@@ -98,24 +90,6 @@ torch::optional<size_t> CIFAR100::size() const {
     return images_.size(0);
 }
 
-bool CIFAR100::is_train() const noexcept
-{
-    return train_;
-}
-
-const torch::Tensor& CIFAR100::images() const { return images_; }
-
-const torch::Tensor& CIFAR100::targets() const { return targets_; }
-
-c10::ArrayRef<double> CIFAR100::getMean() const
-{
-    return c10::ArrayRef<double>({0.4914, 0.4822, 0.4465});
-}
-
-c10::ArrayRef<double> CIFAR100::getStd() const
-{
-    return c10::ArrayRef<double>({0.2470, 0.2434, 0.2616});
-}
 
 
 const std::map<std::string, int>& CIFAR100::loadClassesToIndexMap(const std::string& path)
