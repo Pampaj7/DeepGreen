@@ -113,6 +113,9 @@ add_executable(resnet18_cifar100
         src/train_cifar100.cpp
         src/CIFAR100.cpp
         src/CIFAR100.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
 )
 set(TARGETS
         resnet18_cifar100
