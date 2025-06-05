@@ -119,8 +119,19 @@ add_executable(resnet18_cifar100
         src/utils.cpp
         src/utils.h
 )
+add_executable(resnet18_tiny
+        src/train_tiny.cpp
+        src/dataset/TinyImageNet200.cpp
+        src/dataset/TinyImageNet200.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/utils.cpp
+        src/utils.h
+)
 set(TARGETS
         resnet18_cifar100
+        resnet18_tiny
 )
 
 foreach (target ${TARGETS})
@@ -157,9 +168,11 @@ add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 ### PYTHON SCRIPTS ###
 option(GENERATE_RESNET "Export ResNet-18 from Python" ON)
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
+option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" ON)
 
 if (GENERATE_RESNET OR
-        DOWNLOAD_AND_CONVERT_CIFAR100
+        DOWNLOAD_AND_CONVERT_CIFAR100 OR
+        DOWNLOAD_AND_CONVERT_TINYIMAGENET200
 )
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
     include(RunPythonWithAutoInstall)
@@ -168,9 +181,13 @@ if (GENERATE_RESNET OR
 endif ()
 
 if (GENERATE_RESNET)
-    message(STATUS "Exporting ResNet-18 model...")
+    set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
+
+    set(TINY_IMAGENET_NUM_CLASSES 200) # TODO: si dovrà generare resnet per ogni dataset
+    message(STATUS "Exporting ResNet-18 model to train on Tiny ImageNet-200 dataset...")
     run_python_script_with_auto_install(
-            SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/py_script/resnet18.py" #TODO: usare modello pytorch
+            SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
+            ARGS ${TINY_IMAGENET_NUM_CLASSES}
             RESULT_VARIABLE resnet_success
             ERROR_VARIABLE resnet_error
     )
@@ -197,5 +214,27 @@ if (DOWNLOAD_AND_CONVERT_CIFAR100)
         message(STATUS "CIFAR-100 successfully downloaded and converted.")
     else()
         message(FATAL_ERROR "Error downloading or converting CIFAR-100:\n${cifar_error}")
+    endif()
+endif()
+
+
+if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
+    set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/tiny_imagenet_png")
+    #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
+
+    if (WIN32)
+        message(WARNING "For Windows users, the following script may fail due to using too long directory paths during conversion.\nIn this case, please, enable long paths in Windows.")
+    endif ()
+    message(STATUS "Downloading and converting Tiny ImageNet-200 dataset...")
+    run_python_script_with_auto_install(
+            SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../dataloader/download_convert_tinyimage.py"
+            ARGS ${OUTPUT_ROOT} #${DATASET_ROOT}
+            RESULT_VARIABLE tiny_success
+            ERROR_VARIABLE tiny_error
+    )
+    if(tiny_success)
+        message(STATUS "Tiny ImageNet-200 successfully downloaded and converted.")
+    else()
+        message(FATAL_ERROR "Error downloading or converting Tiny ImageNet-200:\n${tiny_error}")
     endif()
 endif()
