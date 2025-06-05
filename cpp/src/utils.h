@@ -7,6 +7,8 @@ namespace Utils {
 
     std::string join_paths(std::string head, const std::string& tail);
 
+    std::string join_paths_as_absolute_path(const std::string& head, const std::string& tail);
+
 };
 
 
