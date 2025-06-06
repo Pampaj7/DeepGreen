@@ -93,6 +93,7 @@ const std::map<std::string, int>& CIFAR100::loadClassesToIndexMap(const std::str
 
         for (auto& [key, value] : class_json.items())
             class_to_index[value] = std::stoi(key);
+        assert(class_to_index.size() == std::stoi(CIFAR100_NUM_CLASSES));
     });
 
     return class_to_index;

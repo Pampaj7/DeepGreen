@@ -97,7 +97,7 @@ const std::map<std::string, int>& TinyImageNet200::loadClassesToIndexMap(const s
         int idx_label = 0;
         for (auto& [key, value] : class_json.items())
             class_to_index[value] = idx_label++;
-        assert(idx_label == class_to_index.size());
+        assert(class_to_index.size() == std::stoi(TINY_IMAGENET200_NUM_CLASSES));
     });
 
     return class_to_index;

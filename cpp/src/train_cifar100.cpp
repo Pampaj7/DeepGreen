@@ -10,8 +10,6 @@
 // Where to find the CIFAR100 dataset.
 const char* kDataRootRelativePath = "../data/cifar100_png";
 const char* kClassesJson = "classes.json";
-// Model filename
-const char* kModelTorchScript = "resnet18_cifar100.pt";
 
 // The batch size for training.
 constexpr int64_t kTrainBatchSize = 64;
@@ -68,7 +66,7 @@ int main() {
 
         // model
         torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, kModelTorchScript)); // TODO: rendere programmabili alcuni parametri come numero di classi
+            Utils::join_paths(CMAKE_BINARY_DIR, CIFAR100_FILENAME)); // TODO: rendere programmabili alcuni parametri come numero di classi
         model.to(device);
 
 

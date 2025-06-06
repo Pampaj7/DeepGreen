@@ -166,65 +166,53 @@ add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 
 ### PYTHON SCRIPTS ###
-option(GENERATE_RESNET "Export ResNet-18 from Python" ON)
-option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
-option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
+include(RunPythonWithAutoInstall)
 
-if (GENERATE_RESNET OR
-        DOWNLOAD_AND_CONVERT_CIFAR100 OR
-        DOWNLOAD_AND_CONVERT_TINYIMAGENET200
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+# Generate ResNet-18 model for each dataset
+set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
+
+# Cifar100
+set(CIFAR_OUTPUT_FILENAME "resnet18_cifar100")
+set(CIFAR_NUM_CLASSES 100)
+message(STATUS "Exporting ResNet-18 model to train on CIFAR-100 dataset...")
+run_python_script_with_auto_install(
+        SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
+        ARGS ${CIFAR_OUTPUT_FILENAME} ${CIFAR_NUM_CLASSES}
+        RESULT_VARIABLE resnet_cifar_success
+        ERROR_VARIABLE resnet_cifar_error
 )
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
-    include(RunPythonWithAutoInstall)
+if(resnet_cifar_success)
+    message(STATUS "ResNet-18 for CIFAR-100 successfully exported.")
+    add_compile_definitions(CIFAR100_FILENAME="${CIFAR_OUTPUT_FILENAME}.pt")
+    add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR_NUM_CLASSES}")
+else()
+    message(FATAL_ERROR "Error exporting ResNet-18 model for CIFAR-100:\n${resnet_cifar_error}")
+endif()
 
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
-endif ()
-
-if (GENERATE_RESNET)
-    set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
-
-    # Cifar100
-    set(CIFAR_OUTPUT_FILENAME "resnet18_cifar100")
-    set(CIFAR_NUM_CLASSES 100)
-    message(STATUS "Exporting ResNet-18 model to train on CIFAR-100 dataset...")
-    run_python_script_with_auto_install(
-            SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
-            ARGS ${CIFAR_OUTPUT_FILENAME} ${CIFAR_NUM_CLASSES}
-            RESULT_VARIABLE resnet_cifar_success
-            ERROR_VARIABLE resnet_cifar_error
-    )
-    if(resnet_cifar_success)
-        message(STATUS "ResNet-18 for CIFAR-100 successfully exported.")
-        # it should be good to share filename and num_classes vars to be used in the program
-        # but this imply that GENERATE_RESNET must be always ON (otherwise compile def are not defined
-        #add_compile_definitions(TINY_IMAGENET_NUM_CLASSES="${TINY_IMAGENET_NUM_CLASSES}")
-        #add_compile_definitions(TINY_IMAGENET_FILENAME="${OUTPUT_FILE_NAME}.pt")
-    else()
-        message(FATAL_ERROR "Error exporting ResNet-18 model for CIFAR-100:\n${resnet_cifar_error}")
-    endif()
-
-    # Tiny ImageNet-200
-    set(TINY_IMAGENET_NUM_CLASSES 200)
-    set(TINY_OUTPUT_FILENAME "resnet18_tiny")
-    message(STATUS "Exporting ResNet-18 model to train on Tiny ImageNet-200 dataset...")
-    run_python_script_with_auto_install(
-            SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
-            ARGS ${TINY_OUTPUT_FILENAME} ${TINY_IMAGENET_NUM_CLASSES}
-            RESULT_VARIABLE resnet_tiny_success
-            ERROR_VARIABLE resnet_tiny_error
-    )
-    if(resnet_tiny_success)
-        message(STATUS "ResNet-18 for Tiny ImageNet-200 successfully exported.")
-        # it should be good to share filename and num_classes vars to be used in the program
-        # but this imply that GENERATE_RESNET must be always ON (otherwise compile def are not defined
-        #add_compile_definitions(TINY_IMAGENET_NUM_CLASSES="${TINY_IMAGENET_NUM_CLASSES}")
-        #add_compile_definitions(TINY_IMAGENET_FILENAME="${OUTPUT_FILE_NAME}.pt")
-    else()
-        message(FATAL_ERROR "Error exporting ResNet-18 model for Tiny ImageNet-200:\n${resnet_tiny_error}")
-    endif()
+# Tiny ImageNet-200
+set(TINY_OUTPUT_FILENAME "resnet18_tiny")
+set(TINY_IMAGENET_NUM_CLASSES 200)
+message(STATUS "Exporting ResNet-18 model to train on Tiny ImageNet-200 dataset...")
+run_python_script_with_auto_install(
+        SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
+        ARGS ${TINY_OUTPUT_FILENAME} ${TINY_IMAGENET_NUM_CLASSES}
+        RESULT_VARIABLE resnet_tiny_success
+        ERROR_VARIABLE resnet_tiny_error
+)
+if(resnet_tiny_success)
+    message(STATUS "ResNet-18 for Tiny ImageNet-200 successfully exported.")
+    add_compile_definitions(TINY_IMAGENET200_FILENAME="${TINY_OUTPUT_FILENAME}.pt")
+    add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET_NUM_CLASSES}")
+else()
+    message(FATAL_ERROR "Error exporting ResNet-18 model for Tiny ImageNet-200:\n${resnet_tiny_error}")
 endif()
 
 
+
+option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_CIFAR100)
     set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/cifar100_png")
     #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
@@ -244,6 +232,7 @@ if (DOWNLOAD_AND_CONVERT_CIFAR100)
 endif()
 
 
+option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
     set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/tiny_imagenet_png")
     #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
