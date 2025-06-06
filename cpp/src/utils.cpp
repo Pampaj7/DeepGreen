@@ -1,9 +1,13 @@
 #include "utils.h"
 
 #include <string>
-#include <vector>
-#include <sstream>
 #include <iostream>
+#include <algorithm>
+#include <filesystem>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 std::string Utils::join_paths(std::string head, const std::string& tail)
 {
@@ -15,51 +19,27 @@ std::string Utils::join_paths(std::string head, const std::string& tail)
     return head;
 }
 
-std::vector<std::string> split(const std::string& str, const char delim) {
-    std::vector<std::string> result;
-    std::stringstream ss(str);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        if (!item.empty()) {
-            result.push_back(item);
-        }
+std::string Utils::makeWindowsLongPathIfNeeded(const std::string& input_path) {
+#ifdef _WIN32
+    // backslash convertion
+    std::string path = input_path;
+    std::replace(path.begin(), path.end(), '/', '\\');
+
+    try {
+        // absolut path convertion
+        const std::filesystem::path abs_path = std::filesystem::absolute(path);
+        const std::string abs_path_str = abs_path.string();
+
+        // prefix addition (if needed)
+        if (abs_path_str.length() >= MAX_PATH && path.rfind(R"(\\?\)", 0) != 0)
+                return R"(\\?\)" + abs_path_str;
+        return abs_path_str;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error while converting to Windows usable long path: " << e.what() << '\n';
+        return path;
     }
-    return result;
-}
-
-std::string join(const std::vector<std::string>& parts, const char delim) {
-    std::string result;
-    for (size_t i = 0; i < parts.size(); ++i) {
-        result += parts[i];
-        if (i + 1 < parts.size()) {
-            result += delim;
-        }
-    }
-    return result;
-}
-
-std::string Utils::join_paths_as_absolute_path(const std::string& head, const std::string& tail) {
-    const bool isAbsolute = !head.empty() && head.front() == '/';
-
-    std::vector<std::string> headParts = split(head, '/');
-    std::vector<std::string> tailParts = split(tail, '/');
-
-    auto it = tailParts.begin();
-    while (it != tailParts.end() && *it == "..") {
-        if (!headParts.empty()) {
-            headParts.pop_back();
-        }
-        it = tailParts.erase(it);
-    }
-
-    std::string newHead = join(headParts, '/');
-    std::string newTail = join(tailParts, '/');
-
-    std::string result = isAbsolute ? "/" : "";
-    result += newHead;
-    if (!newHead.empty() && !newTail.empty())
-        result += '/';
-    result += newTail;
-
-    return result;
+#else
+    return input_path;
+#endif
 }

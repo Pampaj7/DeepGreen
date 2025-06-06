@@ -28,25 +28,26 @@ int main() {
         torch::Device device = CNNSetup::get_device_available();
 
         // dataset
-        std::string kDataRootFullPath = Utils::join_paths_as_absolute_path(PROJECT_SOURCE_DIR, kDataRootRelativePath);
-        std::cout << kDataRootFullPath << std::endl;
+        std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, kDataRootRelativePath);
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
-        std::cout << kClassesFullPath << std::endl;
 
+        std::cout << "Preparing Tiny ImageNet-200 for training...";
         TinyImageNet200 train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
                 .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t train_dataset_size = train_set_transformed.size().value();
+        std::cout << " Done." << std::endl;
 
+        std::cout << "Preparing Tiny ImageNet-200 for testing...";
         TinyImageNet200 test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
                 .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t test_dataset_size = test_set_transformed.size().value();
-
+        std::cout << " Done." << std::endl;
 
         // dataloader
         auto train_loader =
