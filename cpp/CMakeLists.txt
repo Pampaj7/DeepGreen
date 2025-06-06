@@ -170,6 +170,7 @@ add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 ### PYTHON SCRIPTS ###
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
 include(RunPythonWithAutoInstall)
+include(GenerateModel)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -177,40 +178,9 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
 # Cifar100
-set(CIFAR_OUTPUT_FILENAME "resnet18_cifar100")
-set(CIFAR_NUM_CLASSES 100)
-message(STATUS "Exporting ResNet-18 model to train on CIFAR-100 dataset...")
-run_python_script_with_auto_install(
-        SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
-        ARGS ${CIFAR_OUTPUT_FILENAME} ${CIFAR_NUM_CLASSES}
-        RESULT_VARIABLE resnet_cifar_success
-        ERROR_VARIABLE resnet_cifar_error
-)
-if(resnet_cifar_success)
-    message(STATUS "ResNet-18 for CIFAR-100 successfully exported.")
-    add_compile_definitions(CIFAR100_FILENAME="${CIFAR_OUTPUT_FILENAME}.pt")
-    add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR_NUM_CLASSES}")
-else()
-    message(FATAL_ERROR "Error exporting ResNet-18 model for CIFAR-100:\n${resnet_cifar_error}")
-endif()
-
+export_resnet_model("CIFAR-100" "resnet18_cifar100" 100 "CIFAR100")
 # Tiny ImageNet-200
-set(TINY_OUTPUT_FILENAME "resnet18_tiny")
-set(TINY_IMAGENET_NUM_CLASSES 200)
-message(STATUS "Exporting ResNet-18 model to train on Tiny ImageNet-200 dataset...")
-run_python_script_with_auto_install(
-        SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
-        ARGS ${TINY_OUTPUT_FILENAME} ${TINY_IMAGENET_NUM_CLASSES}
-        RESULT_VARIABLE resnet_tiny_success
-        ERROR_VARIABLE resnet_tiny_error
-)
-if(resnet_tiny_success)
-    message(STATUS "ResNet-18 for Tiny ImageNet-200 successfully exported.")
-    add_compile_definitions(TINY_IMAGENET200_FILENAME="${TINY_OUTPUT_FILENAME}.pt")
-    add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET_NUM_CLASSES}")
-else()
-    message(FATAL_ERROR "Error exporting ResNet-18 model for Tiny ImageNet-200:\n${resnet_tiny_error}")
-endif()
+export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" 200 "TINY_IMAGENET200")
 
 
 
