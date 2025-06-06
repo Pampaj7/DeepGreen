@@ -8,7 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 
-#include "../utils.h"
+#include "utils.h"
 
 
 CIFAR100::CIFAR100(const std::string& dataset_path, const std::string& classes_json_path, const bool train) : train_(train)
@@ -92,7 +92,7 @@ const std::map<std::string, int>& CIFAR100::loadClassesToIndexMap(const std::str
         json_file >> class_json;
 
         for (auto& [key, value] : class_json.items())
-            class_to_index[value] = std::stoi(key);
+            class_to_index[value] = std::stoi(key); // TODO: usare var inc
         assert(class_to_index.size() == std::stoi(CIFAR100_NUM_CLASSES));
     });
 

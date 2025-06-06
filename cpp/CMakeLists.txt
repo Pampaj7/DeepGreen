@@ -110,7 +110,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
 add_executable(resnet18_cifar100
-        src/train_cifar100.cpp
+        src/train/resnet18/train_cifar100.cpp
         src/dataset/CIFAR100.cpp
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -120,7 +120,7 @@ add_executable(resnet18_cifar100
         src/utils.h
 )
 add_executable(resnet18_tiny
-        src/train_tiny.cpp
+        src/train/resnet18/train_tiny.cpp
         src/dataset/TinyImageNet200.cpp
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
@@ -133,8 +133,10 @@ set(TARGETS
         resnet18_cifar100
         resnet18_tiny
 )
-
+message(STATUS ${CMAKE_SOURCE_DIR})
 foreach (target ${TARGETS})
+    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
     target_link_libraries(${target} ${OpenCV_LIBS})
 
     target_link_libraries(${target} nlohmann_json::nlohmann_json)

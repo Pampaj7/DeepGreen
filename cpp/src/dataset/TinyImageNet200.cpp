@@ -8,7 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 
-#include "../utils.h"
+#include "utils.h"
 
 
 TinyImageNet200::TinyImageNet200(const std::string& dataset_path, const std::string& classes_json_path, const bool train) : train_(train)
