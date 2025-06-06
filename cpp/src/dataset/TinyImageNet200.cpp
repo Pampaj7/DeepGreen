@@ -10,21 +10,11 @@
 
 #include "../utils.h"
 
-#ifdef _WIN32
-void preparePathForWindows(std::string& path) {
-    std::replace(path.begin(), path.end(), '/', '\\');
-
-    // Aggiunge il prefisso solo se non già presente
-    if (path.rfind(R"(\\?\)", 0) != 0) {
-        path = R"(\\?\)" + path;
-    }
-}
-#endif
-
 
 TinyImageNet200::TinyImageNet200(const std::string& dataset_path, const std::string& classes_json_path, const bool train) : train_(train)
 {
-    auto class_to_index  = loadClassesToIndexMap(classes_json_path);
+    auto class_to_index  = loadClassesToIndexMap(
+        Utils::makeWindowsLongPathIfNeeded(classes_json_path));
 
     std::string dataset_file_name;
     uint32_t num_samples_per_file;
@@ -48,12 +38,7 @@ TinyImageNet200::TinyImageNet200(const std::string& dataset_path, const std::str
         std::string class_path = Utils::join_paths(data_set_file_path, class_name);
 
         for (const auto& img_path : std::filesystem::directory_iterator(class_path)) {
-            std::string img_str_path = img_path.path().string();
-#ifdef _WIN32
-            printf("Ciao da Windows!");
-            preparePathForWindows(img_str_path);
-#endif
-            std::cout << "Loading class " << class_name << " from " << img_str_path << std::endl;
+            std::string img_str_path = Utils::makeWindowsLongPathIfNeeded(img_path.path().string());
 
             cv::Mat img = cv::imread(img_str_path, cv::IMREAD_COLOR);
             if (img.empty()) {
@@ -111,14 +96,7 @@ const std::map<std::string, int>& TinyImageNet200::loadClassesToIndexMap(const s
 
         int idx_label = 0;
         for (auto& [key, value] : class_json.items())
-        {
-            std::string subkey = key.substr(1, key.size() - 1); // remove the first 'n' in the key number
-            //std::cout << subkey << ": " << value << "\n";
-            int idx = std::stoi(subkey);
-            class_to_index[value] = idx_label;
-            std::cout << idx_label << " ma in pratica " << class_to_index[value] << ": " << value << "\n";
-            idx_label++;
-        }
+            class_to_index[value] = idx_label++;
         assert(idx_label == class_to_index.size());
     });
 
