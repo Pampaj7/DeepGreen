@@ -2,9 +2,9 @@ import torch
 from torchvision import models
 import sys
 
-def export_resnet18(num_classes: int = 100, pretrained_weights = None):
+def export_resnet18(output_name = "resnet18", num_classes: int = 200, pretrained_weights = None):
     for model, name in (
-            (models.resnet18(weights=pretrained_weights), "resnet18"),
+            (models.resnet18(weights=pretrained_weights), output_name),
     ):
         model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
 
@@ -22,4 +22,11 @@ def export_resnet18(num_classes: int = 100, pretrained_weights = None):
 
 
 if __name__ == "__main__":
-    export_resnet18(**({} if len(sys.argv) == 1 else {"num_classes": int(sys.argv[1])})) # weights=models.ResNet18_Weights.IMAGENET1K_V1 #
+    if len(sys.argv) == 1:
+        params = {}
+    elif len(sys.argv) == 2:
+        params = {"output_name": sys.argv[1]}
+    else: # len(sys.argv) == 3 or more
+        params = {"output_name": sys.argv[1], "num_classes": int(sys.argv[2])}
+
+    export_resnet18(**(params)) # weights=models.ResNet18_Weights.IMAGENET1K_V1 #
