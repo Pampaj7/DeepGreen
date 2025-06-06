@@ -11,7 +11,7 @@
 const char* kDataRootRelativePath = "../data/tiny_imagenet_png";
 const char* kClassesJson = "classes.json";
 // Model filename
-const char* kModelTorchScript = "resnet18.pt";
+const char* kModelTorchScript = "resnet18_tiny.pt";
 
 // The batch size for training.
 constexpr int64_t kTrainBatchSize = 64;

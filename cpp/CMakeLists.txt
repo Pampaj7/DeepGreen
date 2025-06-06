@@ -168,7 +168,7 @@ add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 ### PYTHON SCRIPTS ###
 option(GENERATE_RESNET "Export ResNet-18 from Python" ON)
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
-option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" ON)
+option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
 
 if (GENERATE_RESNET OR
         DOWNLOAD_AND_CONVERT_CIFAR100 OR
@@ -183,18 +183,44 @@ endif ()
 if (GENERATE_RESNET)
     set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
-    set(TINY_IMAGENET_NUM_CLASSES 200) # TODO: si dovrà generare resnet per ogni dataset
+    # Cifar100
+    set(CIFAR_OUTPUT_FILENAME "resnet18_cifar100")
+    set(CIFAR_NUM_CLASSES 100)
+    message(STATUS "Exporting ResNet-18 model to train on CIFAR-100 dataset...")
+    run_python_script_with_auto_install(
+            SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
+            ARGS ${CIFAR_OUTPUT_FILENAME} ${CIFAR_NUM_CLASSES}
+            RESULT_VARIABLE resnet_cifar_success
+            ERROR_VARIABLE resnet_cifar_error
+    )
+    if(resnet_cifar_success)
+        message(STATUS "ResNet-18 for CIFAR-100 successfully exported.")
+        # it should be good to share filename and num_classes vars to be used in the program
+        # but this imply that GENERATE_RESNET must be always ON (otherwise compile def are not defined
+        #add_compile_definitions(TINY_IMAGENET_NUM_CLASSES="${TINY_IMAGENET_NUM_CLASSES}")
+        #add_compile_definitions(TINY_IMAGENET_FILENAME="${OUTPUT_FILE_NAME}.pt")
+    else()
+        message(FATAL_ERROR "Error exporting ResNet-18 model for CIFAR-100:\n${resnet_cifar_error}")
+    endif()
+
+    # Tiny ImageNet-200
+    set(TINY_IMAGENET_NUM_CLASSES 200)
+    set(TINY_OUTPUT_FILENAME "resnet18_tiny")
     message(STATUS "Exporting ResNet-18 model to train on Tiny ImageNet-200 dataset...")
     run_python_script_with_auto_install(
             SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
-            ARGS ${TINY_IMAGENET_NUM_CLASSES}
-            RESULT_VARIABLE resnet_success
-            ERROR_VARIABLE resnet_error
+            ARGS ${TINY_OUTPUT_FILENAME} ${TINY_IMAGENET_NUM_CLASSES}
+            RESULT_VARIABLE resnet_tiny_success
+            ERROR_VARIABLE resnet_tiny_error
     )
-    if(resnet_success)
-        message(STATUS "ResNet-18 successfully exported.")
+    if(resnet_tiny_success)
+        message(STATUS "ResNet-18 for Tiny ImageNet-200 successfully exported.")
+        # it should be good to share filename and num_classes vars to be used in the program
+        # but this imply that GENERATE_RESNET must be always ON (otherwise compile def are not defined
+        #add_compile_definitions(TINY_IMAGENET_NUM_CLASSES="${TINY_IMAGENET_NUM_CLASSES}")
+        #add_compile_definitions(TINY_IMAGENET_FILENAME="${OUTPUT_FILE_NAME}.pt")
     else()
-        message(FATAL_ERROR "Error exporting ResNet-18 model:\n${resnet_error}")
+        message(FATAL_ERROR "Error exporting ResNet-18 model for Tiny ImageNet-200:\n${resnet_tiny_error}")
     endif()
 endif()
 
