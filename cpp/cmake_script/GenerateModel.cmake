@@ -1,48 +1,39 @@
-# The export_resnet_model() function runs a Python script to generate
-# a PyTorch ResNet-18 model file (.pt), called as the OUTPUT_FILENAME
-# argument.
-# The model is fitted for a given dataset, i.e. the output of last layer
-# is changed in accord to the NUM_CLASSES argument.
+# The export_model_for_dataset() function runs a Python script,
+# i.e. PY_SCRIPT_FILENAME.py, to export the model MODEL_NAME
+# as PyTorch file, i.e OUTPUT_FILENAME.pt.
+# The model is fitted for the given dataset DATASET_NAME, i.e
+# the output of last layer is changed in accord to NUM_CLASSES.
+# The arguments MODEL_RADIX and DATASET_RADIX are used to generated
+# specific console output.
 #
-function(export_resnet_model DATASET_NAME OUTPUT_FILENAME NUM_CLASSES DATASET_RADIX)
-    message(STATUS "Exporting ResNet-18 model to train on ${DATASET_NAME} dataset...")
+function(export_model_for_dataset MODEL_NAME DATASET_NAME NUM_CLASSES)
+    message(STATUS "Exporting ${MODEL_NAME} model to train on ${DATASET_NAME} dataset...")
+
+    # From MODEL_NAME get the name of the Python script file
+    # converting to lowercase and removing non-alphanumerics
+    string(REGEX REPLACE "[^A-Za-z0-9]" "" MODEL_FILENAME "${MODEL_NAME}")
+    string(TOLOWER "${MODEL_FILENAME}" MODEL_FILENAME)
+
+    # Set the output filename as model_dataset names lowercases
+    # and without non-alphanumerics characters
+    string(REGEX REPLACE "[^A-Za-z0-9]" "" DATASET_FILENAME "${DATASET_NAME}")
+    string(TOLOWER "${DATASET_FILENAME}" DATASET_FILENAME)
+    set(OUTPUT_FILENAME "${MODEL_FILENAME}_${DATASET_FILENAME}")
 
     run_python_script_with_auto_install(
-            SCRIPT "${PY_SCRIPT_PATH}/resnet18.py" #TODO: usare modello pytorch
+            SCRIPT "${PY_SCRIPT_PATH}/${MODEL_FILENAME}.py"
             ARGS ${OUTPUT_FILENAME} ${NUM_CLASSES}
             RESULT_VARIABLE export_success
             ERROR_VARIABLE export_error
     )
 
     if(export_success)
-        message(STATUS "ResNet-18 for ${DATASET_NAME} successfully exported.")
-        add_compile_definitions(RESNET18_${DATASET_RADIX}_FILENAME="${OUTPUT_FILENAME}.pt")
+        message(STATUS "${MODEL_NAME} for ${DATASET_NAME} successfully exported.")
+
+        # Convert OUTPUT_FILENAME to uppercase
+        string(TOUPPER "${OUTPUT_FILENAME}" FILENAME_PREFIX)
+        add_compile_definitions(${FILENAME_PREFIX}_FILENAME="${OUTPUT_FILENAME}.pt")
     else()
-        message(FATAL_ERROR "Error exporting ResNet-18 model for ${DATASET_NAME}:\n${export_error}")
-    endif()
-endfunction()
-
-
-# The export_vgg_model() function runs a Python script to generate
-# a PyTorch VGG-16 model file (.pt), called as the OUTPUT_FILENAME
-# argument.
-# The model is fitted for a given dataset, i.e. the output of last layer
-# is changed in accord to the NUM_CLASSES argument.
-#
-function(export_vgg_model DATASET_NAME OUTPUT_FILENAME NUM_CLASSES DATASET_RADIX)
-    message(STATUS "Exporting VGG-16 model to train on ${DATASET_NAME} dataset...")
-
-    run_python_script_with_auto_install(
-            SCRIPT "${PY_SCRIPT_PATH}/vgg16.py" #TODO: usare modello pytorch
-            ARGS ${OUTPUT_FILENAME} ${NUM_CLASSES}
-            RESULT_VARIABLE export_success
-            ERROR_VARIABLE export_error
-    )
-
-    if(export_success)
-        message(STATUS "VGG-16 for ${DATASET_NAME} successfully exported.")
-        add_compile_definitions(VGG16_${DATASET_RADIX}_FILENAME="${OUTPUT_FILENAME}.pt")
-    else()
-        message(FATAL_ERROR "Error exporting VGG-16 model for ${DATASET_NAME}:\n${export_error}")
+        message(FATAL_ERROR "Error exporting ${MODEL_NAME} model for ${DATASET_NAME}:\n${export_error}")
     endif()
 endfunction()

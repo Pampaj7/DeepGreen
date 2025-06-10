@@ -18,7 +18,7 @@ constexpr int64_t kTestBatchSize = 1000; //TODO
 // The number of epochs to train.
 constexpr int64_t kNumberOfEpochs = 1;
 
-
+// TODO: spostare da qui
 // Trasformazione personalizzata per replicare il canale 1 -> 3
 struct ReplicateChannels : public torch::data::transforms::TensorTransform<> {
     torch::Tensor operator()(torch::Tensor input) override {
@@ -103,7 +103,7 @@ int main() {
 
         // model
         torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_FASHION_MNIST_FILENAME));
+            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_FASHIONMNIST_FILENAME)); //TODO: unica differenza fra resnet e vgg
         model.to(device);
 
 
