@@ -103,7 +103,7 @@ int main() {
 
         // model
         torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, FASHION_MNIST_FILENAME)); //TODO: rinominare in RESNET_4_FASHION_FILENAME
+            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_FASHION_MNIST_FILENAME));
         model.to(device);
 
 

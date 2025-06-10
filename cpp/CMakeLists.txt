@@ -189,11 +189,20 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
 # Fashion-MNIST
-export_resnet_model("Fashion-MNIST" "resnet18_fashion" 10 "FASHION_MNIST")
+set(FASHION_MNIST_NUM_CLASSES 10)
+export_resnet_model("Fashion-MNIST" "resnet18_fashion" ${FASHION_MNIST_NUM_CLASSES} "FASHION_MNIST")
+add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
+
 # Cifar100
-export_resnet_model("CIFAR-100" "resnet18_cifar100" 100 "CIFAR100")
+set(CIFAR100_NUM_CLASSES 100)
+export_resnet_model("CIFAR-100" "resnet18_cifar100" ${CIFAR100_NUM_CLASSES} "CIFAR100")
+add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
+
 # Tiny ImageNet-200
-export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" 200 "TINY_IMAGENET200")
+set(TINY_IMAGENET200_NUM_CLASSES 200)
+export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" ${TINY_IMAGENET200_NUM_CLASSES} "TINY_IMAGENET200")
+add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
+
 
 
 # TODO: una volta inserito anche Fashion-MNIST estrarre funzione comune per il codice di sotto (come GenerateModel)

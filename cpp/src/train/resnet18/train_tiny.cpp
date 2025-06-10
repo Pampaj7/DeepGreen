@@ -7,7 +7,7 @@
 #include "utils.h"
 
 
-// Where to find the CIFAR100 dataset.
+// Where to find the Tiny ImageNet-200 dataset.
 const char* kDataRootRelativePath = "../data/tiny_imagenet_png";
 const char* kClassesJson = "classes.json";
 
@@ -66,7 +66,7 @@ int main() {
 
         // model
         torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, TINY_IMAGENET200_FILENAME));
+            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_TINY_IMAGENET200_FILENAME));
         model.to(device);
 
 
