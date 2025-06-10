@@ -7,7 +7,7 @@
 #include "utils.h"
 
 
-// Where to find the CIFAR100 dataset.
+// Where to find the CIFAR-100 dataset.
 const char* kDataRootRelativePath = "../data/cifar100_png";
 const char* kClassesJson = "classes.json";
 
@@ -66,7 +66,7 @@ int main() {
 
         // model
         torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, CIFAR100_FILENAME));
+            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_CIFAR100_FILENAME));
         model.to(device);
 
 
