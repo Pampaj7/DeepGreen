@@ -182,6 +182,7 @@ add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
 include(RunPythonWithAutoInstall)
 include(GenerateModel)
+include(DownloadAndConvertDataset)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -193,77 +194,27 @@ set(FASHION_MNIST_NUM_CLASSES 10)
 export_resnet_model("Fashion-MNIST" "resnet18_fashion" ${FASHION_MNIST_NUM_CLASSES} "FASHION_MNIST")
 add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
 
+option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
+if (DOWNLOAD_AND_CONVERT_FASHIONMNIST)
+    download_and_convert_dataset("Fashion-MNIST" "fashion_mnist_png" "download_convert_fashion")
+endif()
+
 # Cifar100
 set(CIFAR100_NUM_CLASSES 100)
 export_resnet_model("CIFAR-100" "resnet18_cifar100" ${CIFAR100_NUM_CLASSES} "CIFAR100")
 add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
+
+option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
+if (DOWNLOAD_AND_CONVERT_CIFAR100)
+    download_and_convert_dataset("CIFAR-100" "cifar100_png" "download_convert_cifar100")
+endif()
 
 # Tiny ImageNet-200
 set(TINY_IMAGENET200_NUM_CLASSES 200)
 export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" ${TINY_IMAGENET200_NUM_CLASSES} "TINY_IMAGENET200")
 add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
 
-
-
-# TODO: una volta inserito anche Fashion-MNIST estrarre funzione comune per il codice di sotto (come GenerateModel)
-option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
-if (DOWNLOAD_AND_CONVERT_CIFAR100)
-    set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/cifar100_png")
-    #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
-
-    message(STATUS "Downloading and converting CIFAR100 dataset...")
-    run_python_script_with_auto_install(
-            SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../dataloader/download_convert_cifar100.py"
-            ARGS ${OUTPUT_ROOT} #${DATASET_ROOT}
-            RESULT_VARIABLE cifar_success
-            ERROR_VARIABLE cifar_error
-    )
-    if(cifar_success)
-        message(STATUS "CIFAR-100 successfully downloaded and converted.")
-    else()
-        message(FATAL_ERROR "Error downloading or converting CIFAR-100:\n${cifar_error}")
-    endif()
-endif()
-
-
 option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
-    set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/tiny_imagenet_png")
-    #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
-
-    if (WIN32)
-        message(WARNING "For Windows users, the following script may fail due to using too long directory paths during conversion.\nIn this case, please, enable long paths in Windows.")
-    endif ()
-    message(STATUS "Downloading and converting Tiny ImageNet-200 dataset...")
-    run_python_script_with_auto_install(
-            SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../dataloader/download_convert_tinyimage.py"
-            ARGS ${OUTPUT_ROOT} #${DATASET_ROOT}
-            RESULT_VARIABLE tiny_success
-            ERROR_VARIABLE tiny_error
-    )
-    if(tiny_success)
-        message(STATUS "Tiny ImageNet-200 successfully downloaded and converted.")
-    else()
-        message(FATAL_ERROR "Error downloading or converting Tiny ImageNet-200:\n${tiny_error}")
-    endif()
-endif()
-
-
-option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
-if (DOWNLOAD_AND_CONVERT_FASHIONMNIST)
-    set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/fashion_mnist_png") # TODO: passare questo valore al file cpp e usare al posto di kDataRootFullPath
-    #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
-
-    message(STATUS "Downloading and converting Fashion-MNIST dataset...")
-    run_python_script_with_auto_install(
-            SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../dataloader/download_convert_fashion.py"
-            ARGS ${OUTPUT_ROOT} #${DATASET_ROOT}
-            RESULT_VARIABLE fashion_success
-            ERROR_VARIABLE fashion_error
-    )
-    if(fashion_success)
-        message(STATUS "Fashion-MNIST successfully downloaded and converted.")
-    else()
-        message(FATAL_ERROR "Error downloading or converting Fashion-MNIST:\n${fashion_error}")
-    endif()
+    download_and_convert_dataset("Tiny ImageNet-200" "tiny_imagenet_png" "download_convert_tinyimage")
 endif()
