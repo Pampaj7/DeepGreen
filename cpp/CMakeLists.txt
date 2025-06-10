@@ -224,8 +224,8 @@ set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
 # Fashion-MNIST
 set(FASHION_MNIST_NUM_CLASSES 10)
-export_resnet_model("Fashion-MNIST" "resnet18_fashion" ${FASHION_MNIST_NUM_CLASSES} "FASHION_MNIST")
-export_vgg_model("Fashion-MNIST" "vgg16_fashion" ${FASHION_MNIST_NUM_CLASSES} "FASHION_MNIST")
+export_model_for_dataset("ResNet-18" "Fashion-MNIST" ${FASHION_MNIST_NUM_CLASSES})
+export_model_for_dataset("VGG-16" "Fashion-MNIST" ${FASHION_MNIST_NUM_CLASSES})
 add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
@@ -235,8 +235,8 @@ endif()
 
 # Cifar100
 set(CIFAR100_NUM_CLASSES 100)
-export_resnet_model("CIFAR-100" "resnet18_cifar100" ${CIFAR100_NUM_CLASSES} "CIFAR100")
-export_vgg_model("CIFAR-100" "vgg16_cifar100" ${CIFAR100_NUM_CLASSES} "CIFAR100")
+export_model_for_dataset("ResNet-18" "CIFAR-100" ${CIFAR100_NUM_CLASSES})
+export_model_for_dataset("VGG-16" "CIFAR-100" ${CIFAR100_NUM_CLASSES})
 add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
@@ -246,8 +246,8 @@ endif()
 
 # Tiny ImageNet-200
 set(TINY_IMAGENET200_NUM_CLASSES 200)
-export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" ${TINY_IMAGENET200_NUM_CLASSES} "TINY_IMAGENET200")
-export_vgg_model("Tiny ImageNet-200" "vgg16_tiny" ${TINY_IMAGENET200_NUM_CLASSES} "TINY_IMAGENET200")
+export_model_for_dataset("ResNet-18" "Tiny ImageNet-200" ${TINY_IMAGENET200_NUM_CLASSES})
+export_model_for_dataset("VGG-16" "Tiny ImageNet-200" ${TINY_IMAGENET200_NUM_CLASSES})
 add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)

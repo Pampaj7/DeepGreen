@@ -66,7 +66,7 @@ int main() {
 
         // model
         torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_TINY_IMAGENET200_FILENAME));
+            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_TINYIMAGENET200_FILENAME));
         model.to(device);
 
 
