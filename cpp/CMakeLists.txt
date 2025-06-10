@@ -139,10 +139,43 @@ add_executable(resnet18_tiny
         src/utils.cpp
         src/utils.h
 )
+add_executable(vgg16_fashion
+        src/train/vgg16/train_fashion.cpp
+        src/dataset/FashionMNIST.cpp
+        src/dataset/FashionMNIST.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/utils.cpp
+        src/utils.h
+)
+add_executable(vgg16_cifar100
+        src/train/vgg16/train_cifar100.cpp
+        src/dataset/CIFAR100.cpp
+        src/dataset/CIFAR100.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/utils.cpp
+        src/utils.h
+)
+add_executable(vgg16_tiny
+        src/train/vgg16/train_tiny.cpp
+        src/dataset/TinyImageNet200.cpp
+        src/dataset/TinyImageNet200.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/utils.cpp
+        src/utils.h
+)
 set(TARGETS
         resnet18_fashion
         resnet18_cifar100
         resnet18_tiny
+        vgg16_fashion
+        vgg16_cifar100
+        vgg16_tiny
 )
 message(STATUS ${CMAKE_SOURCE_DIR})
 foreach (target ${TARGETS})
@@ -192,6 +225,7 @@ set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 # Fashion-MNIST
 set(FASHION_MNIST_NUM_CLASSES 10)
 export_resnet_model("Fashion-MNIST" "resnet18_fashion" ${FASHION_MNIST_NUM_CLASSES} "FASHION_MNIST")
+export_vgg_model("Fashion-MNIST" "vgg16_fashion" ${FASHION_MNIST_NUM_CLASSES} "FASHION_MNIST")
 add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
@@ -202,6 +236,7 @@ endif()
 # Cifar100
 set(CIFAR100_NUM_CLASSES 100)
 export_resnet_model("CIFAR-100" "resnet18_cifar100" ${CIFAR100_NUM_CLASSES} "CIFAR100")
+export_vgg_model("CIFAR-100" "vgg16_cifar100" ${CIFAR100_NUM_CLASSES} "CIFAR100")
 add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
@@ -212,6 +247,7 @@ endif()
 # Tiny ImageNet-200
 set(TINY_IMAGENET200_NUM_CLASSES 200)
 export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" ${TINY_IMAGENET200_NUM_CLASSES} "TINY_IMAGENET200")
+export_vgg_model("Tiny ImageNet-200" "vgg16_tiny" ${TINY_IMAGENET200_NUM_CLASSES} "TINY_IMAGENET200")
 add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
