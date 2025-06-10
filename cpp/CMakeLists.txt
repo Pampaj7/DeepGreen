@@ -109,6 +109,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
+add_executable(resnet18_fashion
+        src/train/resnet18/train_fashion.cpp
+        src/dataset/FashionMNIST.cpp
+        src/dataset/FashionMNIST.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/utils.cpp
+        src/utils.h
+)
 add_executable(resnet18_cifar100
         src/train/resnet18/train_cifar100.cpp
         src/dataset/CIFAR100.cpp
@@ -130,6 +140,7 @@ add_executable(resnet18_tiny
         src/utils.h
 )
 set(TARGETS
+        resnet18_fashion
         resnet18_cifar100
         resnet18_tiny
 )
@@ -177,13 +188,15 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # Generate ResNet-18 model for each dataset
 set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
+# Fashion-MNIST
+export_resnet_model("Fashion-MNIST" "resnet18_fashion" 10 "FASHION_MNIST")
 # Cifar100
 export_resnet_model("CIFAR-100" "resnet18_cifar100" 100 "CIFAR100")
 # Tiny ImageNet-200
 export_resnet_model("Tiny ImageNet-200" "resnet18_tiny" 200 "TINY_IMAGENET200")
 
 
-
+# TODO: una volta inserito anche Fashion-MNIST estrarre funzione comune per il codice di sotto (come GenerateModel)
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_CIFAR100)
     set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/cifar100_png")
@@ -223,5 +236,25 @@ if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
         message(STATUS "Tiny ImageNet-200 successfully downloaded and converted.")
     else()
         message(FATAL_ERROR "Error downloading or converting Tiny ImageNet-200:\n${tiny_error}")
+    endif()
+endif()
+
+
+option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
+if (DOWNLOAD_AND_CONVERT_FASHIONMNIST)
+    set(OUTPUT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data/fashion_mnist_png") # TODO: passare questo valore al file cpp e usare al posto di kDataRootFullPath
+    #set(DATASET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../data")
+
+    message(STATUS "Downloading and converting Fashion-MNIST dataset...")
+    run_python_script_with_auto_install(
+            SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../dataloader/download_convert_fashion.py"
+            ARGS ${OUTPUT_ROOT} #${DATASET_ROOT}
+            RESULT_VARIABLE fashion_success
+            ERROR_VARIABLE fashion_error
+    )
+    if(fashion_success)
+        message(STATUS "Fashion-MNIST successfully downloaded and converted.")
+    else()
+        message(FATAL_ERROR "Error downloading or converting Fashion-MNIST:\n${fashion_error}")
     endif()
 endif()
