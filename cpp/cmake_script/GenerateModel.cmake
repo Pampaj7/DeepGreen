@@ -1,10 +1,8 @@
 # The export_model_for_dataset() function runs a Python script,
 # i.e. PY_SCRIPT_FILENAME.py, to export the model MODEL_NAME
-# as PyTorch file, i.e OUTPUT_FILENAME.pt.
+# as PyTorch file (.pt).
 # The model is fitted for the given dataset DATASET_NAME, i.e
 # the output of last layer is changed in accord to NUM_CLASSES.
-# The arguments MODEL_RADIX and DATASET_RADIX are used to generated
-# specific console output.
 #
 function(export_model_for_dataset MODEL_NAME DATASET_NAME NUM_CLASSES)
     message(STATUS "Exporting ${MODEL_NAME} model to train on ${DATASET_NAME} dataset...")

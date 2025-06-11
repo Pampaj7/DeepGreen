@@ -219,38 +219,43 @@ include(DownloadAndConvertDataset)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-# Generate ResNet-18 model for each dataset
+# Generate ResNet-18 and VGG-16 models for each dataset
+set(RESNET18_NAME "ResNet-18")
+set(VGG16_NAME "VGG-16")
 set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
 # Fashion-MNIST
+set(FASHION_MNIST_NAME "Fashion-MNIST")
 set(FASHION_MNIST_NUM_CLASSES 10)
-export_model_for_dataset("ResNet-18" "Fashion-MNIST" ${FASHION_MNIST_NUM_CLASSES})
-export_model_for_dataset("VGG-16" "Fashion-MNIST" ${FASHION_MNIST_NUM_CLASSES})
+export_model_for_dataset(${RESNET18_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
 add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_FASHIONMNIST)
-    download_and_convert_dataset("Fashion-MNIST" "fashion_mnist_png" "download_convert_fashion")
+    download_and_convert_dataset(${FASHION_MNIST_NAME} "fashion_mnist_png" "download_convert_fashion")
 endif()
 
 # Cifar100
+set(CIFAR100_NAME "CIFAR-100")
 set(CIFAR100_NUM_CLASSES 100)
-export_model_for_dataset("ResNet-18" "CIFAR-100" ${CIFAR100_NUM_CLASSES})
-export_model_for_dataset("VGG-16" "CIFAR-100" ${CIFAR100_NUM_CLASSES})
+export_model_for_dataset(${RESNET18_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
 add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_CIFAR100)
-    download_and_convert_dataset("CIFAR-100" "cifar100_png" "download_convert_cifar100")
+    download_and_convert_dataset(${CIFAR100_NAME} "cifar100_png" "download_convert_cifar100")
 endif()
 
 # Tiny ImageNet-200
+set(TINY_IMAGENET200_NAME "Tiny ImageNet-200")
 set(TINY_IMAGENET200_NUM_CLASSES 200)
-export_model_for_dataset("ResNet-18" "Tiny ImageNet-200" ${TINY_IMAGENET200_NUM_CLASSES})
-export_model_for_dataset("VGG-16" "Tiny ImageNet-200" ${TINY_IMAGENET200_NUM_CLASSES})
+export_model_for_dataset(${RESNET18_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
 add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
 
 option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
-    download_and_convert_dataset("Tiny ImageNet-200" "tiny_imagenet_png" "download_convert_tinyimage")
+    download_and_convert_dataset(${TINY_IMAGENET200_NAME} "tiny_imagenet_png" "download_convert_tinyimage")
 endif()
