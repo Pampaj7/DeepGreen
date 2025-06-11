@@ -1,7 +1,8 @@
 #include <iostream>
 #include <torch/torch.h>
 
-#include "dataset/CIFAR100.h"
+#include "dataset/ImageFolder.h"
+#include "dataset/CIFAR100Info.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "utils.h"
@@ -30,19 +31,19 @@ int main() {
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
 
         std::cout << "Preparing CIFAR-100 for training...";
-        CIFAR100 train_set{kDataRootFullPath, kClassesFullPath, true};
+        ImageFolder<CIFAR100Info> train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
-                .map(torch::data::transforms::Normalize<>(CIFAR100::getMean(), CIFAR100::getStd()))
+                .map(torch::data::transforms::Normalize<>(CIFAR100Info::getMean(), CIFAR100Info::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t train_dataset_size = train_set_transformed.size().value();
         std::cout << " Done." << std::endl;
 
         std::cout << "Preparing CIFAR-100 for testing...";
-        CIFAR100 test_set{kDataRootFullPath, kClassesFullPath, false};
+        ImageFolder<CIFAR100Info> test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
-                .map(torch::data::transforms::Normalize<>(CIFAR100::getMean(), CIFAR100::getStd()))
+                .map(torch::data::transforms::Normalize<>(CIFAR100Info::getMean(), CIFAR100Info::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t test_dataset_size = test_set_transformed.size().value();
         std::cout << " Done." << std::endl;

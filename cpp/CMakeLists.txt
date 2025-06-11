@@ -111,8 +111,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 add_executable(resnet18_fashion
         src/train/resnet18/train_fashion.cpp
-        src/dataset/FashionMNIST.cpp
-        src/dataset/FashionMNIST.h
+        src/dataset/ImageFolder.cpp
+        src/dataset/ImageFolder.h
+        src/dataset/FashionMNISTInfo.cpp
+        src/dataset/FashionMNISTInfo.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
@@ -121,8 +123,10 @@ add_executable(resnet18_fashion
 )
 add_executable(resnet18_cifar100
         src/train/resnet18/train_cifar100.cpp
-        src/dataset/CIFAR100.cpp
-        src/dataset/CIFAR100.h
+        src/dataset/ImageFolder.cpp
+        src/dataset/ImageFolder.h
+        src/dataset/CIFAR100Info.cpp
+        src/dataset/CIFAR100Info.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
@@ -131,8 +135,10 @@ add_executable(resnet18_cifar100
 )
 add_executable(resnet18_tiny
         src/train/resnet18/train_tiny.cpp
-        src/dataset/TinyImageNet200.cpp
-        src/dataset/TinyImageNet200.h
+        src/dataset/ImageFolder.cpp
+        src/dataset/ImageFolder.h
+        src/dataset/TinyImageNet200Info.cpp
+        src/dataset/TinyImageNet200Info.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
@@ -141,8 +147,10 @@ add_executable(resnet18_tiny
 )
 add_executable(vgg16_fashion
         src/train/vgg16/train_fashion.cpp
-        src/dataset/FashionMNIST.cpp
-        src/dataset/FashionMNIST.h
+        src/dataset/ImageFolder.cpp
+        src/dataset/ImageFolder.h
+        src/dataset/FashionMNISTInfo.cpp
+        src/dataset/FashionMNISTInfo.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
@@ -151,8 +159,10 @@ add_executable(vgg16_fashion
 )
 add_executable(vgg16_cifar100
         src/train/vgg16/train_cifar100.cpp
-        src/dataset/CIFAR100.cpp
-        src/dataset/CIFAR100.h
+        src/dataset/ImageFolder.cpp
+        src/dataset/ImageFolder.h
+        src/dataset/CIFAR100Info.cpp
+        src/dataset/CIFAR100Info.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
@@ -161,8 +171,10 @@ add_executable(vgg16_cifar100
 )
 add_executable(vgg16_tiny
         src/train/vgg16/train_tiny.cpp
-        src/dataset/TinyImageNet200.cpp
-        src/dataset/TinyImageNet200.h
+        src/dataset/ImageFolder.cpp
+        src/dataset/ImageFolder.h
+        src/dataset/TinyImageNet200Info.cpp
+        src/dataset/TinyImageNet200Info.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h

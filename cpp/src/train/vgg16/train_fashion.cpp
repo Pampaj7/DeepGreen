@@ -1,7 +1,8 @@
 #include <iostream>
 #include <torch/torch.h>
 
-#include "dataset/FashionMNIST.h"
+#include "dataset/ImageFolder.h"
+#include "dataset/FashionMNISTInfo.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "utils.h"
@@ -63,10 +64,10 @@ int main() {
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
 
         std::cout << "Preparing Fashion-MNIST for training...";
-        FashionMNIST train_set{kDataRootFullPath, kClassesFullPath, true};
+        ImageFolder<FashionMNISTInfo> train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
-                .map(torch::data::transforms::Normalize<>(FashionMNIST::getMean(), FashionMNIST::getStd()))
+                .map(torch::data::transforms::Normalize<>(FashionMNISTInfo::getMean(), FashionMNISTInfo::getStd()))
                 .map(ResizeTo(32, 32))  // resize a 32x32 TODO:necessario per i livelli di vgg che altrimenti ottiene output di feature a dimensione nulla
                 .map(ReplicateChannels())
                 .map(torch::data::transforms::Stack<>());
@@ -74,10 +75,10 @@ int main() {
         std::cout << " Done." << std::endl;
 
         std::cout << "Preparing Fashion-MNIST for testing...";
-        FashionMNIST test_set{kDataRootFullPath, kClassesFullPath, false};
+        ImageFolder<FashionMNISTInfo> test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
-                .map(torch::data::transforms::Normalize<>(FashionMNIST::getMean(), FashionMNIST::getStd()))
+                .map(torch::data::transforms::Normalize<>(FashionMNISTInfo::getMean(), FashionMNISTInfo::getStd()))
                 .map(ResizeTo(32, 32))  // resize a 32x32 TODO:necessario per i livelli di vgg che altrimenti ottiene output di feature a dimensione nulla
                 .map(ReplicateChannels())
                 .map(torch::data::transforms::Stack<>());
