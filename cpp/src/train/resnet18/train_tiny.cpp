@@ -5,6 +5,7 @@
 #include "dataset/TinyImageNet200.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
+#include "dataset_transforms.h"
 #include "utils.h"
 
 
@@ -30,11 +31,20 @@ int main() {
         std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, kDataRootRelativePath);
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
 
+        // transformations
+        auto transform_list = std::vector<TorchTrasformPtr>
+        {
+            std::make_shared<torch::data::transforms::Normalize<>>(TinyImageNet200::getMean(), TinyImageNet200::getStd()),
+            //std::make_shared<DatasetTransforms::ResizeTo>(32, 32),
+            //std::make_shared<DatasetTransforms::ReplicateChannels>()
+        };
+        auto composedTransformation = DatasetTransforms::Compose(transform_list);
+
         std::cout << "Preparing Tiny ImageNet-200 for training...";
         ImageFolder<TinyImageNet200> train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
-                .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
+                .map(composedTransformation)
                 .map(torch::data::transforms::Stack<>());
         const size_t train_dataset_size = train_set_transformed.size().value();
         std::cout << " Done." << std::endl;
@@ -43,7 +53,7 @@ int main() {
         ImageFolder<TinyImageNet200> test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
-                .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
+                .map(composedTransformation)
                 .map(torch::data::transforms::Stack<>());
         const size_t test_dataset_size = test_set_transformed.size().value();
         std::cout << " Done." << std::endl;

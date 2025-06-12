@@ -5,6 +5,7 @@
 #include "dataset/FashionMNIST.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
+#include "dataset_transforms.h"
 #include "utils.h"
 
 
@@ -19,39 +20,6 @@ constexpr int64_t kTestBatchSize = 1000; //TODO
 // The number of epochs to train.
 constexpr int64_t kNumberOfEpochs = 1;
 
-// TODO: spostare da qui
-// Trasformazione personalizzata per replicare il canale 1 -> 3
-struct ReplicateChannels : public torch::data::transforms::TensorTransform<> {
-    torch::Tensor operator()(torch::Tensor input) override {
-        // input shape: [1, 28, 28]
-        return input.repeat({3, 1, 1});  // output shape: [3, 28, 28]
-    }
-};
-
-struct ResizeTo : public torch::data::transforms::TensorTransform<> {
-    ResizeTo(int64_t target_height, int64_t target_width)
-        : height(target_height), width(target_width) {}
-
-    torch::Tensor operator()(torch::Tensor input) override {
-        // Assicurati che sia [C, H, W]
-        input = input.unsqueeze(0); // -> [1, C, H, W]
-
-        input = torch::nn::functional::interpolate(
-            input,
-            torch::nn::functional::InterpolateFuncOptions()
-                .size(std::vector<int64_t>({height, width}))
-                .mode(torch::kBilinear)
-                .align_corners(false)
-        );
-
-        return input.squeeze(0); // -> [C, H, W]
-    }
-
-private:
-    int64_t height;
-    int64_t width;
-};
-
 
 
 int main() {
@@ -63,13 +31,20 @@ int main() {
         std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, kDataRootRelativePath);
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
 
+        // transformations
+        auto transform_list = std::vector<TorchTrasformPtr>
+        {
+            std::make_shared<torch::data::transforms::Normalize<>>(FashionMNIST::getMean(), FashionMNIST::getStd()),
+            //std::make_shared<DatasetTransforms::ResizeTo>(32, 32),
+            std::make_shared<DatasetTransforms::ReplicateChannels>()
+        };
+        auto composedTransformation = DatasetTransforms::Compose(transform_list);
+
         std::cout << "Preparing Fashion-MNIST for training...";
         ImageFolder<FashionMNIST> train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
-                .map(torch::data::transforms::Normalize<>(FashionMNIST::getMean(), FashionMNIST::getStd()))
-                //.map(ResizeTo(32, 32))  // resize a 32x32 TODO:ncessario??
-                .map(ReplicateChannels())
+                .map(composedTransformation)
                 .map(torch::data::transforms::Stack<>());
         const size_t train_dataset_size = train_set_transformed.size().value();
         std::cout << " Done." << std::endl;
@@ -78,9 +53,7 @@ int main() {
         ImageFolder<FashionMNIST> test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
-                .map(torch::data::transforms::Normalize<>(FashionMNIST::getMean(), FashionMNIST::getStd()))
-                //.map(ResizeTo(32, 32))  // resize a 32x32 TODO:ncessario??
-                .map(ReplicateChannels())
+                .map(composedTransformation)
                 .map(torch::data::transforms::Stack<>());
         const size_t test_dataset_size = test_set_transformed.size().value();
         std::cout << " Done." << std::endl;
