@@ -2,7 +2,7 @@
 #include <torch/torch.h>
 
 #include "dataset/ImageFolder.h"
-#include "dataset/TinyImageNet200Info.h"
+#include "dataset/TinyImageNet200.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "utils.h"
@@ -31,19 +31,19 @@ int main() {
         std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
 
         std::cout << "Preparing Tiny ImageNet-200 for training...";
-        ImageFolder<TinyImageNet200Info> train_set{kDataRootFullPath, kClassesFullPath, true};
+        ImageFolder<TinyImageNet200> train_set{kDataRootFullPath, kClassesFullPath, true};
         auto train_set_transformed =
             train_set
-                .map(torch::data::transforms::Normalize<>(TinyImageNet200Info::getMean(), TinyImageNet200Info::getStd()))
+                .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t train_dataset_size = train_set_transformed.size().value();
         std::cout << " Done." << std::endl;
 
         std::cout << "Preparing Tiny ImageNet-200 for testing...";
-        ImageFolder<TinyImageNet200Info> test_set{kDataRootFullPath, kClassesFullPath, false};
+        ImageFolder<TinyImageNet200> test_set{kDataRootFullPath, kClassesFullPath, false};
         auto test_set_transformed =
             test_set
-                .map(torch::data::transforms::Normalize<>(TinyImageNet200Info::getMean(), TinyImageNet200Info::getStd()))
+                .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
                 .map(torch::data::transforms::Stack<>());
         const size_t test_dataset_size = test_set_transformed.size().value();
         std::cout << " Done." << std::endl;
