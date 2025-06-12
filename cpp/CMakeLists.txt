@@ -116,6 +116,8 @@ add_executable(resnet18_fashion
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
@@ -126,6 +128,8 @@ add_executable(resnet18_cifar100
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
@@ -136,6 +140,8 @@ add_executable(resnet18_tiny
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
@@ -146,6 +152,8 @@ add_executable(vgg16_fashion
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
@@ -156,6 +164,8 @@ add_executable(vgg16_cifar100
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
@@ -166,6 +176,8 @@ add_executable(vgg16_tiny
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
