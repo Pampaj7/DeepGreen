@@ -27,8 +27,6 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
     {
         std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
     };
-    for (auto transform : transform_list)
-        std::cout << transform << std::endl;
     if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize)
         transform_list.push_back(
             std::make_shared<DatasetTransforms::ResizeTo>(
@@ -83,7 +81,7 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
 
 
     // loss
-    // auto criterion = TODO: vedere se si può modificare options dopo aver creato la loss
+    torch::nn::CrossEntropyLoss criterion{};
 
 
     // optimizer
@@ -106,8 +104,8 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
             numberOfEpochs);
 
         // TODO: tracker.start()
-        CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size);
-        CNNFunction::test(model, device, *test_loader, test_dataset_size);
+        CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
+        CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
         //TODO: tracker.stop()
     }
 }
