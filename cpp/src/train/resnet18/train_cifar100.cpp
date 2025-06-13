@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "dataset/CIFAR100.h"
-#include "train_resnet18.h"
+#include "train/resnet18/train_resnet18.h"
 
 
 // Where to find the CIFAR-100 dataset.
