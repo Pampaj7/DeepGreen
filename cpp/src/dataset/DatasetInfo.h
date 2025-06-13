@@ -18,8 +18,12 @@ public:
     static c10::ArrayRef<double> getMean() { return Derived::mean; }
     static c10::ArrayRef<double> getStd() { return Derived::std; }
 
+    static std::string getDatasetName() { return Derived::dataset_name; }
     static std::string getTrainFolder() { return Derived::train_folder; }
     static std::string getTestFolder() { return Derived::test_folder; }
+
+    static bool isGrayscale() { return Derived::image_channels == 1 ? true : false; }
+
 
     static const std::map<std::string, int>& loadClassesToIndexMap(const std::string& path)
     {

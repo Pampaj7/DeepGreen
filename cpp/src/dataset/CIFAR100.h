@@ -16,6 +16,7 @@ private:
     static constexpr std::array<double, image_channels> mean{0.4914, 0.4822, 0.4465};
     static constexpr std::array<double, image_channels> std{0.2470, 0.2434, 0.2616};
 
+    static constexpr auto dataset_name = "CIFAR-100";
     static constexpr auto train_folder = "train";
     static constexpr auto test_folder = "test";
     static constexpr auto num_classes = CIFAR100_NUM_CLASSES;

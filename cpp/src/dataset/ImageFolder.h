@@ -69,11 +69,11 @@ ImageFolder<Dataset>::ImageFolder(const std::string& dataset_path, const std::st
             std::string img_str_path = Utils::makeWindowsLongPathIfNeeded(img_path.path().string());
 
             cv::Mat img = cv::imread(img_str_path,
-                Dataset::getImageChannels() == 3 ? cv::IMREAD_COLOR : cv::IMREAD_GRAYSCALE); //TODO: opencv 4.12.0 usa cv::IMREAD_COLOR_BGR
+                Dataset::isGrayscale() ? cv::IMREAD_GRAYSCALE : cv::IMREAD_COLOR); //TODO: opencv 4.12.0 usa cv::IMREAD_COLOR_BGR
             if (img.empty()) {
                 throw std::runtime_error("Failed to load image: " + img_path.path().string());
             }
-            if (Dataset::getImageChannels() == 3)
+            if (!Dataset::isGrayscale())
                 cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
 
             //cv::resize(img, img, cv::Size(32, 32));  // Ensure correct size
