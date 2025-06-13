@@ -15,9 +15,10 @@ namespace CNNFunction {
             torch::Device device,
             DataLoader& data_loader,
             torch::optim::Optimizer& optimizer,
-            const size_t dataset_size) {
+            const size_t dataset_size, //TODO: rimuovere?
+            torch::nn::CrossEntropyLoss& criterion) {
 
-        torch::nn::CrossEntropyLoss criterion(torch::nn::CrossEntropyLossOptions().reduction(torch::kMean));
+        criterion->options.reduction(torch::kMean);
         model.train();
         size_t batch_idx = 0;
         for (auto& batch : data_loader) {
@@ -62,22 +63,21 @@ namespace CNNFunction {
 
     template <typename DataLoader>
     void test(
-        torch::jit::script::Module& model,
-        torch::Device device,
-        DataLoader& data_loader,
-        const size_t dataset_size) {
+            torch::jit::script::Module& model,
+            torch::Device device,
+            DataLoader& data_loader,
+            const size_t dataset_size, //TODO: rimuovere
+            torch::nn::CrossEntropyLoss& criterion) {
         torch::NoGradGuard no_grad;
         model.eval();
         double test_loss = 0;
         int32_t correct = 0;
+        criterion->options.reduction(torch::kSum);
+
         for (const auto& batch : data_loader) {
             auto data = batch.data.to(device), targets = batch.target.to(device);
             auto output = model.forward({data}).toTensor();
-            test_loss += torch::nn::functional::cross_entropy(
-                             output,
-                             targets,
-                             torch::nn::functional::CrossEntropyFuncOptions().reduction(torch::kSum))
-                             .template item<float>();
+            test_loss += criterion(output, targets).template item<float>();
             auto pred = output.argmax(1);
             correct += pred.eq(targets).sum().template item<int64_t>();
         }
