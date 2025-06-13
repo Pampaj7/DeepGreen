@@ -16,6 +16,7 @@ private:
     static constexpr std::array<double, image_channels> mean{0.1307}; //TODO: used MNIST values
     static constexpr std::array<double, image_channels> std{0.3081}; //TODO: used MNIST values
 
+    static constexpr auto dataset_name = "Fashion-MNIST";
     static constexpr auto train_folder = "train";
     static constexpr auto test_folder = "test";
     static constexpr auto num_classes = FASHION_MNIST_NUM_CLASSES;
