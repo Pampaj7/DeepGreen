@@ -5,9 +5,8 @@ DatasetTransforms::Compose::Compose(std::vector<TorchTrasformPtr> transforms)
 
 torch::Tensor DatasetTransforms::Compose::operator()(torch::Tensor input)
 {
-        for (const auto& t : transforms_) {
+        for (const auto& t : transforms_)
                 input = (*t)(input);
-        }
         return input;
 }
 

@@ -23,7 +23,7 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
     std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, classesJson);
 
     // transformations
-    auto transform_list = std::vector<TorchTrasformPtr> // TODO: queue
+    auto transform_list = std::vector<TorchTrasformPtr>
     {
         std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
     };
