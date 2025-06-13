@@ -2,7 +2,7 @@
 
 #include <torch/script.h>
 
-torch::jit::script::Module CNNSetup::load_model(std::string model_path)
+torch::jit::script::Module CNNSetup::load_model(const std::string& model_path)
 {
     torch::jit::script::Module module;
     try {

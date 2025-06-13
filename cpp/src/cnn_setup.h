@@ -5,7 +5,7 @@
 
 namespace CNNSetup {
 
-    torch::jit::script::Module load_model(std::string model_path);
+    torch::jit::script::Module load_model(const std::string& model_path);
 
     torch::Device get_device_available();
 
