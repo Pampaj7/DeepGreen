@@ -1,15 +1,15 @@
 #include <iostream>
-#include <torch/torch.h>
 
 #include "dataset/TinyImageNet200.h"
-#include "cnn_function.h"
-#include "cnn_setup.h"
-#include "utils.h"
+#include "train/resnet18/train_resnet18.h"
 
 
 // Where to find the Tiny ImageNet-200 dataset.
-const char* kDataRootRelativePath = "../data/tiny_imagenet_png";
-const char* kClassesJson = "classes.json";
+const char* kTinyRelativePath = "../data/tiny_imagenet_png";
+const char* kTinyClassesJson = "classes.json";
+
+// ResNet-18 model for Tiny ImageNet-200
+const char* kResnetTinyFilename = RESNET18_TINYIMAGENET200_FILENAME;
 
 // The batch size for training.
 constexpr int64_t kTrainBatchSize = 64;
@@ -22,82 +22,9 @@ constexpr int64_t kNumberOfEpochs = 1;
 
 int main() {
     try {
-        // device (CPU or GPU)
-        torch::Device device = CNNSetup::get_device_available();
 
-        // dataset
-        std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, kDataRootRelativePath);
-        std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, kClassesJson);
-
-        std::cout << "Preparing Tiny ImageNet-200 for training...";
-        TinyImageNet200 train_set{kDataRootFullPath, kClassesFullPath, true};
-        auto train_set_transformed =
-            train_set
-                .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
-                .map(torch::data::transforms::Stack<>());
-        const size_t train_dataset_size = train_set_transformed.size().value();
-        std::cout << " Done." << std::endl;
-
-        std::cout << "Preparing Tiny ImageNet-200 for testing...";
-        TinyImageNet200 test_set{kDataRootFullPath, kClassesFullPath, false};
-        auto test_set_transformed =
-            test_set
-                .map(torch::data::transforms::Normalize<>(TinyImageNet200::getMean(), TinyImageNet200::getStd()))
-                .map(torch::data::transforms::Stack<>());
-        const size_t test_dataset_size = test_set_transformed.size().value();
-        std::cout << " Done." << std::endl;
-
-        // dataloader
-        auto train_loader =
-            torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
-                std::move(train_set_transformed),
-                torch::data::DataLoaderOptions()
-                    .batch_size(kTrainBatchSize)
-                    .workers(2)
-                    .enforce_ordering(true));   // TODO: is same of shuffle?
-        auto test_loader =
-            torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
-                std::move(test_set_transformed),
-                torch::data::DataLoaderOptions()
-                    .batch_size(kTestBatchSize)
-                    .workers(2)
-                    .enforce_ordering(false)); // TODO: is same of shuffle?
-
-
-        // model
-        torch::jit::script::Module model = CNNSetup::load_model(
-            Utils::join_paths(CMAKE_BINARY_DIR, RESNET18_TINYIMAGENET200_FILENAME));
-        model.to(device);
-
-
-        // loss
-        // auto criterion = TODO: vedere se si può modificare options dopo aver creato la loss
-
-
-        // optimizer
-        auto params_list = model.parameters();
-        std::vector<torch::Tensor> parameters;
-        for (const auto& p : params_list) {
-            parameters.push_back(p);
-        }
-        torch::optim::Adam optimizer(parameters, torch::optim::AdamOptions(1e-4));
-
-
-        // tracker
-        // TODO: here create tracker
-
-
-        // training loop
-        for (size_t epoch = 1; epoch <= kNumberOfEpochs; ++epoch) {
-            std::printf("Epoch {%llu}/{%lld}\n",
-                epoch,
-                kNumberOfEpochs);
-
-            // TODO: tracker.start()
-            CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size);
-            CNNFunction::test(model, device, *test_loader, test_dataset_size);
-            //TODO: tracker.stop()
-        }
+        train_resnet18<TinyImageNet200>(kTinyRelativePath, kTinyClassesJson, kResnetTinyFilename,
+            kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {

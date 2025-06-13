@@ -111,61 +111,85 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 add_executable(resnet18_fashion
         src/train/resnet18/train_fashion.cpp
-        src/dataset/FashionMNIST.cpp
+        src/train/resnet18/train_resnet18.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
 add_executable(resnet18_cifar100
         src/train/resnet18/train_cifar100.cpp
-        src/dataset/CIFAR100.cpp
+        src/train/resnet18/train_resnet18.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
 add_executable(resnet18_tiny
         src/train/resnet18/train_tiny.cpp
-        src/dataset/TinyImageNet200.cpp
+        src/train/resnet18/train_resnet18.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
 add_executable(vgg16_fashion
         src/train/vgg16/train_fashion.cpp
-        src/dataset/FashionMNIST.cpp
+        src/train/vgg16/train_vgg16.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
 add_executable(vgg16_cifar100
         src/train/vgg16/train_cifar100.cpp
-        src/dataset/CIFAR100.cpp
+        src/train/vgg16/train_vgg16.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )
 add_executable(vgg16_tiny
         src/train/vgg16/train_tiny.cpp
-        src/dataset/TinyImageNet200.cpp
+        src/train/vgg16/train_vgg16.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
         src/cnn_setup.cpp
         src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
 )

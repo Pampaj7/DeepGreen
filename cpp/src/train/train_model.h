@@ -1,0 +1,117 @@
+#ifndef TRAIN_MODEL_H
+#define TRAIN_MODEL_H
+#include <iostream>
+#include <torch/torch.h>
+
+#include "dataset/ImageFolder.h"
+#include "cnn_function.h"
+#include "cnn_setup.h"
+#include "dataset_transforms.h"
+#include "utils.h"
+
+
+template <typename Dataset>
+void train_model(const char* dataRootRelativePath, const char* classesJson,
+    const char* model_dataset_filename, int64_t modelMinImageSize,
+    const int64_t trainBatchSize, const int64_t testBatchSize, const int64_t numberOfEpochs)
+{
+    // device (CPU or GPU)
+    torch::Device device = CNNSetup::get_device_available();
+
+    // dataset
+    std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, dataRootRelativePath);
+    std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, classesJson);
+
+    // transformations
+    auto transform_list = std::vector<TorchTrasformPtr>
+    {
+        std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
+    };
+    for (auto transform : transform_list)
+        std::cout << transform << std::endl;
+    if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize)
+        transform_list.push_back(
+            std::make_shared<DatasetTransforms::ResizeTo>(
+                Dataset::getImageHeight() < modelMinImageSize ? modelMinImageSize : Dataset::getImageHeight(), // ridimensiono solo il necessario
+                Dataset::getImageWidth() < modelMinImageSize ? modelMinImageSize : Dataset::getImageWidth() // ridimensiono solo il necessario
+            )
+        );
+    if (Dataset::isGrayscale())
+        transform_list.push_back(std::make_shared<DatasetTransforms::ReplicateChannels>());
+
+    auto composedTransform = DatasetTransforms::Compose(transform_list);
+
+    std::cout << "Preparing " << Dataset::getDatasetName() << " for training...";
+    ImageFolder<Dataset> train_set{kDataRootFullPath, kClassesFullPath, true};
+    auto train_set_transformed =
+        train_set
+            .map(composedTransform)
+            .map(torch::data::transforms::Stack<>());
+    const size_t train_dataset_size = train_set_transformed.size().value();
+    std::cout << " Done." << std::endl;
+
+    std::cout << "Preparing " << Dataset::getDatasetName() << " for testing...";
+    ImageFolder<Dataset> test_set{kDataRootFullPath, kClassesFullPath, false};
+    auto test_set_transformed =
+        test_set
+            .map(composedTransform)
+            .map(torch::data::transforms::Stack<>());
+    const size_t test_dataset_size = test_set_transformed.size().value();
+    std::cout << " Done." << std::endl;
+
+    // dataloader
+    auto train_loader =
+        torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
+            std::move(train_set_transformed),
+            torch::data::DataLoaderOptions()
+            .batch_size(trainBatchSize)
+            .workers(2)
+            .enforce_ordering(true));   // TODO: is same of shuffle?
+    auto test_loader =
+        torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
+            std::move(test_set_transformed),
+            torch::data::DataLoaderOptions()
+            .batch_size(testBatchSize)
+            .workers(2)
+            .enforce_ordering(false)); // TODO: is same of shuffle?
+
+
+    // model
+    torch::jit::script::Module model = CNNSetup::load_model(
+        Utils::join_paths(CMAKE_BINARY_DIR, model_dataset_filename));
+    model.to(device);
+
+
+    // loss
+    // auto criterion = TODO: vedere se si può modificare options dopo aver creato la loss
+
+
+    // optimizer
+    auto params_list = model.parameters();
+    std::vector<torch::Tensor> parameters;
+    for (const auto& p : params_list) {
+        parameters.push_back(p);
+    }
+    torch::optim::Adam optimizer(parameters, torch::optim::AdamOptions(1e-4));
+
+
+    // tracker
+    // TODO: here create tracker
+
+
+    // training loop
+    for (size_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
+        std::printf("Epoch {%llu}/{%lld}\n",
+            epoch,
+            numberOfEpochs);
+
+        // TODO: tracker.start()
+        CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size);
+        CNNFunction::test(model, device, *test_loader, test_dataset_size);
+        //TODO: tracker.stop()
+    }
+}
+
+
+
+#endif //TRAIN_MODEL_H

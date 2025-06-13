@@ -1,9 +1,10 @@
-#include "TinyImageNet200.h"
+#ifndef IMAGEFOLDER_H
+#define IMAGEFOLDER_H
+#include <torch/torch.h>
+#include <nlohmann/json.hpp>
 
 #include <cassert>
-#include <fstream>
 #include <string>
-#include <torch/torch.h>
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <filesystem>
@@ -11,22 +12,48 @@
 #include "utils.h"
 
 
-TinyImageNet200::TinyImageNet200(const std::string& dataset_path, const std::string& classes_json_path, const bool train) : train_(train)
+template <typename Dataset>
+class ImageFolder final : public torch::data::datasets::Dataset<ImageFolder<Dataset>> {
+public:
+    explicit ImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train = false);
+
+    torch::data::Example<> get(size_t index) override
+    {
+        return {images_[index], targets_[index]};
+    }
+    [[nodiscard]] torch::optional<size_t> size() const override
+    {
+        return images_.size(0);
+    }
+
+    [[nodiscard]] bool is_train() const noexcept { return train_; }
+    // Returns all images stacked into a single tensor.
+    [[nodiscard]] const torch::Tensor& images() const { return images_; }
+    [[nodiscard]] const torch::Tensor& targets() const { return targets_; }
+
+private:
+    bool train_;
+    torch::Tensor images_, targets_;
+};
+
+
+template <typename Dataset>
+ImageFolder<Dataset>::ImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train)
+: train_(train)
 {
-    auto class_to_index  = loadClassesToIndexMap(
+    auto class_to_index  = Dataset::loadClassesToIndexMap(
         Utils::makeWindowsLongPathIfNeeded(classes_json_path));
 
     std::string dataset_file_name;
     uint32_t num_samples_per_file;
     if (train_) {
-        dataset_file_name = "train";
-        num_samples_per_file = num_train_samples;
+        dataset_file_name = Dataset::getTrainFolder();
+        num_samples_per_file = Dataset::getNumTrainSamples();
     } else {
-        dataset_file_name = "val";
-        num_samples_per_file = num_test_samples;
+        dataset_file_name = Dataset::getTestFolder();
+        num_samples_per_file = Dataset::getNumTestSamples();
     }
     const std::string data_set_file_path = Utils::join_paths(dataset_path, dataset_file_name);
-
 
     std::vector<torch::Tensor> images;
     images.reserve(num_samples_per_file);
@@ -34,23 +61,26 @@ TinyImageNet200::TinyImageNet200(const std::string& dataset_path, const std::str
     std::vector<int64_t> labels;
     labels.reserve(num_samples_per_file);
 
+
     for (const auto& [class_name, label] : class_to_index) {
         std::string class_path = Utils::join_paths(data_set_file_path, class_name);
 
         for (const auto& img_path : std::filesystem::directory_iterator(class_path)) {
             std::string img_str_path = Utils::makeWindowsLongPathIfNeeded(img_path.path().string());
 
-            cv::Mat img = cv::imread(img_str_path, cv::IMREAD_COLOR);
+            cv::Mat img = cv::imread(img_str_path,
+                Dataset::isGrayscale() ? cv::IMREAD_GRAYSCALE : cv::IMREAD_COLOR); //TODO: opencv 4.12.0 usa cv::IMREAD_COLOR_BGR
             if (img.empty()) {
                 throw std::runtime_error("Failed to load image: " + img_path.path().string());
             }
-            cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+            if (!Dataset::isGrayscale())
+                cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
 
             //cv::resize(img, img, cv::Size(32, 32));  // Ensure correct size
             img.convertTo(img, CV_32F, 1.0f / 255.0f); // Normalize to [0,1]
 
             // Convert from HWC to CHW and then to torch::Tensor
-            auto img_tensor = torch::from_blob(img.data, {img.rows, img.cols, 3}, torch::kFloat32); //, torch::kUInt8);//
+            auto img_tensor = torch::from_blob(img.data, {img.rows, img.cols, img.channels()}, torch::kFloat32); //, torch::kUInt8);//
             img_tensor = img_tensor.permute({2, 0, 1}).clone(); // Make it contiguous
 
             images.push_back(img_tensor);
@@ -68,37 +98,4 @@ TinyImageNet200::TinyImageNet200(const std::string& dataset_path, const std::str
 }
 
 
-torch::data::Example<> TinyImageNet200::get(const size_t index)
-{
-    return {images_[index], targets_[index]};
-}
-
-
-torch::optional<size_t> TinyImageNet200::size() const
-{
-    return images_.size(0);
-}
-
-
-const std::map<std::string, int>& TinyImageNet200::loadClassesToIndexMap(const std::string& path)
-{
-    static std::map<std::string, int> class_to_index;
-    static std::once_flag load_flag;
-
-    std::call_once(load_flag, [&]() {
-        std::ifstream json_file(path);
-        if (!json_file.is_open()) {
-            throw std::runtime_error("Unable to open the JSON file at: " + path);
-        }
-
-        json class_json;
-        json_file >> class_json;
-
-        int idx_label = 0;
-        for (auto& [key, value] : class_json.items())
-            class_to_index[value] = idx_label++;
-        assert(class_to_index.size() == std::stoi(TINY_IMAGENET200_NUM_CLASSES));
-    });
-
-    return class_to_index;
-}
+#endif //IMAGEFOLDER_H
