@@ -150,6 +150,7 @@ add_executable(resnet18_tiny
 )
 add_executable(vgg16_fashion
         src/train/vgg16/train_fashion.cpp
+        src/train/vgg16/train_vgg16.h
         src/dataset/ImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
@@ -162,6 +163,7 @@ add_executable(vgg16_fashion
 )
 add_executable(vgg16_cifar100
         src/train/vgg16/train_cifar100.cpp
+        src/train/vgg16/train_vgg16.h
         src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -174,6 +176,7 @@ add_executable(vgg16_cifar100
 )
 add_executable(vgg16_tiny
         src/train/vgg16/train_tiny.cpp
+        src/train/vgg16/train_vgg16.h
         src/dataset/ImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
