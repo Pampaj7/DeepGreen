@@ -10,7 +10,7 @@ namespace CNNFunction {
 
     template <typename DataLoader>
     void train(
-            const size_t epoch,
+            const uint32_t epoch,
             torch::jit::script::Module& model,
             torch::Device device,
             DataLoader& data_loader,
@@ -32,7 +32,7 @@ namespace CNNFunction {
 
             if (batch_idx++ % kLogInterval == 0) {
                 std::printf(
-                    "\rTrain Epoch: %llu [%5zu/%5llu] Loss: %.4f\n",
+                    "\rTrain Epoch: %u [%5zu/%5llu] Loss: %.4f\n",
                     epoch,
                     batch_idx * batch.data.size(0),
                     dataset_size,
