@@ -5,6 +5,7 @@ from torchvision import transforms
 from PIL import Image
 import json
 from tqdm import tqdm
+import sys
 
 
 def save_image(img_tensor, path):
@@ -12,16 +13,17 @@ def save_image(img_tensor, path):
     img.save(path)
 
 # be careful on remote machine you probably need to change path
-def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_png"):
+def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_png"): #dataset_root="/home/pampaj/DeepGreen/data"):
+    #output_root = os.path.join(dataset_root, "cifar100_png")
     try:
         os.makedirs(output_root, exist_ok=True)
     except Exception as e:
-        print("❌ Errore nella creazione della cartella:", e)
+        print("Errore nella creazione della cartella:", e)
         
     transform = transforms.Compose([transforms.ToTensor()])
 
-    train_data = CIFAR100(root="../data", train=True, download=True, transform=transform)
-    test_data = CIFAR100(root="../data", train=False, download=True, transform=transform)
+    train_data = CIFAR100(root="../data", train=True, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
+    test_data = CIFAR100(root="../data", train=False, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
 
     label_map = {idx: name for idx, name in enumerate(train_data.classes)}
     with open(os.path.join(output_root, "classes.json"), "w") as f:
@@ -42,4 +44,4 @@ def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_pn
 
 
 if __name__ == "__main__":
-    convert_cifar100_to_png()
+    convert_cifar100_to_png(**({} if len(sys.argv) == 1 else {"output_root": sys.argv[1]})) # {"dataset_root": sys.argv[1]}
