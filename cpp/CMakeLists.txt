@@ -14,7 +14,6 @@ MESSAGE(STATUS "OpenCV found.")
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 
-
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
     set(CMAKE_CUDA_STANDARD 17)
@@ -57,11 +56,28 @@ else () # Using CPU
     endif ()
 endif ()
 
-# set output of FetchContent before using the command
-set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
+### FETCH CONTENT ###
+include(FetchContent)
+Set(FETCHCONTENT_QUIET FALSE)
+
+# Download nlohmann JSON Reader
+set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/json_reader")
+FetchContent_Declare(
+        json
+        URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+        # the following option is necessary when cmake version is 3.23 or lower
+        # it defines the default behavior of cmake >= 3.24, as recommended at
+        # https://cmake.org/cmake/help/latest/policy/CMP0135.html
+        DOWNLOAD_EXTRACT_TIMESTAMP NEW
+)
+FetchContent_MakeAvailable(json)
+
+list(APPEND CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/json-build")
+find_package(nlohmann_json REQUIRED)
+MESSAGE(STATUS "Tool 'nlohmann_json' found.")
 
 # Download LibTorch
-include(FetchContent)
+set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/libtorch")
 FetchContent_Declare(
         ${LIBTORCH_SPEC}
         URL ${LIBTORCH_URL}
@@ -72,11 +88,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(${LIBTORCH_SPEC})
 
-# Aggiungi path a versione build di LibTorch
-set(CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/${LIBTORCH_SPEC}-src")
-
+list(APPEND CMAKE_PREFIX_PATH "${FETCHCONTENT_BASE_DIR}/${LIBTORCH_SPEC}-src")
 find_package(Torch REQUIRED)
-MESSAGE(STATUS "LibTorch found.")
+MESSAGE(STATUS "Tool 'LibTorch' found.")
 
 
 # Insert after "find_package(Torch REQUIRED)"
@@ -95,13 +109,105 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
-add_executable(resnet18_cifar100 src/train_cifar100.cpp)
-set(TARGETS
-        resnet18_cifar100
+add_executable(resnet18_fashion
+        src/train/resnet18/train_fashion.cpp
+        src/train/resnet18/train_resnet18.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/FashionMNIST.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
 )
-
+add_executable(resnet18_cifar100
+        src/train/resnet18/train_cifar100.cpp
+        src/train/resnet18/train_resnet18.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/CIFAR100.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+)
+add_executable(resnet18_tiny
+        src/train/resnet18/train_tiny.cpp
+        src/train/resnet18/train_resnet18.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/TinyImageNet200.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+)
+add_executable(vgg16_fashion
+        src/train/vgg16/train_fashion.cpp
+        src/train/vgg16/train_vgg16.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/FashionMNIST.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+)
+add_executable(vgg16_cifar100
+        src/train/vgg16/train_cifar100.cpp
+        src/train/vgg16/train_vgg16.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/CIFAR100.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+)
+add_executable(vgg16_tiny
+        src/train/vgg16/train_tiny.cpp
+        src/train/vgg16/train_vgg16.h
+        src/train/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/TinyImageNet200.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+)
+set(TARGETS
+        resnet18_fashion
+        resnet18_cifar100
+        resnet18_tiny
+        vgg16_fashion
+        vgg16_cifar100
+        vgg16_tiny
+)
+message(STATUS ${CMAKE_SOURCE_DIR})
 foreach (target ${TARGETS})
+    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
     target_link_libraries(${target} ${OpenCV_LIBS})
+
+    target_link_libraries(${target} nlohmann_json::nlohmann_json)
 
     target_link_libraries(${target} "${TORCH_LIBRARIES}")
     # The following code block is suggested to be used on Windows.
@@ -123,4 +229,57 @@ foreach (target ${TARGETS})
     endif ()
 endforeach ()
 
+
 add_compile_definitions(PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
+
+
+
+### PYTHON SCRIPTS ###
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
+include(RunPythonWithAutoInstall)
+include(GenerateModel)
+include(DownloadAndConvertDataset)
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+# Generate ResNet-18 and VGG-16 models for each dataset
+set(RESNET18_NAME "ResNet-18")
+set(VGG16_NAME "VGG-16")
+set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
+
+# Fashion-MNIST
+set(FASHION_MNIST_NAME "Fashion-MNIST")
+set(FASHION_MNIST_NUM_CLASSES 10)
+export_model_for_dataset(${RESNET18_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
+add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
+
+option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
+if (DOWNLOAD_AND_CONVERT_FASHIONMNIST)
+    download_and_convert_dataset(${FASHION_MNIST_NAME} "fashion_mnist_png" "download_convert_fashion")
+endif()
+
+# Cifar100
+set(CIFAR100_NAME "CIFAR-100")
+set(CIFAR100_NUM_CLASSES 100)
+export_model_for_dataset(${RESNET18_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
+add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
+
+option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
+if (DOWNLOAD_AND_CONVERT_CIFAR100)
+    download_and_convert_dataset(${CIFAR100_NAME} "cifar100_png" "download_convert_cifar100")
+endif()
+
+# Tiny ImageNet-200
+set(TINY_IMAGENET200_NAME "Tiny ImageNet-200")
+set(TINY_IMAGENET200_NUM_CLASSES 200)
+export_model_for_dataset(${RESNET18_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
+
+option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
+if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
+    download_and_convert_dataset(${TINY_IMAGENET200_NAME} "tiny_imagenet_png" "download_convert_tinyimage")
+endif()

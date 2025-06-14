@@ -5,6 +5,7 @@ from PIL import Image
 import shutil
 import json
 from tqdm import tqdm
+import sys
 
 
 def download_and_extract_tiny_imagenet(dest_dir="./data"):
@@ -14,7 +15,7 @@ def download_and_extract_tiny_imagenet(dest_dir="./data"):
 
     os.makedirs(dest_dir, exist_ok=True)
 
-    if not os.path.exists(zip_path):
+    if not os.path.exists(zip_path):  #TODO: in caso esista la cartella ma senza dataset salvato, l'estrazione fallisce
         print("Downloading Tiny ImageNet...")
         urllib.request.urlretrieve(url, zip_path)
 
@@ -82,4 +83,4 @@ def convert_tiny_imagenet_to_png(dataset_root="./data/tiny-imagenet-200", output
 
 if __name__ == "__main__":
     dataset_path = download_and_extract_tiny_imagenet()
-    convert_tiny_imagenet_to_png(dataset_path)
+    convert_tiny_imagenet_to_png(dataset_path, **({} if len(sys.argv) == 1 else {"output_root": sys.argv[1]}))
