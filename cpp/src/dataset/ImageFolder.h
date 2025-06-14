@@ -1,7 +1,6 @@
 #ifndef IMAGEFOLDER_H
 #define IMAGEFOLDER_H
 #include <torch/torch.h>
-#include <nlohmann/json.hpp>
 
 #include <cassert>
 #include <string>
@@ -17,7 +16,7 @@ class ImageFolder final : public torch::data::datasets::Dataset<ImageFolder<Data
 public:
     explicit ImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train = false);
 
-    torch::data::Example<> get(size_t index) override
+    torch::data::Example<> get(const size_t index) override
     {
         return {images_[index], targets_[index]};
     }

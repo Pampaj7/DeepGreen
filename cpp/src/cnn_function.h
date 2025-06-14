@@ -15,7 +15,7 @@ namespace CNNFunction {
             torch::Device device,
             DataLoader& data_loader,
             torch::optim::Optimizer& optimizer,
-            const size_t dataset_size, //TODO: rimuovere?
+            const size_t dataset_size,
             torch::nn::CrossEntropyLoss& criterion) {
 
         criterion->options.reduction(torch::kMean);
@@ -23,36 +23,16 @@ namespace CNNFunction {
         size_t batch_idx = 0;
         for (auto& batch : data_loader) {
             auto data = batch.data.to(device), targets = batch.target.to(device);
-            // std::cout << torch::size(data, 0) << ", " << torch::size(data, 1) << ", " << torch::size(data, 2) << ", " << torch::size(data, 3) << std::endl;
             optimizer.zero_grad();
-            //assert(!data.isnan().any().item<bool>());
-            //assert(!data.isinf().any().item<bool>());
             auto output = model.forward({data}).toTensor();
-            /*for (int i = 0; i < targets.size(0); i++)
-            {
-                std::cout << targets[i].item() << " ";
-            }
-            std::cout << std::endl;
-            for (int i = 0; i < output.size(0); i++)
-            {
-                for (int j = 0; j < output.size(1); j++)
-                {
-                    std::cout << output[i][j].item() << " ";
-                }
-                std::cout << std::endl;
-            }
-            std::cout << "Logits max: " << output.max().item<float>() << std::endl;
-            std::cout << "Logits min: " << output.min().item<float>() << std::endl;*/
-
             auto loss = criterion(output, targets);
-            // std::cout << "Loss value: " << loss.template item<float>() << std::endl;
             TORCH_INTERNAL_ASSERT(!std::isnan(loss.template item<float>()));
             loss.backward();
             optimizer.step();
 
             if (batch_idx++ % kLogInterval == 0) {
                 std::printf(
-                    "\rTrain Epoch: %llu [%5ld/%5llu] Loss: %.4f\n",
+                    "\rTrain Epoch: %llu [%5zu/%5llu] Loss: %.4f\n",
                     epoch,
                     batch_idx * batch.data.size(0),
                     dataset_size,
@@ -66,7 +46,7 @@ namespace CNNFunction {
             torch::jit::script::Module& model,
             torch::Device device,
             DataLoader& data_loader,
-            const size_t dataset_size, //TODO: rimuovere
+            const size_t dataset_size,
             torch::nn::CrossEntropyLoss& criterion) {
         torch::NoGradGuard no_grad;
         model.eval();
