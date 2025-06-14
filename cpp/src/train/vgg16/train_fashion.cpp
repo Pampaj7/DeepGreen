@@ -12,17 +12,16 @@ const char* kFashionClassesJson = "classes.json";
 const char* kVggFashionFilename = VGG16_FASHIONMNIST_FILENAME;
 
 // The batch size for training.
-constexpr int64_t kTrainBatchSize = 64;
+constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
-constexpr int64_t kTestBatchSize = 1000; //TODO
+constexpr int32_t kTestBatchSize = 128;
 // The number of epochs to train.
-constexpr int64_t kNumberOfEpochs = 1;
+constexpr int32_t kNumberOfEpochs = 30;
 
 
 
 int main() {
     try {
-
         train_vgg16<FashionMNIST>(kFashionRootRelativePath, kFashionClassesJson, kVggFashionFilename,
             kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 

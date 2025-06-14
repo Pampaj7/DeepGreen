@@ -12,32 +12,34 @@
 
 template <typename Dataset>
 void train_model(const char* dataRootRelativePath, const char* classesJson,
-    const char* model_dataset_filename, int64_t modelMinImageSize,
-    const int64_t trainBatchSize, const int64_t testBatchSize, const int64_t numberOfEpochs)
+    const char* model_dataset_filename, int32_t modelMinImageSize,
+    const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // device (CPU or GPU)
     torch::Device device = CNNSetup::get_device_available();
 
-    // dataset
-    std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, dataRootRelativePath);
-    std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, classesJson);
 
     // transformations
     auto transform_list = std::vector<TorchTrasformPtr>
     {
         std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
     };
-    if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize)
+    if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize) // resize only if necessary
         transform_list.push_back(
             std::make_shared<DatasetTransforms::ResizeTo>(
-                Dataset::getImageHeight() < modelMinImageSize ? modelMinImageSize : Dataset::getImageHeight(), // ridimensiono solo il necessario
-                Dataset::getImageWidth() < modelMinImageSize ? modelMinImageSize : Dataset::getImageWidth() // ridimensiono solo il necessario
+                Dataset::getImageHeight() < modelMinImageSize ? modelMinImageSize : Dataset::getImageHeight(),
+                Dataset::getImageWidth() < modelMinImageSize ? modelMinImageSize : Dataset::getImageWidth()
             )
         );
     if (Dataset::isGrayscale())
         transform_list.push_back(std::make_shared<DatasetTransforms::ReplicateChannels>());
 
     auto composedTransform = DatasetTransforms::Compose(transform_list);
+
+
+    // dataset
+    std::string kDataRootFullPath = Utils::join_paths(PROJECT_SOURCE_DIR, dataRootRelativePath);
+    std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, classesJson);
 
     std::cout << "Preparing " << Dataset::getDatasetName() << " for training...";
     ImageFolder<Dataset> train_set{kDataRootFullPath, kClassesFullPath, true};
@@ -57,21 +59,22 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
     const size_t test_dataset_size = test_set_transformed.size().value();
     std::cout << " Done." << std::endl;
 
+
     // dataloader
     auto train_loader =
-        torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
+        torch::data::make_data_loader<torch::data::samplers::RandomSampler>( // same as torch.utils.data.DataLoader.shuffle(true)
             std::move(train_set_transformed),
             torch::data::DataLoaderOptions()
-            .batch_size(trainBatchSize)
-            .workers(2)
-            .enforce_ordering(true));   // TODO: is same of shuffle?
+                    .batch_size(trainBatchSize)
+                    .workers(2)
+                    .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
     auto test_loader =
-        torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
+        torch::data::make_data_loader<torch::data::samplers::SequentialSampler>( // same as torch.utils.data.DataLoader.shuffle(false)
             std::move(test_set_transformed),
             torch::data::DataLoaderOptions()
-            .batch_size(testBatchSize)
-            .workers(2)
-            .enforce_ordering(false)); // TODO: is same of shuffle?
+                    .batch_size(testBatchSize)
+                    .workers(2)
+                    .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
 
 
     // model
@@ -98,8 +101,8 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
 
 
     // training loop
-    for (size_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
-        std::printf("Epoch {%llu}/{%lld}\n",
+    for (uint32_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
+        std::printf("Epoch {%u}/{%d}\n",
             epoch,
             numberOfEpochs);
 

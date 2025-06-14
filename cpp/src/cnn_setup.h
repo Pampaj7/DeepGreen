@@ -13,7 +13,4 @@ namespace CNNSetup {
 
 
 
-
-
-
 #endif //LOADER_H
