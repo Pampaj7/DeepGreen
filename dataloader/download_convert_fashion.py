@@ -4,7 +4,7 @@ from torchvision.datasets import FashionMNIST
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
-
+import sys
 
 def save_image(img_tensor, path):
     img = transforms.ToPILImage()(img_tensor)
@@ -13,7 +13,10 @@ def save_image(img_tensor, path):
 # be careful on remote machine you probably need to change path
 
 def convert_fashionmnist_to_png(output_root="/home/pampaj/DeepGreen/data/fashion_mnist_png"):
-    os.makedirs(output_root, exist_ok=True)
+    try:
+        os.makedirs(output_root, exist_ok=True)
+    except Exception as e:
+        print("Errore nella creazione della cartella:", e)
 
     transform = transforms.Compose([transforms.ToTensor()])
 
@@ -39,4 +42,4 @@ def convert_fashionmnist_to_png(output_root="/home/pampaj/DeepGreen/data/fashion
 
 
 if __name__ == "__main__":
-    convert_fashionmnist_to_png()
+    convert_fashionmnist_to_png(**({} if len(sys.argv) == 1 else {"output_root": sys.argv[1]}))
