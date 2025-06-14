@@ -15,7 +15,7 @@ def download_and_extract_tiny_imagenet(dest_dir="./data"):
 
     os.makedirs(dest_dir, exist_ok=True)
 
-    if not os.path.exists(zip_path):  #TODO
+    if not os.path.exists(zip_path):  #TODO: in caso esista la cartella ma senza dataset salvato, l'estrazione fallisce
         print("Downloading Tiny ImageNet...")
         urllib.request.urlretrieve(url, zip_path)
 

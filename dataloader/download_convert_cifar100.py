@@ -22,8 +22,8 @@ def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_pn
         
     transform = transforms.Compose([transforms.ToTensor()])
 
-    train_data = CIFAR100(root="../data", train=True, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100
-    test_data = CIFAR100(root="../data", train=False, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100
+    train_data = CIFAR100(root="../data", train=True, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
+    test_data = CIFAR100(root="../data", train=False, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
 
     label_map = {idx: name for idx, name in enumerate(train_data.classes)}
     with open(os.path.join(output_root, "classes.json"), "w") as f:
