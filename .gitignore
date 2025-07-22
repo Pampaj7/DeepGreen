@@ -5,3 +5,7 @@ build/
 
 # JetBrains
 .idea/
+
+
+### Java ###
+/.metadata/
