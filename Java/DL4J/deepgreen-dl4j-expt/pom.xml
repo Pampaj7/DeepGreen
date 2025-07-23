@@ -36,7 +36,7 @@
     </dependency>
     <dependency>
       <groupId>org.nd4j</groupId>
-      <artifactId>nd4j-native-platform</artifactId>
+      <artifactId>nd4j-cuda-11.6-platform</artifactId>
       <version>${dl4j.version}</version>
     </dependency>
     
