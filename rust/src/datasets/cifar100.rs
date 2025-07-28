@@ -33,24 +33,25 @@ pub fn load_cifar100(dir: &str, device: Device, resize_to: Option<i64>) -> Resul
             println!("⚠️ Warning: no images found in {:?}", class_path);
         }
 
-        for img_path in images {
-            let mut img = image::load(&img_path)?
-                .to_device(device)
-                .to_kind(Kind::Float) / 255.0;
+            for img_path in images {
+                let mut img = image::load(&img_path)?
+                    .to_kind(Kind::Float) / 255.0;
 
-            // [HWC] → [CHW]
-            if img.size() == [32, 32, 3] {
-                img = img.permute(&[2, 0, 1]);
+                if img.size() == [32, 32, 3] {
+                    img = img.permute(&[2, 0, 1]);
+                }
+
+                if let Some(size) = resize_to {
+                    img = resize(&img.to(Device::Cpu), size, size)?.to(device); // resize va fatto su CPU
+                }
+
+
+                let img = img.to_device(device);
+                let img = (img - &mean) / &std;
+
+                data.push((img, class_id as i64));
             }
 
-            // Resize se richiesto (es. per VGG)
-            if let Some(size) = resize_to {
-                img = resize(&img, size, size)?;
-            }
-
-            let img = (img - &mean) / &std;
-            data.push((img, class_id as i64));
-        }
     }
 
     let unique_class_ids: HashSet<i64> = data.iter().map(|(_, cid)| *cid).collect();
