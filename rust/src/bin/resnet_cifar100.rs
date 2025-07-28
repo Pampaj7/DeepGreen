@@ -12,6 +12,7 @@ fn main() {
     // --- Load datasets
     let mut train_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/train", device, None).unwrap();
     let test_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/test", device, None).unwrap();
+    
     let mut rng = rand::thread_rng();
     train_data.shuffle(&mut rng);
     println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());

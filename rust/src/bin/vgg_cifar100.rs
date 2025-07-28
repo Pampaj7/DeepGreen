@@ -1,9 +1,9 @@
 use rust::datasets::cifar100::load_cifar100;
-use rust::models::vgg::vgg16;
 use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
+use rust::models::vgg::{vgg16, init_weights};
 
 fn main() {
     let device = Device::cuda_if_available();
@@ -20,9 +20,11 @@ fn main() {
     let vs = nn::VarStore::new(device);
     let root = vs.root();
     let net = vgg16(&root, 100);
+    //init_weights(&vs); // 
 
-    let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
-    let batch_size = 64;
+
+    let mut opt = nn::Adam::default().build(&vs, 1e-4).unwrap();
+    let batch_size = 16;
     let epochs = 10;
 
     for epoch in 1..=epochs {
