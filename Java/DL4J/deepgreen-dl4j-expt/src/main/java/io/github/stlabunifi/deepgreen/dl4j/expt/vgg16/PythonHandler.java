@@ -51,7 +51,7 @@ class VenvManager {
 	 * @return the Python path to tf2env virtual environment
 	 */
 	public static String getTF2env() {
-		String unixVenvDir = "/home/marcopaglio/tf2env/bin/python";
+		String unixVenvDir = "/home/marcopaglio/tools/Java/miniconda3/envs/tf2env/bin/python";
 		String winVenvDir = "C:\\Users\\marco_u3rv1hf\\anaconda3\\envs\\tf2env\\python.exe"; // Percorso del venv
 
 		try {
