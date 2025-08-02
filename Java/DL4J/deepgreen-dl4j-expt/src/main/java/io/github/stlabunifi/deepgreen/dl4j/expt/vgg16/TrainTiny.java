@@ -15,19 +15,19 @@ import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class TrainTiny {
 
-	public final static String model_vgg16_py_filename = "/models/model_vgg16_tiny.py";
-	public final static String model_vgg16_h5_filename = "model_vgg16_tiny.h5";
+	public final static String vgg16_py_filepath = "/models/vgg16.py";
+	public final static String vgg16_tiny_h5_filename = "vgg16_tiny.h5";
 	public final static int rngSeed = 1234; 	// random number seed for reproducibility
 	public final static int batchSize = 64; 	// batch size for each epoch
-	public final static int outputNum = 200; 	// number of output classes
+	public final static int numClasses = 200; 	// number of output classes
 	public final static int numEpochs = 1; 		// number of epochs to perform
 
 	public static void main(String[] args) throws Exception {
 		// Generate Keras model
-		File f = new File(model_vgg16_h5_filename);
+		File f = new File(vgg16_tiny_h5_filename);
 		if(!f.exists() || f.isDirectory()) {
-			String pyScriptFullPath = new ClassPathResource(model_vgg16_py_filename).getFile().getPath();
-			PythonHandler.runModelGenerationScript(pyScriptFullPath, model_vgg16_h5_filename);
+			String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
+			PythonHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
 		}
 
 		// Load Tiny ImageNet-200
@@ -41,11 +41,10 @@ public class TrainTiny {
 		DataSet ds = tinyTrain.next();
 		System.out.println(Arrays.toString(ds.getFeatures().shape()));
 
-		// TODO: call Python code to create model to import
 
 		// Import Keras VGG-16 model with training config
 		ComputationGraph importedVgg16 = KerasModelImport.importKerasModelAndWeights(
-				/* modelHdf5Stream = */model_vgg16_h5_filename,
+				/* modelHdf5Stream = */vgg16_tiny_h5_filename,
 				/* enforceTrainingConfig = */true);
 		
 		ComputationGraph vgg16 = VGG16TinyImageNetRebuilder
@@ -53,6 +52,7 @@ public class TrainTiny {
 
 		// Listener
 		vgg16.setListeners(new ScoreIterationListener(100)); // stampa score ogni 100 batch
+
 
 		// Training
 		System.out.println("Starting training...");

@@ -29,5 +29,12 @@ def export_vgg16(input_shape=(64, 64, 3), output_name = "model_vgg16_tiny.h5", n
 
 
 if __name__ == "__main__":
-	print(keras.__version__)
-	export_vgg16(**({} if len(sys.argv) == 1 else {"output_name": sys.argv[1]}))
+	#print(keras.__version__)
+	params = {}
+	if len(sys.argv) > 1:
+		params["output_name"] = sys.argv[1]
+	if len(sys.argv) > 2:
+		params["num_classes"] = int(sys.argv[2])
+	#params["pretrained_weights"] = models.VGG16_Weights.IMAGENET1K_V1
+
+	export_vgg16(**(params))
