@@ -35,63 +35,59 @@ public class Vgg16TrainTinyExpt {
 	public static final String tiny_png_dirpath = "data/tiny_imagenet_png";
 
 	public static void main(String[] args) throws Exception {
-		// Generate Keras model
-		Path modelFilePath = Paths.get(vgg16_tiny_h5_filename);
-		if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
-			try {
+		try {
+			// Generate Keras model
+			Path modelFilePath = Paths.get(vgg16_tiny_h5_filename);
+			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
+				System.out.println("Generating VGG-16 model in h5 format...");
 				String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
 				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
-			} catch (Exception e) {
-				e.printStackTrace();
-				return;
 			}
-		}
-		
-		// Load Tiny ImageNet-200
-		Path datasetDir = Paths.get(tiny_png_dirpath);
-		if (!Files.exists(datasetDir) || !Files.isDirectory(datasetDir)) {
-			try {
+
+			// Load Tiny ImageNet-200
+			Path datasetDir = Paths.get(tiny_png_dirpath);
+			if (!Files.exists(datasetDir) || !Files.isDirectory(datasetDir)) {
+				System.out.println("Getting Tiny ImageNet-200 as PNGs-dataset...");
 				String scriptPath = new ClassPathResource(tiny_downloader_py_filepath).getFile().getPath();
 				PythonCommandHandler.runDownloadDatasetScript(scriptPath, tiny_png_dirpath);
-			} catch (Exception e) {
-				e.printStackTrace();
 			}
+
+
+			DataSetIterator tinyTrain = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, true);
+			DataSetIterator tinyTest = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, false);
+	
+			// Normalize from (0-255) to (0-1)
+			tinyTrain.setPreProcessor(new VGG16ImagePreProcessor());
+			tinyTest.setPreProcessor(new VGG16ImagePreProcessor());
+
+
+			// Import Keras VGG-16 model with training config
+			ComputationGraph importedVgg16 = KerasModelImport.importKerasModelAndWeights(
+					/* modelHdf5Stream = */vgg16_tiny_h5_filename,
+					/* enforceTrainingConfig = */true);
+			
+			ComputationGraph vgg16 = ModelRebuilder
+					.rebuildModelWithInputShape(importedVgg16, rngSeed, imgHeight, imgWidth, imgChannels);
+
+
+			// Listener
+			vgg16.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
+			
+			// Training
+			System.out.println("Starting training...");
+			for (int i = 0; i < numEpochs; i++) {
+				vgg16.fit(tinyTrain);
+				System.out.println("Epoch " + (i + 1) + " completed.");
+			}
+			
+			// Evaluation
+			System.out.println("Starting evaluation...");
+			var eval = vgg16.evaluate(tinyTest);
+			System.out.println(eval.stats());
+			
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-		
-		DataSetIterator tinyTrain = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, true);
-		DataSetIterator tinyTest = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, false);
-
-		// Normalize from (0-255) to (0-1)
-		tinyTrain.setPreProcessor(new VGG16ImagePreProcessor());
-		tinyTest.setPreProcessor(new VGG16ImagePreProcessor());
-		
-		DataSet ds = tinyTrain.next();
-		System.out.println(Arrays.toString(ds.getFeatures().shape()));
-
-
-		// Import Keras VGG-16 model with training config
-		ComputationGraph importedVgg16 = KerasModelImport.importKerasModelAndWeights(
-				/* modelHdf5Stream = */vgg16_tiny_h5_filename,
-				/* enforceTrainingConfig = */true);
-		
-		ComputationGraph vgg16 = ModelRebuilder
-				.rebuildModelWithInputShape(importedVgg16, rngSeed, imgHeight, imgWidth, imgChannels);
-
-		// Listener
-		vgg16.setListeners(new ScoreIterationListener(100)); // stampa score ogni 100 batch
-
-
-		// Training
-		System.out.println("Starting training...");
-		for (int i = 0; i < numEpochs; i++) {
-			vgg16.fit(tinyTrain);
-			System.out.println("Epoch " + (i + 1) + " completed.");
-		}
-
-		// Evaluation
-		System.out.println("Starting evaluation...");
-		var eval = vgg16.evaluate(tinyTest);
-		System.out.println(eval.stats());
 	}
 
 }
