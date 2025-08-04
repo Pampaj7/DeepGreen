@@ -30,6 +30,17 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>deepgreen-dl4j-core-module</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>deepgreen-dl4j-python-module</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    
+      <dependency>
         <groupId>org.deeplearning4j</groupId>
         <artifactId>deeplearning4j-core</artifactId>
         <version>${dl4j.version}</version>
@@ -39,7 +50,6 @@
         <artifactId>nd4j-cuda-11.6-platform</artifactId>
         <version>${dl4j.version}</version>
       </dependency>
-      
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>

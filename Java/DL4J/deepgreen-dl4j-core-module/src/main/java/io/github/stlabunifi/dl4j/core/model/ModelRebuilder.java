@@ -1,4 +1,4 @@
-package io.github.stlabunifi.deepgreen.dl4j.expt.vgg16;
+package io.github.stlabunifi.dl4j.core.model;
 
 import java.util.List;
 
@@ -12,14 +12,10 @@ import org.nd4j.linalg.learning.config.Adam;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
 
-public class VGG16TinyImageNetRebuilder {
+public class ModelRebuilder {
 
-	public static final int imgHeight = 64;
-	public static final int imgWidth = 64;
-	public static final int imgChannels = 3;
-	public static final int numClasses = 200;
-
-	public static ComputationGraph rebuildModelWithInputShape(ComputationGraph importedModel, long seed) {
+	public static ComputationGraph rebuildModelWithInputShape(ComputationGraph importedModel, long seed,
+			int imgHeight, int imgWidth, int imgChannels) {
 		// Get imported model configuration
 		ComputationGraphConfiguration importedConf = importedModel.getConfiguration();
 
