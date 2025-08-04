@@ -1,4 +1,4 @@
-package io.github.stlabunifi.dl4j.core.model;
+package io.github.stlabunifi.deepgreen.dl4j.core.model;
 
 import java.util.List;
 import java.util.Map;
