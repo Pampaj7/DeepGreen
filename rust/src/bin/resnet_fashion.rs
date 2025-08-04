@@ -2,8 +2,19 @@ use rust::datasets::fashion::load_fashion_mnist;
 use rust::models::resnet::resnet18;
 use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
+use tch::vision::image::resize;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
+
+fn preprocess_dataset(data: &mut Vec<(Tensor, i64)>, device: Device) {
+    for sample in data.iter_mut() {
+        sample.0 = sample.0.to_device(Device::Cpu);
+        let resized = resize(&sample.0, 32, 32).unwrap();
+        let rgb = resized.to_device(device) / 255.0;
+        sample.0 = rgb;
+    }
+}
+
 
 fn main() {
     let device = Device::cuda_if_available();
@@ -11,7 +22,11 @@ fn main() {
 
     // --- Load datasets
     let mut train_data = load_fashion_mnist("/home/pampaj/DeepGreen/data/fashion_mnist_png/train", device).unwrap();
-    let test_data = load_fashion_mnist("/home/pampaj/DeepGreen/data/fashion_mnist_png/test", device).unwrap();
+    let mut test_data = load_fashion_mnist("/home/pampaj/DeepGreen/data/fashion_mnist_png/test", device).unwrap();
+
+    preprocess_dataset(&mut train_data, device);
+    preprocess_dataset(&mut test_data, device);
+
     let mut rng = rand::thread_rng();
     train_data.shuffle(&mut rng);
     println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());
@@ -22,8 +37,8 @@ fn main() {
     let net = resnet18(&root, 10); // 10 classi per Fashion-MNIST
 
     let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
-    let batch_size = 64;
-    let epochs = 10;
+    let batch_size = 128;
+    let epochs = 30;
 
     for epoch in 1..=epochs {
         // --- Training
@@ -54,7 +69,6 @@ fn main() {
 
             let loss = output.cross_entropy_for_logits(&target);
             opt.backward_step(&loss);
-
             total_loss += loss.double_value(&[]);
         }
 

@@ -7,25 +7,13 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 from codecarbon import EmissionsTracker
+from torchvision.models import vgg16
 
-
-def build_vgg16(num_classes: int = 100, pretrained: bool = False) -> nn.Module:
-    model = models.vgg16(pretrained=pretrained)
-    model.classifier[6] = nn.Linear(4096, num_classes)
-
-    if not pretrained:
-        def init_weights(m):
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-
-        model.apply(init_weights)
-
+def build_vgg16(num_classes=100, pretrained=False):
+    model = vgg16(pretrained=pretrained)
+    model.classifier[6] = nn.Linear(4096, num_classes)  # modifica ultimo layer
     return model
 
-
-# TODO discuss about the weights initialization
 
 
 def get_loaders(dataset_path, batch_size=128, img_size=(32, 32), grayscale=False, test_split="test"):
@@ -88,16 +76,28 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    tracker = EmissionsTracker(output_dir="python/pytorch/emissions/", output_file=output_file)
-    #
+    os.makedirs("python/pytorch/emissions/", exist_ok=True)
 
     for epoch in range(epochs):
         print(f"Epoch {epoch + 1}/{epochs}")
 
-        tracker.start()
+        # Track training emissions
+        train_tracker = EmissionsTracker(
+            output_dir="python/pytorch/emissions/",
+            output_file=f"{output_file}_train_epoch{epoch+1}.csv"
+        )
+        train_tracker.start()
         train_loss = train(model, train_loader, criterion, optimizer, device)
+        train_tracker.stop()
+
+        # Track evaluation emissions
+        eval_tracker = EmissionsTracker(
+            output_dir="python/pytorch/emissions/",
+            output_file=f"{output_file}_eval_epoch{epoch+1}.csv"
+        )
+        eval_tracker.start()
         test_loss, test_acc = evaluate(model, test_loader, criterion, device)
-        tracker.stop()
+        eval_tracker.stop()
 
         print(f"Train Loss={train_loss:.4f}, Test Loss={test_loss:.4f}, Test Acc={test_acc:.2f}%")
 

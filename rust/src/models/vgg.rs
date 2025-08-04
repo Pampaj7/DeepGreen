@@ -46,7 +46,7 @@ pub fn vgg16_tiny<'a>(vs: &'a nn::Path<'a>, num_classes: i64) -> nn::FuncT<'a> {
         .add_fn(|x| x.max_pool2d_default(2));  // -> 2×2
 
     let classifier = nn::seq_t()
-        .add(nn::linear(vs / "fc1", 512 * 2 * 2, 4096, Default::default()))
+        .add(nn::linear(vs / "fc1", 512, 4096, Default::default()))
         .add_fn(|x| x.relu())
         .add_fn_t(|x, train| if train { x.dropout(0.5, train) } else { x.shallow_clone() })
         .add(nn::linear(vs / "fc2", 4096, 4096, Default::default()))
@@ -57,7 +57,7 @@ pub fn vgg16_tiny<'a>(vs: &'a nn::Path<'a>, num_classes: i64) -> nn::FuncT<'a> {
     nn::func_t(move |xs, train| {
         let out = xs
             .apply_t(&features, train)
-            .flatten(1, -1);  // flatten dinamico → 2048 per 64×64
+            .flatten(1, -1);  // flatten dinamico → 512 per 32×32
         classifier.forward_t(&out, train)
     })
 }

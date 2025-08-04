@@ -13,14 +13,14 @@ def build_resnet18(num_classes: int = 100, pretrained: bool = False) -> nn.Modul
     model = models.resnet18(pretrained=pretrained)
     model.fc = nn.Linear(model.fc.in_features, num_classes)
 
-    if not pretrained:
+    """if not pretrained:
         def init_weights(m):
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
 
-        model.apply(init_weights)
+        model.apply(init_weights)"""
 
     return model
 
@@ -84,15 +84,28 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    tracker = EmissionsTracker(output_dir="python/pytorch/emissions/", output_file=output_file)
+    os.makedirs("python/pytorch/emissions/", exist_ok=True)
 
     for epoch in range(epochs):
         print(f"Epoch {epoch + 1}/{epochs}")
 
-        tracker.start()
+        # Track training emissions
+        train_tracker = EmissionsTracker(
+            output_dir="python/pytorch/emissions/",
+            output_file=f"{output_file}_train_epoch{epoch+1}.csv"
+        )
+        train_tracker.start()
         train_loss = train(model, train_loader, criterion, optimizer, device)
+        train_tracker.stop()
+
+        # Track evaluation emissions
+        eval_tracker = EmissionsTracker(
+            output_dir="python/pytorch/emissions/",
+            output_file=f"{output_file}_eval_epoch{epoch+1}.csv"
+        )
+        eval_tracker.start()
         test_loss, test_acc = evaluate(model, test_loader, criterion, device)
-        tracker.stop()
+        eval_tracker.stop()
 
         print(f"Train Loss={train_loss:.4f}, Test Loss={test_loss:.4f}, Test Acc={test_acc:.2f}%")
 

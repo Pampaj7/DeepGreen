@@ -86,7 +86,7 @@ def get_loaders(dataset_path, img_size=(32, 32), batch_size=128):
     return train_generator, test_generator, len(train_generator.class_indices)
 
 
-def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32), epochs=30, batch_size=128):
+def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint_path, img_size=(32, 32), epochs=30, batch_size=128):
     train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size)
     model = build_resnet18(input_shape=img_size + (3,), num_classes=num_classes)
 
@@ -96,16 +96,27 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
         metrics=['accuracy']
     )
 
-    tracker = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=output_file)
-    tracker.start()
+    for epoch in range(1, epochs + 1):
+        # Tracker for training
+        tracker_train = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=f"{output_file_train}_epoch{epoch}.csv")
+        tracker_train.start()
 
-    model.fit(
-        train_loader,
-        validation_data=test_loader,
-        epochs=epochs
-    )
+        model.fit(
+            train_loader,
+            validation_data=test_loader,
+            epochs=1,
+            initial_epoch=epoch - 1
+        )
 
-    tracker.stop()
+        tracker_train.stop()
+
+        # Tracker for evaluation
+        tracker_eval = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=f"{output_file_eval}_epoch{epoch}.csv")
+        tracker_eval.start()
+
+        model.evaluate(test_loader)
+
+        tracker_eval.stop()
 
     os.makedirs("checkpoints", exist_ok=True)
     model.save_weights(checkpoint_path)

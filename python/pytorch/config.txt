@@ -1,0 +1,31 @@
+conda activate deep
+
+
+Parameters Used in Your PyTorch VGG16 Baseline
+Model
+Architecture: VGG16 (from torchvision)
+Pretrained: False (random initialization)
+Final Layer: nn.Linear(4096, num_classes)
+Data Loading & Preprocessing
+Image Resize: All images resized to (32, 32)
+Grayscale: Optional, but by default uses RGB (grayscale=False)
+Transforms: Resize, ToTensor
+Dataset: ImageFolder (expects train/ and test/ or val/ subfolders)
+Batch Size: 128
+Shuffle: True for training, False for test
+Num Workers: 2
+Training
+Epochs: 30
+Optimizer: Adam
+Learning Rate: 1e-4
+Loss Function: CrossEntropyLoss
+Device
+Device Selection: CUDA if available, else MPS (Apple), else CPU
+Emissions Tracking
+Tool: CodeCarbon
+Output Directory: python/pytorch/emissions/
+Output File: As specified in output_file parameter
+Model Saving
+Checkpoint Path: As specified in checkpoint_path parameter
+
+
