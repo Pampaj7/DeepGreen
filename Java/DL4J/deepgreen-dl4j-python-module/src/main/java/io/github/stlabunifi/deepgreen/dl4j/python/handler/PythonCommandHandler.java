@@ -33,7 +33,10 @@ public class PythonCommandHandler {
 	}
 
 	public static void runDownloadDatasetScript(String scriptPath, String outputDir) throws IOException, InterruptedException {
-		ProcessBuilder pb = new ProcessBuilder("python", scriptPath, outputDir);
+		String pythonPath = "python";
+		if ("Linux".equals(System.getProperty("os.name"))) pythonPath = "python3";
+		
+		ProcessBuilder pb = new ProcessBuilder(pythonPath, scriptPath, outputDir);
 		pb.redirectErrorStream(true);
 		Process process = pb.start();
 
