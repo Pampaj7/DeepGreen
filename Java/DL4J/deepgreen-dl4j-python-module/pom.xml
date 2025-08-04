@@ -6,7 +6,7 @@
     <version>0.0.1-SNAPSHOT</version>
     <relativePath>../deepgreen-dl4j-parent</relativePath>
   </parent>
-  <artifactId>deepgreen-dl4j-python</artifactId>
+  <artifactId>deepgreen-dl4j-python-module</artifactId>
 
   <name>DeepGreen with Deeplearning4j - Python Helpers</name>
   <description>Contains all the Java classes which interface to python scripts.</description>

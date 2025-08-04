@@ -1,46 +1,11 @@
-package io.github.stlabunifi.deepgreen.dl4j.expt.vgg16;
+package io.github.stlabunifi.deepgreen.dl4j.python.manager;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
-public class PythonHandler {
-	
-	public final static String python_path = "C:\\Users\\marco_u3rv1hf\\anaconda3\\envs\\tf2env\\python.exe";
-	
-	/**
-	 * Use with:
-	 * try {
-	 * 		...
-	 * } catch (Exception e) {
-	 * 		e.printStackTrace();
-	 * }
-	 * @param modelH5Filename 
-	 * @param numclasses 
-	 */
-	public static void runGenerateModelScript(String scriptPath, String modelH5Filename, int numClasses) throws IOException, InterruptedException {
-		String pythonPath = VenvManager.getTF2env();
-		
-		ProcessBuilder pb = new ProcessBuilder(pythonPath, scriptPath, modelH5Filename, String.valueOf(numClasses));
-		pb.redirectErrorStream(true);
-		Process process = pb.start();
-
-		BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
-		String line;
-		while ((line = in.readLine()) != null) {
-			System.out.println(line);
-		}
-		in.close();
-		process.waitFor();
-	}
-	
-}
-
-class VenvManager {
+public class VenvManager {
 
 	/**
 	 * Important: require Conda to run.
@@ -52,11 +17,12 @@ class VenvManager {
 	 * @return the Python path to tf2env virtual environment
 	 */
 	public static String getTF2env() {
+		// Venv full path
 		String unixVenvDir = "/home/marcopaglio/tools/Java/miniconda3/envs/tf2env/bin/python";
-		String winVenvDir = "C:\\Users\\marco_u3rv1hf\\anaconda3\\envs\\tf2env\\python.exe"; // Percorso del venv
+		String winVenvDir = "C:\\Users\\marco_u3rv1hf\\anaconda3\\envs\\tf2env\\python.exe";
 
 		try {
-			// 1. Verifica se l'ambiente esiste
+			// Verify venv existence
 			if (!Files.exists(Paths.get(unixVenvDir)) &&
 					!Files.exists(Paths.get(winVenvDir))) {
 
@@ -67,7 +33,7 @@ class VenvManager {
 				runCommand(List.of("conda", "run", "-n", "tf2env", "pip", "install", "tensorflow==2.11", "numpy==1.23.5"));
 				
 			} else {
-				System.out.println("Ambiente virtuale già esistente.");
+				System.out.println("TF2env virtual environment already exists.");
 			}
 
 		} catch (Exception e) {
@@ -81,6 +47,18 @@ class VenvManager {
 		return venvPython;
 	}
 
+	/**
+	 * Main code for running commands on terminal from Java.
+	 * This is set private because it requires the handler to be used,
+	 * at least inside a try-catch block, as follows:
+	 * 	try {
+	 * 			...
+	 * 	} catch (Exception e) {
+	 * 		e.printStackTrace();
+	 * 	}
+	 * 
+	 * @param command 	ordered list of commands to run.
+	 */
 	private static void runCommand(List<String> command) throws IOException, InterruptedException {
 		System.out.print(" $ ");
 		for (String cmd : command) System.out.print(cmd + " ");
@@ -94,4 +72,5 @@ class VenvManager {
 			throw new RuntimeException("Command failed: " + String.join(" ", command));
 		}
 	}
+
 }

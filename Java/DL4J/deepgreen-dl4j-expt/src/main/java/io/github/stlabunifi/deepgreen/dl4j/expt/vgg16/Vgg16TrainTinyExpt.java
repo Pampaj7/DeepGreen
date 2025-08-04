@@ -11,9 +11,13 @@ import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
+
+import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
+import io.github.stlabunifi.dl4j.core.model.ModelRebuilder;
+
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
-public class TrainTiny {
+public class Vgg16TrainTinyExpt {
 
 	public final static String vgg16_py_filepath = "/models/vgg16.py";
 	public final static String vgg16_tiny_h5_filename = "vgg16_tiny.h5";
@@ -22,12 +26,16 @@ public class TrainTiny {
 	public final static int numClasses = 200; 	// number of output classes
 	public final static int numEpochs = 1; 		// number of epochs to perform
 
+	public static final int imgHeight = 64;
+	public static final int imgWidth = 64;
+	public static final int imgChannels = 3;
+
 	public static void main(String[] args) throws Exception {
 		// Generate Keras model
 		File f = new File(vgg16_tiny_h5_filename);
 		if(!f.exists() || f.isDirectory()) {
 			String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
-			PythonHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
+			PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
 		}
 
 		// Load Tiny ImageNet-200
@@ -47,8 +55,8 @@ public class TrainTiny {
 				/* modelHdf5Stream = */vgg16_tiny_h5_filename,
 				/* enforceTrainingConfig = */true);
 		
-		ComputationGraph vgg16 = VGG16TinyImageNetRebuilder
-				.rebuildModelWithInputShape(importedVgg16, rngSeed);
+		ComputationGraph vgg16 = ModelRebuilder
+				.rebuildModelWithInputShape(importedVgg16, rngSeed, imgHeight, imgWidth, imgChannels);
 
 		// Listener
 		vgg16.setListeners(new ScoreIterationListener(100)); // stampa score ogni 100 batch

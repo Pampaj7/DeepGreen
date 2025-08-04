@@ -25,7 +25,7 @@ def export_vgg16(input_shape=(64, 64, 3), output_name = "model_vgg16_tiny.h5", n
 	model.summary()
 
 	model.save(output_name) # extention .keras is not usable by DL4J
-	#print(os.getcwd())
+	print(output_name + " saved at: " + os.getcwd())
 
 
 if __name__ == "__main__":

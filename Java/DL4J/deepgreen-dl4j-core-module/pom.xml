@@ -6,10 +6,16 @@
     <version>0.0.1-SNAPSHOT</version>
     <relativePath>../deepgreen-dl4j-parent</relativePath>
   </parent>
-  <artifactId>deepgreen-dl4j-core</artifactId>
+  <artifactId>deepgreen-dl4j-core-module</artifactId>
 
   <name>DeepGreen with Deeplearning4j - Domain Core</name>
   <description>Contains the main parts for the training, i.e. models, dataloaders, etc. </description>
 
-
+  <dependencies>
+    <dependency>
+      <groupId>org.deeplearning4j</groupId>
+      <artifactId>deeplearning4j-core</artifactId>
+      <!-- version taken from the bom -->
+    </dependency>
+  </dependencies>
 </project>
