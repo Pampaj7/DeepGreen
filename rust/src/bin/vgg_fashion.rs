@@ -1,10 +1,10 @@
 use rust::datasets::fashion::load_fashion_mnist;
 use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
+use tch::vision::image::resize;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
-use rust::models::vgg::vgg16;
-use tch::vision::image::resize;
+use rust::models::vgg::{vgg16_tiny, init_weights};
 
 fn main() {
     let device = Device::cuda_if_available();
@@ -14,23 +14,20 @@ fn main() {
     let mut train_data = load_fashion_mnist("/home/pampaj/DeepGreen/data/fashion_mnist_png/train", device).unwrap();
     let mut test_data = load_fashion_mnist("/home/pampaj/DeepGreen/data/fashion_mnist_png/test", device).unwrap();
 
-    // --- Resize manually
+    // --- Resize to 32×32
     fn resize_dataset(data: &mut Vec<(Tensor, i64)>, new_size: i64, device: Device) {
         for (img, _) in data.iter_mut() {
             let img_cpu = img.to_device(Device::Cpu);
             let resized = resize(&img_cpu, new_size, new_size).unwrap();
-
-            let img_resized = resized
-                .to_kind(Kind::Float)
-                .to_device(device) / 255.0;
-
+            let img_resized = resized.to_kind(Kind::Float).to_device(device) / 255.0;
             *img = img_resized;
         }
     }
 
-    resize_dataset(&mut train_data, 112, device);
-    resize_dataset(&mut test_data, 112, device);
+    resize_dataset(&mut train_data, 32, device);
+    resize_dataset(&mut test_data, 32, device);
 
+    // Shuffle training data
     let mut rng = rand::thread_rng();
     train_data.shuffle(&mut rng);
     println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());
@@ -38,11 +35,12 @@ fn main() {
     // --- Model
     let vs = nn::VarStore::new(device);
     let root = vs.root();
-    let net = vgg16(&root, 10);
+    let net = vgg16_tiny(&root, 10);
+    // init_weights(&vs); // opzionale
 
     let mut opt = nn::Adam::default().build(&vs, 1e-4).unwrap();
-    let batch_size = 2;
-    let epochs = 10;
+    let batch_size = 128;
+    let epochs = 30;
 
     for epoch in 1..=epochs {
         let mut total_loss = 0.0;
@@ -118,5 +116,5 @@ fn main() {
         }
     }
 
-    vs.save("vgg_fashion.ot").unwrap();
+    vs.save("vgg_fashion_32x32.ot").unwrap();
 }

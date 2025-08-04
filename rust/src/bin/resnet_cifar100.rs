@@ -23,8 +23,8 @@ fn main() {
     let net = resnet18(&root, 100);
 
     let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
-    let batch_size = 64;
-    let epochs = 10;
+    let batch_size = 128;
+    let epochs = 30;
 
     for epoch in 1..=epochs {
         // --- Training

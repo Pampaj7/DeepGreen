@@ -3,15 +3,15 @@ use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
-use rust::models::vgg::{vgg16, init_weights};
+use rust::models::vgg::{vgg16_tiny, init_weights};
 
 fn main() {
     let device = Device::cuda_if_available();
     println!("Using device: {:?}", device);
 
-    // --- Load datasets
-    let mut train_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/train", device, Some(224)).unwrap();
-    let test_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/test", device, Some(224)).unwrap();
+    // --- Load datasets (no resize → 32x32)
+    let mut train_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/train", device, None).unwrap();
+    let test_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/test", device, None).unwrap();
     let mut rng = rand::thread_rng();
     train_data.shuffle(&mut rng);
     println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());
@@ -19,13 +19,12 @@ fn main() {
     // --- Model
     let vs = nn::VarStore::new(device);
     let root = vs.root();
-    let net = vgg16(&root, 100);
-    //init_weights(&vs); // 
-
+    let net = vgg16_tiny(&root, 100);
+    // init_weights(&vs); // opzionale
 
     let mut opt = nn::Adam::default().build(&vs, 1e-4).unwrap();
-    let batch_size = 16;
-    let epochs = 10;
+    let batch_size = 128;
+    let epochs = 30;
 
     for epoch in 1..=epochs {
         // --- Training

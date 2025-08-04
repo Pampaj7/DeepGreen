@@ -40,7 +40,7 @@ def get_loaders(dataset_path, img_size=(32, 32), batch_size=128):
     return train_generator, test_generator, len(train_generator.class_indices)
 
 
-def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32), epochs=30, batch_size=128):
+def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint_path, img_size=(32, 32), epochs=30, batch_size=128):
     train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size)
     model = build_vgg16(input_shape=img_size + (3,), num_classes=num_classes)
 
@@ -50,39 +50,27 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
         metrics=['accuracy']
     )
 
-    model.fit(
-        train_loader,
-        validation_data=test_loader,
-        epochs=epochs,
-        callbacks=[
-            CodeCarbonPerEpoch(
-                base_output_dir="python/tensorflow/emissions/",
-                base_output_file=output_file.replace(".csv", "")
-            )
-        ]
-    )
+    for epoch in range(1, epochs + 1):
+        # Tracker for training
+        tracker_train = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=f"{output_file_train}_epoch{epoch}.csv")
+        tracker_train.start()
 
+        model.fit(
+            train_loader,
+            validation_data=test_loader,
+            epochs=1,
+            initial_epoch=epoch - 1
+        )
+
+        tracker_train.stop()
+
+        # Tracker for evaluation
+        tracker_eval = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=f"{output_file_eval}_epoch{epoch}.csv")
+        tracker_eval.start()
+
+        model.evaluate(test_loader)
+
+        tracker_eval.stop()
 
     os.makedirs("checkpoints", exist_ok=True)
     model.save_weights(checkpoint_path)
-
-
-class CodeCarbonPerEpoch(Callback):
-    def __init__(self, base_output_dir="emissions", base_output_file="run"):
-        super().__init__()
-        self.base_output_dir = base_output_dir
-        self.base_output_file = base_output_file
-        self.tracker = None
-        os.makedirs(self.base_output_dir, exist_ok=True)
-
-    def on_epoch_begin(self, epoch, logs=None):
-        self.tracker = EmissionsTracker(
-            output_dir=self.base_output_dir,
-            output_file=f"{self.base_output_file}_epoch_{epoch}.csv",
-            log_level="error"
-        )
-        self.tracker.start()
-
-    def on_epoch_end(self, epoch, logs=None):
-        if self.tracker:
-            self.tracker.stop()

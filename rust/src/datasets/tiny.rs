@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use tch::{Tensor, vision::image, Device, Kind, Result};
+use tch::vision::image::resize;
 
 pub fn load_tiny_imagenet(dir: &str, device: Device) -> Result<Vec<(Tensor, i64)>> {
     let mut data = vec![];
@@ -48,7 +49,11 @@ pub fn load_tiny_imagenet(dir: &str, device: Device) -> Result<Vec<(Tensor, i64)
                 continue;
             }
 
-            let img = (img - &mean) / &std;
+            // Resize to 32x32 (on CPU for compatibility)
+            let img_cpu = img.to_device(Device::Cpu);
+            let img_resized = resize(&img_cpu, 32, 32)?.to_device(device);
+
+            let img = (img_resized - &mean) / &std;
             data.push((img, class_id as i64));
         }
     }
