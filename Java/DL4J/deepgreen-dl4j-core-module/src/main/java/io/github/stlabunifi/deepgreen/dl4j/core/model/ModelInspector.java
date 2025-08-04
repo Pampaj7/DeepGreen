@@ -3,9 +3,13 @@ package io.github.stlabunifi.deepgreen.dl4j.core.model;
 import java.util.List;
 import java.util.Map;
 
+import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.graph.GraphVertex;
 import org.deeplearning4j.nn.graph.ComputationGraph;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class ModelInspector {
 
@@ -45,5 +49,25 @@ public class ModelInspector {
 		}
 
 		System.out.println("\n======================================");
+	}
+
+
+	public static void printModelHierarchy(MultiLayerNetwork model) {
+		System.out.println("=== MultiLayerNetwork model hierarchy ===");
+		System.out.println("Number of layers: " + model.getnLayers());
+
+		MultiLayerConfiguration conf = model.getLayerWiseConfigurations();
+		for (int i = 0; i < model.getnLayers(); i++) {
+			Layer layer = model.getLayer(i);
+			NeuralNetConfiguration layerConf = conf.getConf(i);
+
+			System.out.println("Layer " + i + ":");
+			System.out.println("  Runtime class: " + layer.getClass().getName());
+			System.out.println("  Config class:  " + layerConf.getLayer().getClass().getName());
+			System.out.println("  Layer config: " + layerConf.getLayer().toString());
+
+			//System.out.println("  Trainable: " + ((Object) layer.conf()).isTrainable());
+			System.out.println("------------------------------------------");
+		}
 	}
 };
