@@ -32,4 +32,18 @@ public class PythonCommandHandler {
 		process.waitFor();
 	}
 
+	public static void runDownloadDatasetScript(String scriptPath, String outputDir) throws IOException, InterruptedException {
+		ProcessBuilder pb = new ProcessBuilder("python", scriptPath, outputDir);
+		pb.redirectErrorStream(true);
+		Process process = pb.start();
+
+		BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
+		String line;
+		while ((line = in.readLine()) != null) {
+			System.out.println(line);
+		}
+		in.close();
+		process.waitFor();
+	}
+
 }

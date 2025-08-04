@@ -6,16 +6,15 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 
 import org.nd4j.common.io.ClassPathResource;
-import org.deeplearning4j.datasets.fetchers.DataSetType;
-import org.deeplearning4j.datasets.iterator.impl.TinyImageNetDataSetIterator;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
+import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
-import io.github.stlabunifi.dl4j.core.model.ModelRebuilder;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
@@ -32,8 +31,8 @@ public class Vgg16TrainTinyExpt {
 	public static final int imgWidth = 64;
 	public static final int imgChannels = 3;
 	
-	public static final String tiny_downloader_py_filepath = "download_convert_tinyimage.py"; // located in reasources
-	public static final String tiny_png_dir = "tiny_imagenet_png";
+	public static final String tiny_downloader_py_filepath = "/dataset/download_convert_tinyimage.py"; // located in reasources
+	public static final String tiny_png_dirpath = "data/tiny_imagenet_png";
 
 	public static void main(String[] args) throws Exception {
 		// Generate Keras model
@@ -47,10 +46,20 @@ public class Vgg16TrainTinyExpt {
 				return;
 			}
 		}
-
+		
 		// Load Tiny ImageNet-200
-		DataSetIterator tinyTrain = new TinyImageNetDataSetIterator(batchSize, DataSetType.TRAIN); // uses rngSeed = 123 by default
-		DataSetIterator tinyTest = new TinyImageNetDataSetIterator(batchSize, DataSetType.TEST); // uses rngSeed = 123 by default
+		Path datasetDir = Paths.get(tiny_png_dirpath);
+		if (!Files.exists(datasetDir) || !Files.isDirectory(datasetDir)) {
+			try {
+				String scriptPath = new ClassPathResource(tiny_downloader_py_filepath).getFile().getPath();
+				PythonCommandHandler.runDownloadDatasetScript(scriptPath, tiny_png_dirpath);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		
+		DataSetIterator tinyTrain = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, true);
+		DataSetIterator tinyTest = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, false);
 
 		// Normalize from (0-255) to (0-1)
 		tinyTrain.setPreProcessor(new VGG16ImagePreProcessor());
