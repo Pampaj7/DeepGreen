@@ -1,0 +1,74 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.stlab-unifi</groupId>
+  <artifactId>deepgreen-dl4j-aggregator</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  
+  <name>DeepGreen with Deeplearning4j - Reactor</name>
+  <description>Reactor is a separate project for building all the projects of this multi-module project (or only a subset). It contains modules and aggregates POM and reports. Note that this aggregator is completely independent of the parent project.</description>
+
+  <modules>
+    <module>../deepgreen-dl4j-bom</module>
+    <module>../deepgreen-dl4j-parent</module>
+    <module>../deepgreen-dl4j-core-module</module>
+    <module>../deepgreen-dl4j-python-module</module>
+    <module>../deepgreen-dl4j-expt</module>
+  </modules>
+
+  <properties>
+    <!-- PROJECT PROPERTIES -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    
+    <!-- VERSIONS FOR DEFAULT MAVEN PLUGINS -->
+    <maven.antrun.version>3.1.0</maven.antrun.version>
+    <maven.assembly.version>3.7.1</maven.assembly.version>
+    <maven.dependency.version>3.7.0</maven.dependency.version>
+    <maven.release.version>3.0.1</maven.release.version>
+    <maven.clean.version>3.2.0</maven.clean.version>
+    <maven.install.version>3.1.2</maven.install.version>
+    <maven.deploy.version>3.1.2</maven.deploy.version>
+    <maven.site.version>3.12.1</maven.site.version>
+  </properties>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- DEFAULT MAVEN PLUGINS -->
+        <plugin>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>${maven.antrun.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>${maven.assembly.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven.dependency.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>${maven.release.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${maven.clean.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${maven.install.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${maven.deploy.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${maven.site.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+</project>

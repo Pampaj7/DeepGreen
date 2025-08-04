@@ -1,0 +1,91 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.stlab-unifi</groupId>
+  <artifactId>deepgreen-dl4j-bom</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>DeepGreen with Deeplearning4j - Bill of Materials</name>
+  <description>The BOM project keeps in sync all the compile dependencies for modules.</description>
+
+  <properties>
+    <!-- PROJECT PROPERTIES -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    
+    <!-- VERSIONS FOR DEPENDENCIES -->
+    <dl4j.version>1.0.0-M2.1</dl4j.version>
+    <logback.version>1.2.3</logback.version> <!-- max version compatible with deeplearning4j -->
+    
+    <!-- VERSIONS FOR DEFAULT MAVEN PLUGINS -->
+    <maven.antrun.version>3.1.0</maven.antrun.version>
+    <maven.assembly.version>3.7.1</maven.assembly.version>
+    <maven.dependency.version>3.7.0</maven.dependency.version>
+    <maven.release.version>3.0.1</maven.release.version>
+    <maven.clean.version>3.2.0</maven.clean.version>
+    <maven.install.version>3.1.2</maven.install.version>
+    <maven.deploy.version>3.1.2</maven.deploy.version>
+    <maven.site.version>3.12.1</maven.site.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.deeplearning4j</groupId>
+        <artifactId>deeplearning4j-core</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.nd4j</groupId>
+        <artifactId>nd4j-cuda-11.6-platform</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <!-- DEFAULT MAVEN PLUGINS -->
+      <plugins>
+        <plugin>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>${maven.antrun.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>${maven.assembly.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven.dependency.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>${maven.release.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${maven.clean.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${maven.install.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${maven.deploy.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${maven.site.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+</project>
