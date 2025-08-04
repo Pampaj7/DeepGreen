@@ -1,6 +1,8 @@
 package io.github.stlabunifi.deepgreen.dl4j.expt.vgg16;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 
 import org.nd4j.common.io.ClassPathResource;
@@ -29,13 +31,21 @@ public class Vgg16TrainTinyExpt {
 	public static final int imgHeight = 64;
 	public static final int imgWidth = 64;
 	public static final int imgChannels = 3;
+	
+	public static final String tiny_downloader_py_filepath = "download_convert_tinyimage.py"; // located in reasources
+	public static final String tiny_png_dir = "tiny_imagenet_png";
 
 	public static void main(String[] args) throws Exception {
 		// Generate Keras model
-		File f = new File(vgg16_tiny_h5_filename);
-		if(!f.exists() || f.isDirectory()) {
-			String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
-			PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
+		Path modelFilePath = Paths.get(vgg16_tiny_h5_filename);
+		if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
+			try {
+				String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return;
+			}
 		}
 
 		// Load Tiny ImageNet-200
