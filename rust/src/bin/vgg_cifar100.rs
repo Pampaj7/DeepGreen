@@ -1,13 +1,17 @@
 use rust::datasets::cifar100::load_cifar100;
+use rust::models::vgg::{vgg16_tiny, init_weights};
+use rust::emissions::{init_tracker_daemon, start_tracker, stop_tracker, shutdown_tracker_daemon};
+
 use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
-use rust::models::vgg::{vgg16_tiny, init_weights};
 
 fn main() {
     let device = Device::cuda_if_available();
     println!("Using device: {:?}", device);
+
+    init_tracker_daemon();
 
     // --- Load datasets (no resize → 32x32)
     let mut train_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/train", device, None).unwrap();
@@ -27,7 +31,10 @@ fn main() {
     let epochs = 30;
 
     for epoch in 1..=epochs {
-        // --- Training
+        // --- START TRAIN tracker
+        let train_file = format!("vgg_cifar100_train_epoch{:02}.csv", epoch);
+        start_tracker("emissions", &train_file);
+
         let mut total_loss = 0.0;
         for (batch_idx, batch) in train_data.chunks(batch_size).enumerate() {
             let images: Vec<_> = batch.iter().map(|(img, _)| img.unsqueeze(0)).collect();
@@ -62,6 +69,13 @@ fn main() {
         let avg_loss = total_loss / (train_data.len() as f64 / batch_size as f64);
         println!("Epoch {epoch}, avg train loss: {:.4}", avg_loss);
 
+        // --- STOP TRAIN tracker
+        stop_tracker();
+
+        // --- START EVAL tracker
+        let eval_file = format!("vgg_cifar100_eval_epoch{:02}.csv", epoch);
+        start_tracker("emissions", &eval_file);
+
         // --- Test
         let mut correct = 0;
         let mut pred_class_hist = HashMap::new();
@@ -71,10 +85,6 @@ fn main() {
             let predicted = output.argmax(-1, false).int64_value(&[]);
 
             *pred_class_hist.entry(predicted).or_insert(0) += 1;
-
-            if i < 10 {
-                println!("[Debug Test] Sample {i}: GT = {label}, Pred = {predicted}");
-            }
 
             if predicted == *label {
                 correct += 1;
@@ -87,7 +97,11 @@ fn main() {
         if pred_class_hist.len() <= 3 {
             println!("⚠️ WARNING: Predicted classes are very few → possible class collapse: {:?}", pred_class_hist);
         }
+
+        // --- STOP EVAL tracker
+        stop_tracker();
     }
 
+    shutdown_tracker_daemon();
     vs.save("vgg_cifar100.ot").unwrap();
 }

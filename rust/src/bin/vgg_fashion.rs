@@ -1,14 +1,18 @@
 use rust::datasets::fashion::load_fashion_mnist;
+use rust::models::vgg::{vgg16_tiny, init_weights};
+use rust::emissions::{init_tracker_daemon, start_tracker, stop_tracker, shutdown_tracker_daemon};
+
 use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
 use tch::vision::image::resize;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
-use rust::models::vgg::{vgg16_tiny, init_weights};
 
 fn main() {
     let device = Device::cuda_if_available();
     println!("Using device: {:?}", device);
+
+    init_tracker_daemon();
 
     // --- Load datasets
     let mut train_data = load_fashion_mnist("/home/pampaj/DeepGreen/data/fashion_mnist_png/train", device).unwrap();
@@ -43,8 +47,11 @@ fn main() {
     let epochs = 30;
 
     for epoch in 1..=epochs {
-        let mut total_loss = 0.0;
+        // --- Start tracker: TRAIN
+        let train_file = format!("vgg_fashion_train_epoch{:02}.csv", epoch);
+        start_tracker("emissions", &train_file);
 
+        let mut total_loss = 0.0;
         for (batch_idx, batch) in train_data.chunks(batch_size).enumerate() {
             let images: Vec<_> = batch.iter().map(|(img, _)| img.unsqueeze(0)).collect();
             let labels: Vec<_> = batch.iter().map(|(_, label)| *label).collect();
@@ -82,6 +89,13 @@ fn main() {
         let avg_loss = total_loss / (train_data.len() as f64 / batch_size as f64);
         println!("Epoch {epoch}, avg train loss: {:.4}", avg_loss);
 
+        // --- Stop tracker: TRAIN
+        stop_tracker();
+
+        // --- Start tracker: EVAL
+        let eval_file = format!("vgg_fashion_eval_epoch{:02}.csv", epoch);
+        start_tracker("emissions", &eval_file);
+
         // --- Test
         let mut correct = 0;
         let mut pred_class_hist = HashMap::new();
@@ -95,10 +109,6 @@ fn main() {
                     .int64_value(&[]);
 
                 *pred_class_hist.entry(predicted).or_insert(0) += 1;
-
-                if i < 10 {
-                    println!("[Debug Test] Sample {i}: GT = {label}, Pred = {predicted}");
-                }
 
                 if predicted == *label {
                     correct += 1;
@@ -114,7 +124,11 @@ fn main() {
         if pred_class_hist.len() <= 3 {
             println!("⚠️ WARNING: Predicted classes are very few → possible class collapse: {:?}", pred_class_hist);
         }
+
+        // --- Stop tracker: EVAL
+        stop_tracker();
     }
 
+    shutdown_tracker_daemon();
     vs.save("vgg_fashion_32x32.ot").unwrap();
 }
