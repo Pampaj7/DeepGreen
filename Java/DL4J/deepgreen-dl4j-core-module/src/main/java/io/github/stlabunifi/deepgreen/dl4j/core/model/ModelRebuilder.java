@@ -35,7 +35,6 @@ public class ModelRebuilder {
 		// Create same configuration with input shape
 		ComputationGraphConfiguration.GraphBuilder graphBuilder = new NeuralNetConfiguration.Builder()
 				.seed(seed)
-				//.updater(new Adam(1e-4))
 				.weightInit(WeightInit.RELU)
 				.activation(Activation.IDENTITY)
 				.convolutionMode(ConvolutionMode.Same)
