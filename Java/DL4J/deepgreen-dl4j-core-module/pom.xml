@@ -1,0 +1,21 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.github.stlab-unifi</groupId>
+    <artifactId>deepgreen-dl4j-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../deepgreen-dl4j-parent</relativePath>
+  </parent>
+  <artifactId>deepgreen-dl4j-core-module</artifactId>
+
+  <name>DeepGreen with Deeplearning4j - Domain Core</name>
+  <description>Contains the main parts for the training, i.e. models, dataloaders, etc. </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.deeplearning4j</groupId>
+      <artifactId>deeplearning4j-core</artifactId>
+      <!-- version taken from the bom -->
+    </dependency>
+  </dependencies>
+</project>

@@ -1,0 +1,21 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.github.stlab-unifi</groupId>
+    <artifactId>deepgreen-dl4j-bom</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../deepgreen-dl4j-bom</relativePath>
+  </parent>
+  <artifactId>deepgreen-dl4j-parent</artifactId>
+  <packaging>pom</packaging>
+
+  <name>DeepGreen with Deeplearning4j - Parent Module</name>
+  <description>The Parent project contains all the test dependencies for child modules and the common configurations for plugins. It defines also the basic structure of profiles.</description>
+
+  <properties>
+    <!-- PROJECT PROPERTIES -->
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    
+  </properties>
+</project>

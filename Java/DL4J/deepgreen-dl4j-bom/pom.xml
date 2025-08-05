@@ -1,17 +1,20 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.stlab-unifi</groupId>
-  <artifactId>deepgreen-dl4j-expt</artifactId>
+  <artifactId>deepgreen-dl4j-bom</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
 
-  <name>DeepGreen with Deeplearning4j- Experiments</name>
-  <description>Java applications that contains everything you need to start a new experiment to train models with DL4J.</description>
+  <name>DeepGreen with Deeplearning4j - Bill of Materials</name>
+  <description>The BOM project keeps in sync all the compile dependencies for modules.</description>
 
   <properties>
     <!-- PROJECT PROPERTIES -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
+    
+    <!-- VERSIONS FOR DEPENDENCIES -->
+    <dl4j.version>1.0.0-M2.1</dl4j.version>
+    <logback.version>1.2.3</logback.version> <!-- max version compatible with deeplearning4j -->
     
     <!-- VERSIONS FOR DEFAULT MAVEN PLUGINS -->
     <maven.antrun.version>3.1.0</maven.antrun.version>
@@ -27,47 +30,37 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <!-- Synchronizing groupId and version with BOM forces to be updated -->
         <groupId>${project.groupId}</groupId>
-        <artifactId>deepgreen-dl4j-bom</artifactId>
+        <artifactId>deepgreen-dl4j-core-module</artifactId>
         <version>${project.version}</version>
-        <scope>import</scope>
-        <type>pom</type>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>deepgreen-dl4j-python-module</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    
+      <dependency>
+        <groupId>org.deeplearning4j</groupId>
+        <artifactId>deeplearning4j-core</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.nd4j</groupId>
+        <artifactId>nd4j-cuda-11.6-platform</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
 
-  <dependencies>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>deepgreen-dl4j-core-module</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>deepgreen-dl4j-python-module</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    <dependency>
-      <groupId>org.deeplearning4j</groupId>
-      <artifactId>deeplearning4j-core</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    <dependency>
-      <groupId>org.nd4j</groupId>
-      <artifactId>nd4j-cuda-11.6-platform</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    
-    <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-  </dependencies>
-
   <build>
     <pluginManagement>
+      <!-- DEFAULT MAVEN PLUGINS -->
       <plugins>
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
