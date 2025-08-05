@@ -4,8 +4,11 @@ use tch::{nn, nn::OptimizerConfig, Tensor, Device, Kind};
 use tch::nn::ModuleT;
 use std::collections::HashMap;
 use rand::seq::SliceRandom; // in main.rs
+use rust::emissions::{start_tracker, stop_tracker};
+use rust::emissions::{init_tracker_daemon, shutdown_tracker_daemon}; // aggiungi anche questi due
 
 fn main() {
+    init_tracker_daemon();
     let device = Device::cuda_if_available();
     println!("Using device: {:?}", device);
 
@@ -28,6 +31,11 @@ fn main() {
 
     for epoch in 1..=epochs {
         // --- Training
+
+        // Start emissions tracker
+        let train_file = format!("resnet_cifar100_train_epoch{:02}.csv", epoch);
+        start_tracker("emissions", &train_file);
+
         let mut total_loss = 0.0;
         for (batch_idx, batch) in train_data.chunks(batch_size).enumerate() {
             let images: Vec<_> = batch.iter().map(|(img, _)| img.unsqueeze(0)).collect();
@@ -39,12 +47,10 @@ fn main() {
                 .to_device(device);
 
             if batch_idx < 3 {
-                println!("[Debug Train] Batch {batch_idx}: input shape = {:?}", input.size());
                 let mut label_count = HashMap::new();
                 for l in &labels {
                     *label_count.entry(*l).or_insert(0) += 1;
                 }
-                println!("[Debug Train] Label distribution: {:?}", label_count);
             }
 
             let output = net.forward_t(&input, true);
@@ -62,6 +68,14 @@ fn main() {
         let avg_loss = total_loss / (train_data.len() as f64 / batch_size as f64);
         println!("Epoch {epoch}, avg train loss: {:.4}", avg_loss);
 
+        // -- STOP tracker: training
+        stop_tracker();
+
+
+        // -- START tracker: evaluation
+        let eval_file = format!("resnet_cifar100_eval_epoch{:02}.csv", epoch);
+        start_tracker("emissions", &eval_file);
+
         // --- Test
         let mut correct = 0;
         let mut pred_class_hist = HashMap::new();
@@ -72,9 +86,6 @@ fn main() {
 
             *pred_class_hist.entry(predicted).or_insert(0) += 1;
 
-            if i < 10 {
-                println!("[Debug Test] Sample {i}: GT = {label}, Pred = {predicted}");
-            }
 
             if predicted == *label {
                 correct += 1;
@@ -87,7 +98,11 @@ fn main() {
         if pred_class_hist.len() <= 3 {
             println!("⚠️ WARNING: Predicted classes are very few → possible class collapse: {:?}", pred_class_hist);
         }
-    }
 
-    vs.save("resnet_cifar100.ot").unwrap();
+        // -- STOP tracker: evaluation
+        stop_tracker();
+    }
+    shutdown_tracker_daemon();
 }
+
+
