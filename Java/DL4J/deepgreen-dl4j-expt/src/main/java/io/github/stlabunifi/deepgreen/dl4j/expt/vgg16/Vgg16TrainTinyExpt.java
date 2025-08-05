@@ -25,6 +25,7 @@ public class Vgg16TrainTinyExpt {
 	public final static int batchSize = 64; 	// batch size for each epoch
 	public final static int numClasses = 200; 	// number of output classes
 	public final static int numEpochs = 30;		// number of epochs to perform
+	public final static double lrAdam = 1e-5;	// learning rate used in Adam optimizer
 
 	public static final int imgHeight = 64;
 	public static final int imgWidth = 64;
@@ -40,7 +41,7 @@ public class Vgg16TrainTinyExpt {
 			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
 				System.out.println("Generating VGG-16 model in h5 format...");
 				String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
-				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses);
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses, lrAdam);
 			}
 
 			// Load Tiny ImageNet-200

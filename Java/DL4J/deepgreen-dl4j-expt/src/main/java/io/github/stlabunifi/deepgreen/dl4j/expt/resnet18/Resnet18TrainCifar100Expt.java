@@ -25,7 +25,8 @@ public class Resnet18TrainCifar100Expt {
 	public final static int batchSize = 64; 	// batch size for each epoch
 	public final static int numClasses = 100; 	// number of output classes
 	public final static int numEpochs = 1; 		// number of epochs to perform
-	
+	public final static double lrAdam = 1e-3;	// learning rate used in Adam optimizer
+
 	public static final int imgHeight = 32;
 	public static final int imgWidth = 32;
 	public static final int imgChannels = 3;
@@ -40,7 +41,7 @@ public class Resnet18TrainCifar100Expt {
 			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
 				System.out.println("Generating ResNet-18 model in h5 format...");
 				String pyScriptFullPath = new ClassPathResource(resnet18_py_filepath).getFile().getPath();
-				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_cifar100_h5_filename, numClasses);
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_cifar100_h5_filename, numClasses, lrAdam);
 			}
 
 			// Load CIFAR-100
