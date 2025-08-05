@@ -15,7 +15,6 @@ import org.deeplearning4j.nn.conf.layers.FeedForwardLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
@@ -36,7 +35,7 @@ public class ModelRebuilder {
 		// Create same configuration with input shape
 		ComputationGraphConfiguration.GraphBuilder graphBuilder = new NeuralNetConfiguration.Builder()
 				.seed(seed)
-				.updater(new Adam(1e-5))
+				//.updater(new Adam(1e-4))
 				.weightInit(WeightInit.RELU)
 				.activation(Activation.IDENTITY)
 				.convolutionMode(ConvolutionMode.Same)
