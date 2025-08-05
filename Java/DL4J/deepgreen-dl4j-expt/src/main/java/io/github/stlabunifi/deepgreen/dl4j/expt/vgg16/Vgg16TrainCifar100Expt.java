@@ -24,7 +24,7 @@ public class Vgg16TrainCifar100Expt {
 	public final static int rngSeed = 12345; 	// random number seed for reproducibility
 	public final static int batchSize = 64; 	// batch size for each epoch
 	public final static int numClasses = 100; 	// number of output classes
-	public final static int numEpochs = 1; 		// number of epochs to perform
+	public final static int numEpochs = 30; 	// number of epochs to perform
 	
 	public static final int imgHeight = 32;
 	public static final int imgWidth = 32;
