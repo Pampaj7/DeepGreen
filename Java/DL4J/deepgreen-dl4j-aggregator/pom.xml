@@ -1,17 +1,24 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.stlab-unifi</groupId>
-  <artifactId>deepgreen-dl4j-expt</artifactId>
+  <artifactId>deepgreen-dl4j-aggregator</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  
+  <name>DeepGreen with Deeplearning4j - Reactor</name>
+  <description>Reactor is a separate project for building all the projects of this multi-module project (or only a subset). It contains modules and aggregates POM and reports. Note that this aggregator is completely independent of the parent project.</description>
 
-  <name>DeepGreen with Deeplearning4j- Experiments</name>
-  <description>Java applications that contains everything you need to start a new experiment to train models with DL4J.</description>
+  <modules>
+    <module>../deepgreen-dl4j-bom</module>
+    <module>../deepgreen-dl4j-parent</module>
+    <module>../deepgreen-dl4j-core-module</module>
+    <module>../deepgreen-dl4j-python-module</module>
+    <module>../deepgreen-dl4j-expt</module>
+  </modules>
 
   <properties>
     <!-- PROJECT PROPERTIES -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
     
     <!-- VERSIONS FOR DEFAULT MAVEN PLUGINS -->
     <maven.antrun.version>3.1.0</maven.antrun.version>
@@ -24,51 +31,10 @@
     <maven.site.version>3.12.1</maven.site.version>
   </properties>
 
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <!-- Synchronizing groupId and version with BOM forces to be updated -->
-        <groupId>${project.groupId}</groupId>
-        <artifactId>deepgreen-dl4j-bom</artifactId>
-        <version>${project.version}</version>
-        <scope>import</scope>
-        <type>pom</type>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
-
-  <dependencies>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>deepgreen-dl4j-core-module</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>deepgreen-dl4j-python-module</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    <dependency>
-      <groupId>org.deeplearning4j</groupId>
-      <artifactId>deeplearning4j-core</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    <dependency>
-      <groupId>org.nd4j</groupId>
-      <artifactId>nd4j-cuda-11.6-platform</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-    
-    <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <!-- version taken from the bom -->
-    </dependency>
-  </dependencies>
-
   <build>
     <pluginManagement>
       <plugins>
+        <!-- DEFAULT MAVEN PLUGINS -->
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
           <version>${maven.antrun.version}</version>
