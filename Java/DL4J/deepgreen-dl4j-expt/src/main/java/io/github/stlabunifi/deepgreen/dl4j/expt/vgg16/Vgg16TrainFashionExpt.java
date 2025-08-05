@@ -10,7 +10,6 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
-import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.Cifar100Dataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.FashionMNISTDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
@@ -52,8 +51,10 @@ public class Vgg16TrainFashionExpt {
 				PythonCommandHandler.runDownloadDatasetScript(scriptPath, fashion_png_dirpath);
 			}
 
-			DataSetIterator fashionTrain = FashionMNISTDataloader.loadData(fashion_png_dirpath, batchSize, true);
-			DataSetIterator fashionTest = FashionMNISTDataloader.loadData(fashion_png_dirpath, batchSize, false);
+			DataSetIterator fashionTrain = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, true,
+					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
+			DataSetIterator fashionTest = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, false,
+					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 
 			// Normalize from (0-255) to (0-1)
 			fashionTrain.setPreProcessor(new VGG16ImagePreProcessor());
