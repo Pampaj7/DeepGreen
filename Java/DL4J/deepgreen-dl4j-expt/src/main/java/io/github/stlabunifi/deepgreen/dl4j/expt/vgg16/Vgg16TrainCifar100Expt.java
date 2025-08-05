@@ -25,7 +25,8 @@ public class Vgg16TrainCifar100Expt {
 	public final static int batchSize = 64; 	// batch size for each epoch
 	public final static int numClasses = 100; 	// number of output classes
 	public final static int numEpochs = 30; 	// number of epochs to perform
-	
+	public final static double lrAdam = 1e-5;	// learning rate used in Adam optimizer
+
 	public static final int imgHeight = 32;
 	public static final int imgWidth = 32;
 	public static final int imgChannels = 3;
@@ -40,7 +41,7 @@ public class Vgg16TrainCifar100Expt {
 			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
 				System.out.println("Generating VGG-16 model in h5 format...");
 				String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
-				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_cifar100_h5_filename, numClasses);
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_cifar100_h5_filename, numClasses, lrAdam);
 			}
 
 			// Load CIFAR-100

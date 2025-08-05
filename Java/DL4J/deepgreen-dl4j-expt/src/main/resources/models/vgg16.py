@@ -5,7 +5,7 @@ from keras.optimizers import adam_v2
 import os, sys
 
 
-def export_vgg16(input_shape=(64, 64, 3), output_name = "model_vgg16_tiny.h5", num_classes: int = 200, pretrained_weights = None):
+def export_vgg16(input_shape=(64, 64, 3), output_name = "model_vgg16_tiny.h5", num_classes: int = 200, pretrained_weights = None, lr: float = 1e-5):
 	# base model
 	model = VGG16(include_top=False, input_shape=input_shape, weights=pretrained_weights)
 
@@ -18,7 +18,7 @@ def export_vgg16(input_shape=(64, 64, 3), output_name = "model_vgg16_tiny.h5", n
 	model = keras.Model(model.input, output, name="VGG16")
 	model.compile(
 		loss='categorical_crossentropy', # converted to LossLayer with MCXENT loss function
-		optimizer=adam_v2.Adam(learning_rate=1e-5),
+		optimizer=adam_v2.Adam(learning_rate=lr),
 		metrics=['accuracy']
 	)
 
@@ -35,6 +35,8 @@ if __name__ == "__main__":
 		params["output_name"] = sys.argv[1]
 	if len(sys.argv) > 2:
 		params["num_classes"] = int(sys.argv[2])
+	if len(sys.argv) > 3:
+		params["lr"] = float(sys.argv[3])
 	#params["pretrained_weights"] = models.VGG16_Weights.IMAGENET1K_V1
 
 	export_vgg16(**(params))
