@@ -1,1 +1,0 @@
-cat("Test ROOT OK\n")

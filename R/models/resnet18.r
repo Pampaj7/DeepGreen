@@ -1,6 +1,7 @@
 library(torch)
 library(torchvision)
 
+
 # Costruisci ResNet18
 build_resnet18 <- function(num_classes = 100, pretrained = FALSE) {
   model <- model_resnet18(pretrained = pretrained)
@@ -17,23 +18,43 @@ build_resnet18 <- function(num_classes = 100, pretrained = FALSE) {
 }
 
 get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32), grayscale = FALSE, test_split = "test") {
-  # torchvision R vuole size = c(height, width)
-transform_list <- list(
-  transform_resize(size = c(img_size[2], img_size[1]))
-)
-if (grayscale) {
-  transform_list <- c(transform_list, transform_grayscale(num_output_channels = 3))
-}
-transform_list <- c(transform_list, transform_to_tensor())
-transform <- transform_compose(transform_list)
+  if (grayscale) {
+    transform <- function(img) {
+      img <- torch_tensor(img / 255, dtype = torch_float())$permute(c(3, 1, 2)) # da HWC → CHW
+      img %>%
+        torchvision::transform_resize(size = c(img_size[2], img_size[1])) %>%
+        torchvision::transform_grayscale(num_output_channels = 3)
+    }
+  } else {
+    transform <- function(img) {
+      img <- torch_tensor(img / 255, dtype = torch_float())$permute(c(3, 1, 2)) # da HWC → CHW
+      img %>%
+        torchvision::transform_resize(size = c(img_size[2], img_size[1]))
+    }
+  }
 
 
-  train_set <- image_folder_dataset(file.path(dataset_path, "train"), transform = transform)
-  test_set <- image_folder_dataset(file.path(dataset_path, test_split), transform = transform)
+
+  train_set <- torchvision::image_folder_dataset(
+    file.path(dataset_path, "train"),
+    transform = transform
+  )
+
+  test_set <- torchvision::image_folder_dataset(
+    file.path(dataset_path, test_split),
+    transform = transform
+  )
+
   train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE, num_workers = 2)
   test_loader <- dataloader(test_set, batch_size = batch_size, shuffle = FALSE, num_workers = 2)
-  list(train_loader = train_loader, test_loader = test_loader, num_classes = length(train_set$classes))
+
+  list(
+    train_loader = train_loader,
+    test_loader = test_loader,
+    num_classes = length(train_set$classes)
+  )
 }
+
 
 # Train loop
 train <- function(model, train_loader, criterion, optimizer, device) {
@@ -58,7 +79,7 @@ evaluate <- function(model, test_loader, criterion, device) {
   total <- 0
   correct <- 0
   loss_sum <- 0
-  torch_no_grad({
+  with_no_grad({
     coro::loop(for (b in test_loader) {
       inputs <- b[[1]]$to(device = device)
       targets <- b[[2]]$to(device = device)
@@ -78,6 +99,7 @@ evaluate <- function(model, test_loader, criterion, device) {
 run_experiment <- function(dataset_path, checkpoint_path, img_size = c(32, 32), grayscale = FALSE, test_split = "test",
                            epochs = 30, batch_size = 128) {
   device <- if (cuda_is_available()) torch_device("cuda") else torch_device("cpu")
+  cat("Script avviato!\n")
   loaders <- get_loaders(dataset_path, batch_size, img_size, grayscale, test_split)
   model <- build_resnet18(num_classes = loaders$num_classes, pretrained = FALSE)
   model$to(device = device)
@@ -93,5 +115,5 @@ run_experiment <- function(dataset_path, checkpoint_path, img_size = c(32, 32), 
   torch_save(model$state_dict(), checkpoint_path)
 }
 
-# Esempio di chiamata:
+# Esempio di chiamata (da rimuovere nel batch run):
 # run_experiment("data/cifar100_png", "checkpoints/resnet18_cifar100_r.pt")
