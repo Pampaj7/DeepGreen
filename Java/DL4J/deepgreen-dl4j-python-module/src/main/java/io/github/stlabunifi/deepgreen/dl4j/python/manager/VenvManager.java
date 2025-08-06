@@ -1,0 +1,76 @@
+package io.github.stlabunifi.deepgreen.dl4j.python.manager;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+
+public class VenvManager {
+
+	/**
+	 * Important: require Conda to run.
+	 * 
+	 * Create the Python Virtual Environment, called tf2env, defined with 
+	 * Python 3.9, TensorFlow (and Keras) 2.11.0, and Numpy 1.23.5, 
+	 * i.e. the maximum versions compatible with DL4J importing system.
+	 * 
+	 * @return the Python path to tf2env virtual environment
+	 */
+	public static String getTF2env() {
+		// Venv full path
+		String unixVenvDir = "/home/marcopaglio/tools/Java/miniconda3/envs/tf2env/bin/python";
+		String winVenvDir = "C:\\Users\\marco_u3rv1hf\\anaconda3\\envs\\tf2env\\python.exe";
+
+		try {
+			// Verify venv existence
+			if (!Files.exists(Paths.get(unixVenvDir)) &&
+					!Files.exists(Paths.get(winVenvDir))) {
+
+				System.out.println("TF2env virtual environment not found. Creating...");
+				
+				runCommand(List.of("conda", "create", "-y", "-n", "tf2env", "python=3.9"));
+				runCommand(List.of("conda", "run", "-n", "tf2env", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"));
+				runCommand(List.of("conda", "run", "-n", "tf2env", "pip", "install", "tensorflow==2.11", "numpy==1.23.5"));
+				
+			} else {
+				System.out.println("TF2env virtual environment already exists.");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		String venvPython = Files.exists(Paths.get(unixVenvDir))
+				? Paths.get(unixVenvDir).toString()
+				: Paths.get(winVenvDir).toString();
+
+		return venvPython;
+	}
+
+	/**
+	 * Main code for running commands on terminal from Java.
+	 * This is set private because it requires the handler to be used,
+	 * at least inside a try-catch block, as follows:
+	 * 	try {
+	 * 			...
+	 * 	} catch (Exception e) {
+	 * 		e.printStackTrace();
+	 * 	}
+	 * 
+	 * @param command 	ordered list of commands to run.
+	 */
+	private static void runCommand(List<String> command) throws IOException, InterruptedException {
+		System.out.print(" $ ");
+		for (String cmd : command) System.out.print(cmd + " ");
+		System.out.println();
+		
+		ProcessBuilder builder = new ProcessBuilder(command);
+		builder.inheritIO(); // optional: inherit output to terminal (show output)
+		Process process = builder.start();
+		int exitCode = process.waitFor();
+		if (exitCode != 0) {
+			throw new RuntimeException("Command failed: " + String.join(" ", command));
+		}
+	}
+
+}
