@@ -13,7 +13,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.FashionMNISTDataloader;
 //import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.VGG16NativeModel;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
@@ -73,8 +73,8 @@ public class Vgg16TrainFashionExpt {
 			//		.rebuildSequentialModelWithOutputLayer(importedVgg16, rngSeed, 
 			//				transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 
-			ComputationGraph vgg16 = VGG16NativeModel.buildVGG16(numClasses, rngSeed, 
-					new int[] {transformed_imgChannels, transformed_imgHeight, transformed_imgWidth},
+			ComputationGraph vgg16 = Vgg16GraphBuilder.buildVGG16(numClasses, rngSeed, 
+					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth,
 					lrAdam);
 
 			// Listener

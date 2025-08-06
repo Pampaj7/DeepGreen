@@ -12,7 +12,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
 //import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.VGG16NativeModel;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 
@@ -71,8 +71,8 @@ public class Vgg16TrainTinyExpt {
 			//ComputationGraph vgg16 = ModelRebuilder
 			//		.rebuildModelWithInputShape(importedVgg16, rngSeed, imgHeight, imgWidth, imgChannels);
 
-			ComputationGraph vgg16 = VGG16NativeModel.buildVGG16(numClasses, rngSeed, 
-					new int[] {imgChannels, imgHeight, imgWidth}, lrAdam);
+			ComputationGraph vgg16 = Vgg16GraphBuilder.buildVGG16(numClasses, rngSeed, 
+					imgChannels, imgHeight, imgWidth, lrAdam);
 
 			// Listener
 			vgg16.setListeners(new ScoreIterationListener(100)); // print score every 100 batches

@@ -48,6 +48,7 @@ public class ModelInspector {
 			}
 		}
 
+		System.out.println("Total number of parameters: " + graph.numParams());
 		System.out.println("\n======================================");
 	}
 

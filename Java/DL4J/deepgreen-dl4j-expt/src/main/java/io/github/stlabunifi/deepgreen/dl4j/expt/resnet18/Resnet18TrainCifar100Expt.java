@@ -12,6 +12,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.Cifar100Dataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
@@ -61,13 +62,15 @@ public class Resnet18TrainCifar100Expt {
 
 
 			// Import Keras ResNet-18 model with training config
-			ComputationGraph importedResnet18 = KerasModelImport.importKerasModelAndWeights(
-					/* modelHdf5Stream = */resnet18_cifar100_h5_filename,
-					/* enforceTrainingConfig = */true);
-			
-			ComputationGraph resnet18 = ModelRebuilder.rebuildModelWithInputShape(importedResnet18, rngSeed,
-					imgHeight, imgWidth, imgChannels);
+			//ComputationGraph importedResnet18 = KerasModelImport.importKerasModelAndWeights(
+			//		/* modelHdf5Stream = */resnet18_cifar100_h5_filename,
+			//		/* enforceTrainingConfig = */true);
+			//
+			//ComputationGraph resnet18 = ModelRebuilder.rebuildModelWithInputShape(importedResnet18, rngSeed,
+			//		imgHeight, imgWidth, imgChannels);
 
+			ComputationGraph resnet18 = ResNet18GraphBuilder.buildResNet18(numClasses, rngSeed, 
+					imgChannels, imgHeight, imgWidth, lrAdam);
 
 			// Listener
 			resnet18.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
