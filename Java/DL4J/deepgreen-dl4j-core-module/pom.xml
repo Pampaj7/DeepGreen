@@ -17,5 +17,10 @@
       <artifactId>deeplearning4j-core</artifactId>
       <!-- version taken from the bom -->
     </dependency>
+    <dependency>
+      <groupId>org.deeplearning4j</groupId>
+      <artifactId>deeplearning4j-zoo</artifactId>
+      <!-- version taken from the bom -->
+    </dependency>
   </dependencies>
 </project>
