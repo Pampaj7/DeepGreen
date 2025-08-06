@@ -22,7 +22,7 @@ public class Vgg16TrainTinyExpt {
 	public final static String vgg16_tiny_h5_filename = "vgg16_tiny.h5";
 
 	public final static int rngSeed = 1234; 	// random number seed for reproducibility
-	public final static int batchSize = 64; 	// batch size for each epoch
+	public final static int batchSize = 128; 	// batch size for each epoch
 	public final static int numClasses = 200; 	// number of output classes
 	public final static int numEpochs = 30;		// number of epochs to perform
 	public final static double lrAdam = 1e-5;	// learning rate used in Adam optimizer
