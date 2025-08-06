@@ -12,6 +12,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.FashionMNISTDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
@@ -63,12 +64,15 @@ public class ResNet18TrainFashionExpt {
 
 
 			// Import Keras ResNet-18 model with training config
-			ComputationGraph importedResnet18 = KerasModelImport.importKerasModelAndWeights(
-					/* modelHdf5Stream = */resnet18_fashion_h5_filename,
-					/* enforceTrainingConfig = */true);
-			
-			ComputationGraph resnet18 = ModelRebuilder.rebuildModelWithInputShape(importedResnet18, rngSeed, 
-							transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
+			//ComputationGraph importedResnet18 = KerasModelImport.importKerasModelAndWeights(
+			//		/* modelHdf5Stream = */resnet18_fashion_h5_filename,
+			//		/* enforceTrainingConfig = */true);
+			//
+			//ComputationGraph resnet18 = ModelRebuilder.rebuildModelWithInputShape(importedResnet18, rngSeed, 
+			//				transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
+
+			ComputationGraph resnet18 = ResNet18GraphBuilder.buildResNet18(numClasses, rngSeed, 
+					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
 
 
 			// Listener

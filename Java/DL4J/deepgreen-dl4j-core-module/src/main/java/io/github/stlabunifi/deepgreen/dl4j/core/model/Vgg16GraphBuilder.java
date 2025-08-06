@@ -5,14 +5,14 @@ import org.deeplearning4j.zoo.ZooModel;
 import org.deeplearning4j.zoo.model.VGG16;
 import org.nd4j.linalg.learning.config.Adam;
 
-public class VGG16NativeModel {
+public class Vgg16GraphBuilder {
 
 	public static ComputationGraph buildVGG16(int numClasses, int seed, 
-			int[] inputShape, double lr) {
+			int imgChannels, int imgHeight, int imgWidth, double lr) {
 		ZooModel<?> vgg16Zoo = VGG16.builder()
 				.numClasses(numClasses)
 				.seed(seed)
-				.inputShape(inputShape)
+				.inputShape(new int[] {imgChannels, imgHeight, imgWidth})
 				.updater(new Adam(lr))
 				.build();
 		
