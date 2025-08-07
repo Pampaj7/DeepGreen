@@ -32,7 +32,6 @@ import org.deeplearning4j.nn.weights.WeightInit;
 
 public class ResNet18GraphBuilder {
 
-	//static private IWeightInit weightInit = new WeightInitDistribution(new TruncatedNormalDistribution(0.0, 0.5)); //TODO: differes
 	static private CacheMode cacheMode = CacheMode.NONE;
 	static private WorkspaceMode workspaceMode = WorkspaceMode.ENABLED;
 	static private ConvolutionLayer.AlgoMode cudnnAlgoMode = ConvolutionLayer.AlgoMode.PREFER_FASTEST;
@@ -64,7 +63,10 @@ public class ResNet18GraphBuilder {
 				.activation(Activation.IDENTITY)
 				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
 				.updater(new Adam(lr))
-				.weightInit(WeightInit.RELU) // or weightInit var
+				.weightInit(WeightInit.RELU) 	// same to "kernel_initializer="he_normal"" in Python,
+												// i.e., set weights via a truncated normal distribution centered on 0 with stddev = sqrt(2 / fan_in)
+												// where fan_in is the number of input units in the weight tensor.
+												// Differs from ResNet50: "new WeightInitDistribution(new TruncatedNormalDistribution(0.0, 0.5))"
 				.l1(1e-7)
 				.l2(5e-5)
 				.miniBatch(true)
@@ -72,7 +74,7 @@ public class ResNet18GraphBuilder {
 				.trainingWorkspaceMode(workspaceMode)
 				.inferenceWorkspaceMode(workspaceMode)
 				.cudnnAlgoMode(cudnnAlgoMode)
-				.convolutionMode(ConvolutionMode.Truncate)
+				.convolutionMode(ConvolutionMode.Truncate) // Requires to use .convolutionMode(ConvolutionMode.Same) in each ConvolutionLayer
 				.graphBuilder();
 
 		graph.addInputs("input")
@@ -84,7 +86,7 @@ public class ResNet18GraphBuilder {
 
 		// Initial layers
 		graph
-			.addLayer("zero", new ZeroPaddingLayer.Builder(3, 3).build(), "input")
+			.addLayer("zero", new ZeroPaddingLayer.Builder(3, 3).build(), "input") // Same to use .convolutionMode(ConvolutionMode.Same) in next ConvolutionLayer
 			.addLayer("conv1", new ConvolutionLayer.Builder(7,7).stride(2,2).nOut(64).build(), "zero")
 			.addLayer("bn1", new BatchNormalization.Builder().build(), "conv1")
 			.addLayer("relu1", new ActivationLayer.Builder().activation(Activation.RELU).build(), "bn1")
@@ -143,7 +145,7 @@ public class ResNet18GraphBuilder {
 						.stride(stride,stride)
 						.nOut(filters)
 						.cudnnAlgoMode(ConvolutionLayer.AlgoMode.PREFER_FASTEST)
-						.convolutionMode(ConvolutionMode.Same) // Differs from resnet50
+						.convolutionMode(ConvolutionMode.Same)
 						.build(),
 					input)
 			.addLayer(bn1, new BatchNormalization.Builder().build(), conv1)
