@@ -1,9 +1,11 @@
-package io.github.stlabunifi.deepgreen.dl4j.core.model;
+package io.github.stlabunifi.deepgreen.dl4j.core.model.builder;
 
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.zoo.ZooModel;
 import org.deeplearning4j.zoo.model.VGG16;
 import org.nd4j.linalg.learning.config.Adam;
+
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
 public class Vgg16GraphBuilder {
 
