@@ -27,9 +27,9 @@ public class ResNet18TrainTinyExpt {
 	public final static int numEpochs = 30; 	// number of epochs to perform
 	public final static double lrAdam = 1e-4; 	// learning rate used in Adam optimizer
 
-	public static final int imgHeight = 64;
-	public static final int imgWidth = 64;
-	public static final int imgChannels = 3;
+	public static final int transformed_imgHeight = 32;
+	public static final int transformed_imgWidth = 32;
+	public static final int transformed_imgChannels = 3;
 	
 	public static final String tiny_downloader_py_filepath = "/dataset/download_convert_tinyimage.py"; // located in reasources
 	public static final String tiny_png_dirpath = "data/tiny_imagenet_png";
@@ -53,8 +53,10 @@ public class ResNet18TrainTinyExpt {
 			}
 
 
-			DataSetIterator tinyTrain = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, true);
-			DataSetIterator tinyTest = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, false);
+			DataSetIterator tinyTrain = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, true,
+					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
+			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false,
+					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 	
 			// Normalize from (0-255) to (0-1)
 			tinyTrain.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
@@ -70,7 +72,7 @@ public class ResNet18TrainTinyExpt {
 			//		.rebuildModelWithInputShape(importedResnet18, rngSeed, imgHeight, imgWidth, imgChannels);
 
 			ComputationGraph resnet18 = ResNet18GraphBuilder.buildResNet18(numClasses, rngSeed, 
-					imgChannels, imgHeight, imgWidth, lrAdam);
+					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
 
 
 			// Listener
