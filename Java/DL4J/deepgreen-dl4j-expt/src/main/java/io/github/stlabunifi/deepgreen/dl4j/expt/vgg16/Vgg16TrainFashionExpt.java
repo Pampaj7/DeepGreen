@@ -12,8 +12,7 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.FashionMNISTDataloader;
-//import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.Vgg16GraphBuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;

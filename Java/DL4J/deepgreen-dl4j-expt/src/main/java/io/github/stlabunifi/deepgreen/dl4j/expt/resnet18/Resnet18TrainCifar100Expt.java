@@ -12,7 +12,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.Cifar100Dataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ResNet18GraphBuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;

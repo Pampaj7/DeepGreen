@@ -6,13 +6,12 @@ import java.nio.file.Paths;
 
 import org.nd4j.common.io.ClassPathResource;
 import org.deeplearning4j.nn.graph.ComputationGraph;
-import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
+//import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ResNet18GraphBuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;

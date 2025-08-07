@@ -1,4 +1,4 @@
-package io.github.stlabunifi.deepgreen.dl4j.core.model;
+package io.github.stlabunifi.deepgreen.dl4j.core.model.builder;
 
 import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
@@ -22,6 +22,9 @@ import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
+
 import org.nd4j.linalg.learning.config.Adam;
 //import org.deeplearning4j.nn.weights.IWeightInit;
 import org.deeplearning4j.nn.weights.WeightInit;
