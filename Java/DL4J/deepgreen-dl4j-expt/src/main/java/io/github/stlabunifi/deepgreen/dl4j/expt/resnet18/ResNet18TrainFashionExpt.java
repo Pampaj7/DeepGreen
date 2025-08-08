@@ -6,21 +6,20 @@ import java.nio.file.Paths;
 
 import org.nd4j.common.io.ClassPathResource;
 import org.deeplearning4j.nn.graph.ComputationGraph;
-import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
+//import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.FashionMNISTDataloader;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ResNet18GraphBuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class ResNet18TrainFashionExpt {
 
-	public final static String resnet18_py_filepath = "/models/resnet18.py";
-	public final static String resnet18_fashion_h5_filename = "resnet18_fashion.h5";
+	//public final static String resnet18_py_filepath = "/models/resnet18.py";
+	//public final static String resnet18_fashion_h5_filename = "resnet18_fashion.h5";
 
 	public final static int rngSeed = 123; 		// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
@@ -38,12 +37,12 @@ public class ResNet18TrainFashionExpt {
 	public static void main(String[] args) throws Exception {
 		try {
 			// Generate Keras model
-			Path modelFilePath = Paths.get(resnet18_fashion_h5_filename);
-			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
-				System.out.println("Generating ResNet-18 model in h5 format...");
-				String pyScriptFullPath = new ClassPathResource(resnet18_py_filepath).getFile().getPath();
-				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_fashion_h5_filename, numClasses, lrAdam);
-			}
+			//Path modelFilePath = Paths.get(resnet18_fashion_h5_filename);
+			//if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
+			//	System.out.println("Generating ResNet-18 model in h5 format...");
+			//	String pyScriptFullPath = new ClassPathResource(resnet18_py_filepath).getFile().getPath();
+			//	PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_fashion_h5_filename, numClasses, lrAdam);
+			//}
 
 			// Load Fashion MNIST
 			Path datasetDir = Paths.get(fashion_png_dirpath);
