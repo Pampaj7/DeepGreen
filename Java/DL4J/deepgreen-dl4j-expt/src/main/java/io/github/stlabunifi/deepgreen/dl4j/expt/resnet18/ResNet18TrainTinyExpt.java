@@ -13,10 +13,14 @@ import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
+import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonTrackerHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class ResNet18TrainTinyExpt {
+
+	public final static String emission_output_dir = "emissions";
+	public final static String emission_filename = "resnet18_tiny.csv";
 
 	//public final static String resnet18_py_filepath = "/models/resnet18.py";
 	//public final static String resnet18_tiny_h5_filename = "resnet18_tiny.h5";
@@ -34,8 +38,16 @@ public class ResNet18TrainTinyExpt {
 	public static final String tiny_downloader_py_filepath = "/dataset/download_convert_tinyimage.py"; // located in reasources
 	public static final String tiny_png_dirpath = "data/tiny_imagenet_png";
 
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		try {
+			Path emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
+			// Remove existing emission file
+			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
+			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
+				Files.delete(emissionFilePath);
+
+			PythonTrackerHandler trackerHandler = new PythonTrackerHandler(emissionOutputDir.toString());
+
 			// Generate Keras model
 			//Path modelFilePath = Paths.get(resnet18_tiny_h5_filename);
 			//if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
@@ -81,13 +93,17 @@ public class ResNet18TrainTinyExpt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				trackerHandler.startTracker(emission_filename);
 				resnet18.fit(tinyTrain);
+				trackerHandler.stopTracker();
 				System.out.println("Epoch " + (i + 1) + " completed.");
 			}
 			
 			// Evaluation
 			System.out.println("Starting evaluation...");
+			trackerHandler.startTracker(emission_filename);
 			var eval = resnet18.evaluate(tinyTest);
+			trackerHandler.stopTracker();
 			System.out.println(eval.stats());
 			
 		} catch (Exception e) {
