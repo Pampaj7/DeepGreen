@@ -11,8 +11,7 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
-//import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.Vgg16GraphBuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 
@@ -29,9 +28,9 @@ public class Vgg16TrainTinyExpt {
 	public final static int numEpochs = 30;		// number of epochs to perform
 	public final static double lrAdam = 1e-5;	// learning rate used in Adam optimizer
 
-	public static final int imgHeight = 64;
-	public static final int imgWidth = 64;
-	public static final int imgChannels = 3;
+	public static final int transformed_imgHeight = 32;
+	public static final int transformed_imgWidth = 32;
+	public static final int transformed_imgChannels = 3;
 	
 	public static final String tiny_downloader_py_filepath = "/dataset/download_convert_tinyimage.py"; // located in reasources
 	public static final String tiny_png_dirpath = "data/tiny_imagenet_png";
@@ -55,8 +54,10 @@ public class Vgg16TrainTinyExpt {
 			}
 
 
-			DataSetIterator tinyTrain = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, true);
-			DataSetIterator tinyTest = TinyImageNetDataloader.loadData(tiny_png_dirpath, batchSize, false);
+			DataSetIterator tinyTrain = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, true,
+					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
+			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false,
+					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 	
 			// Normalize from (0-255) to (0-1)
 			tinyTrain.setPreProcessor(new VGG16ImagePreProcessor());
@@ -72,7 +73,7 @@ public class Vgg16TrainTinyExpt {
 			//		.rebuildModelWithInputShape(importedVgg16, rngSeed, imgHeight, imgWidth, imgChannels);
 
 			ComputationGraph vgg16 = Vgg16GraphBuilder.buildVGG16(numClasses, rngSeed, 
-					imgChannels, imgHeight, imgWidth, lrAdam);
+					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
 
 			// Listener
 			vgg16.setListeners(new ScoreIterationListener(100)); // print score every 100 batches

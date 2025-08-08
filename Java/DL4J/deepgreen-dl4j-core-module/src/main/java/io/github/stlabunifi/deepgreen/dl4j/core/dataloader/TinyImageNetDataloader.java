@@ -18,5 +18,15 @@ public class TinyImageNetDataloader {
 
 		return PNGDataloader.loadPNGData(dataDir, batchSize, HEIGHT, WIDTH, CHANNELS, NUM_CLASSES, RNG_SEED);
 	}
+
+	public static DataSetIterator loadDataAndTransform(String datasetPath, int batchSize, boolean isTrain,
+			int transformedHeight, int transformedWidth, int transformedChannels) throws Exception {
+		// Choose correct path
+		String folder = isTrain ? "train" : "val";
+		File dataDir = new File(datasetPath, folder);
+
+		return PNGDataloader.loadPNGData(dataDir, batchSize, transformedHeight,
+				transformedWidth, transformedChannels, NUM_CLASSES, RNG_SEED);
+	}
 }
 
