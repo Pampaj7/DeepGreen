@@ -14,10 +14,14 @@ import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.Cifar100Dataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
+import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonTrackerHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class Vgg16TrainCifar100Expt {
+
+	public final static String emission_output_dir = "emissions";
+	public final static String emission_filename = "vgg16_cifar100.csv";
 
 	//public final static String vgg16_py_filepath = "/models/sequential_vgg16.py";
 	//public final static String vgg16_cifar100_h5_filename = "sequential_vgg16_cifar100.h5";
@@ -35,8 +39,16 @@ public class Vgg16TrainCifar100Expt {
 	public static final String cifar100_downloader_py_filepath = "/dataset/download_convert_cifar100.py"; // located in resources
 	public static final String cifar100_png_dirpath = "data/cifar100_png";
 
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		try {
+			Path emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
+			// Remove existing emission file
+			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
+			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
+				Files.delete(emissionFilePath);
+
+			PythonTrackerHandler trackerHandler = new PythonTrackerHandler(emissionOutputDir.toString());
+
 			// Generate Keras model
 			//Path modelFilePath = Paths.get(vgg16_cifar100_h5_filename);
 			//if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
@@ -79,13 +91,17 @@ public class Vgg16TrainCifar100Expt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				trackerHandler.startTracker(emission_filename);
 				vgg16.fit(cifar100Train);
+				trackerHandler.stopTracker();
 				System.out.println("Epoch " + (i + 1) + " completed.");
 			}
 			
 			// Evaluation
 			System.out.println("Starting evaluation...");
+			trackerHandler.startTracker(emission_filename);
 			var eval = vgg16.evaluate(cifar100Test);
+			trackerHandler.stopTracker();
 			System.out.println(eval.stats());
 			
 		} catch (Exception e) {
