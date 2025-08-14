@@ -28,7 +28,7 @@ public class Vgg16TrainTinyExpt {
 	public final static int rngSeed = 1234; 	// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
 	public final static int numClasses = 200; 	// number of output classes
-	public final static int numEpochs = 1;		// number of epochs to perform
+	public final static int numEpochs = 30;		// number of epochs to perform
 	public final static double lrAdam = 1e-5;	// learning rate used in Adam optimizer
 
 	public static final int transformed_imgHeight = 32;

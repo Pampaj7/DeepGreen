@@ -9,6 +9,7 @@ import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
 public class Vgg16GraphBuilder {
 
+	@SuppressWarnings("deprecation")
 	public static ComputationGraph buildVGG16(int numClasses, int seed, 
 			int imgChannels, int imgHeight, int imgWidth, double lr) {
 		ZooModel<?> vgg16Zoo = VGG16.builder()
