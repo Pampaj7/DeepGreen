@@ -18,7 +18,7 @@ import org.deeplearning4j.nn.conf.layers.GlobalPoolingLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.conf.layers.PoolingType;
 import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
-import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
+//import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
@@ -74,7 +74,7 @@ public class ResNet18GraphBuilder {
 				.trainingWorkspaceMode(workspaceMode)
 				.inferenceWorkspaceMode(workspaceMode)
 				.cudnnAlgoMode(cudnnAlgoMode)
-				.convolutionMode(ConvolutionMode.Truncate) // Requires to use .convolutionMode(ConvolutionMode.Same) in each ConvolutionLayer
+				.convolutionMode(ConvolutionMode.Truncate) // This conf requires to use .convolutionMode(ConvolutionMode.Same) in each ConvolutionLayer
 				.graphBuilder();
 
 		graph.addInputs("input")
@@ -86,11 +86,21 @@ public class ResNet18GraphBuilder {
 
 		// Initial layers
 		graph
-			.addLayer("zero", new ZeroPaddingLayer.Builder(3, 3).build(), "input") // Same to use .convolutionMode(ConvolutionMode.Same) in next ConvolutionLayer
-			.addLayer("conv1", new ConvolutionLayer.Builder(7,7).stride(2,2).nOut(64).build(), "zero")
+			//.addLayer("zero", new ZeroPaddingLayer.Builder(3, 3).build(), "input") // Same to use .convolutionMode(ConvolutionMode.Same) in next ConvolutionLayer
+			.addLayer("conv1", new ConvolutionLayer.Builder(7,7)
+						.stride(2,2)
+						.nOut(64)
+						.convolutionMode(ConvolutionMode.Same)
+						.build(),
+					"input")
 			.addLayer("bn1", new BatchNormalization.Builder().build(), "conv1")
 			.addLayer("relu1", new ActivationLayer.Builder().activation(Activation.RELU).build(), "bn1")
-			.addLayer("maxpool", new SubsamplingLayer.Builder(PoolingType.MAX).kernelSize(3,3).stride(2,2).build(), "relu1");
+			.addLayer("maxpool", new SubsamplingLayer.Builder(PoolingType.MAX)
+						.kernelSize(3,3)
+						.stride(2,2)
+						.padding(1,1)
+						.build(),
+					"relu1");
 
 		String prev = "maxpool";
 
@@ -145,7 +155,7 @@ public class ResNet18GraphBuilder {
 						.stride(stride,stride)
 						.nOut(filters)
 						.cudnnAlgoMode(ConvolutionLayer.AlgoMode.PREFER_FASTEST)
-						.convolutionMode(ConvolutionMode.Same)
+						.convolutionMode(ConvolutionMode.Same) // padding 1x1
 						.build(),
 					input)
 			.addLayer(bn1, new BatchNormalization.Builder().build(), conv1)
@@ -154,10 +164,10 @@ public class ResNet18GraphBuilder {
 			// Second conv
 			.addLayer(conv2, 
 					new ConvolutionLayer.Builder(3,3)
-						.stride(1,1)
+						.stride(1,1) // in DLJ is omitted because stride=1 is default value 
 						.nOut(filters)
 						.cudnnAlgoMode(ConvolutionLayer.AlgoMode.PREFER_FASTEST)
-						.convolutionMode(ConvolutionMode.Same)
+						.convolutionMode(ConvolutionMode.Same) // padding 1x1
 						.build(),
 					relu1)
 			.addLayer(bn2, new BatchNormalization.Builder().build(), conv2);
@@ -173,13 +183,16 @@ public class ResNet18GraphBuilder {
 						new ConvolutionLayer.Builder(1,1)
 							.stride(stride,stride)
 							.nOut(filters)
-							.convolutionMode(ConvolutionMode.Same) // Differs from resnet50
+							// conv 1x1 doesn't require padding, i.e. .convolutionMode(ConvolutionMode.Same)
 							.build(),
 						input)
-				.addLayer(shortcutBN, new BatchNormalization.Builder().build(), shortcutConv);
+				.addLayer(shortcutBN, new BatchNormalization.Builder().build(), shortcutConv); 	// Although not present in DLJ (see https://github.com/deepjavalibrary/d2l-java/blob/master/chapter_convolutional-modern/resnet.ipynb),
+																								// both the official PyTorch (see https://docs.pytorch.org/vision/main/_modules/torchvision/models/resnet.html#resnet18)
+																								// and Tensorflow (https://github.com/tensorflow/models/blob/master/official/vision/modeling/backbones/resnet.py)
+																								// implementations use the bn layer here.
 			shortcutOut = shortcutBN;
 		} else {
-			shortcutOut = input;
+			shortcutOut = input; // equivalent to identity block
 		}
 
 		// Add
