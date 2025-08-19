@@ -108,6 +108,9 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
 
         // TODO: tracker.start()
         CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
+        //TODO: tracker.stop()
+
+        // TODO: tracker.start()
         CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
         //TODO: tracker.stop()
     }
