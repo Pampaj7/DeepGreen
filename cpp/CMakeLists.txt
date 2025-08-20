@@ -109,6 +109,21 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
+add_executable(resnet18_native
+        src/train/resnet18/train_native.cpp
+        src/train/resnet18/train_native.h
+        src/dataset/ImageFolder.h
+        src/dataset/CIFAR100.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+        src/model/ResNet18.cpp
+        src/model/ResNet18.h
+)
 add_executable(resnet18_fashion
         src/train/resnet18/train_fashion.cpp
         src/train/resnet18/train_resnet18.h
@@ -194,6 +209,7 @@ add_executable(vgg16_tiny
         src/utils.h
 )
 set(TARGETS
+        resnet18_native
         resnet18_fashion
         resnet18_cifar100
         resnet18_tiny
