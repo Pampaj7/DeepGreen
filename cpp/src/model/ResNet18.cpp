@@ -48,31 +48,38 @@ torch::nn::Conv2dOptions create_conv1x1_options(int64_t in_planes,
 
 
 
-BasicBlock::BasicBlock(std::string layerName, int64_t inplanes, int64_t planes, int64_t stride, torch::nn::Sequential downsample,
-    int64_t groups, int64_t base_width, int64_t dilation)
+BasicBlock::BasicBlock(
+    int64_t inplanes,
+    int64_t planes,
+    int64_t stride,
+    torch::nn::Sequential downsample,
+    int64_t groups,
+    int64_t base_width,
+    int64_t dilation)
 {
-    if ((groups != 1) || (base_width != 64))
-    {
-        throw std::invalid_argument{
-            "BasicBlock only supports groups=1 and base_width=64"};
-    }
+    TORCH_CHECK(
+      groups == 1 && base_width == 64,
+      "BasicBlock only supports groups=1 and base_width=64");
     if (dilation > 1)
     {
         throw std::invalid_argument{
             "Dilation > 1 not supported in BasicBlock"};
     }
+
     m_conv1 =
-        register_module(layerName + "_conv1", torch::nn::Conv2d{create_conv3x3_options(
+        register_module(
+            "conv1",
+            torch::nn::Conv2d{create_conv3x3_options(
                                      inplanes, planes, stride)});
-    m_bn1 = register_module(layerName + "_bn1", torch::nn::BatchNorm2d{planes});
-    m_relu = register_module(layerName + "_relu", torch::nn::ReLU{true});
+    m_bn1 = register_module("bn1", torch::nn::BatchNorm2d{planes});
+    m_relu = register_module("relu", torch::nn::ReLU{true});
     m_conv2 = register_module(
-        layerName + "_conv2", torch::nn::Conv2d{create_conv3x3_options(planes, planes)});
-    m_bn2 = register_module(layerName + "_bn2", torch::nn::BatchNorm2d{planes});
+        "conv2",
+        torch::nn::Conv2d{create_conv3x3_options(
+            planes, planes)});
+    m_bn2 = register_module("bn2", torch::nn::BatchNorm2d{planes});
     if (!downsample->is_empty())
-    {
-        m_downsample = register_module(layerName + "_downsample", downsample);
-    }
+        m_downsample = register_module("downsample", downsample);
     m_stride = stride;
 }
 
@@ -88,9 +95,7 @@ torch::Tensor BasicBlock::forward(torch::Tensor x)
     out = m_bn2->forward(out);
 
     if (!m_downsample->is_empty())
-    {
         identity = m_downsample->forward(x);
-    }
 
     out += identity;
     out = m_relu->forward(out);
@@ -100,8 +105,13 @@ torch::Tensor BasicBlock::forward(torch::Tensor x)
 
 
 
-ResNet18::ResNet18(const std::vector<int64_t> layers, int64_t num_classes, bool zero_init_residual,
-    int64_t groups, int64_t width_per_group, std::vector<int64_t> replace_stride_with_dilation)
+ResNet18::ResNet18(
+    const std::vector<int64_t>& layers,
+    int64_t num_classes,
+    bool zero_init_residual,
+    int64_t groups,
+    int64_t width_per_group,
+    std::vector<int64_t> replace_stride_with_dilation)
 {
     if (replace_stride_with_dilation.size() == 0)
     {
@@ -133,15 +143,15 @@ ResNet18::ResNet18(const std::vector<int64_t> layers, int64_t num_classes, bool 
             torch::nn::MaxPool2dOptions({3, 3}).stride({2, 2}).padding(
                 {1, 1})}); //TODO: su Pytorch è kernel_size=3, stride=2, padding=1, dilation=1 (senza doppie)
 
-    m_layer1 = register_module("layer1", _make_layer("layer1", 64, layers.at(0)));
+    m_layer1 = register_module("layer1", _make_layer(64, layers.at(0)));
     m_layer2 = register_module(
-        "layer2", _make_layer("layer2", 128, layers.at(1), 2,
+        "layer2", _make_layer(128, layers.at(1), 2,
                               replace_stride_with_dilation.at(0)));
     m_layer3 = register_module(
-        "layer3", _make_layer("layer3", 256, layers.at(2), 2,
+        "layer3", _make_layer(256, layers.at(2), 2,
                               replace_stride_with_dilation.at(1)));
     m_layer4 = register_module(
-        "layer4", _make_layer("layer4", 512, layers.at(3), 2,
+        "layer4", _make_layer(512, layers.at(3), 2,
                               replace_stride_with_dilation.at(2)));
 
     m_avgpool = register_module(
@@ -198,7 +208,11 @@ ResNet18::ResNet18(const std::vector<int64_t> layers, int64_t num_classes, bool 
     }
 }
 
-torch::nn::Sequential ResNet18::_make_layer(std::string layerName, int64_t planes, int64_t blocks, int64_t stride, bool dilate)
+torch::nn::Sequential ResNet18::_make_layer(
+    int64_t planes,
+    int64_t blocks,
+    int64_t stride,
+    bool dilate)
 {
     torch::nn::Sequential downsample = torch::nn::Sequential();
     int64_t previous_dilation = m_dilation;
@@ -216,25 +230,23 @@ torch::nn::Sequential ResNet18::_make_layer(std::string layerName, int64_t plane
     }
 
     torch::nn::Sequential layers;
+    layers->push_back(
+        BasicBlock(m_inplanes, planes, stride, downsample,
+                            m_groups, m_base_width, previous_dilation));
 
-    // first block (it could be downsampled)
-    layers->push_back(BasicBlock(layerName + "_block0", m_inplanes, planes, stride, downsample,
-                            m_groups, m_base_width, previous_dilation)); //TODO: questo blocco è in più rispetto a PyTorch
     m_inplanes = planes * BasicBlock::m_expansion;
-    // successive blocks
+
     for (int64_t i = 1; i < blocks; i++)
-    {
-        layers->push_back(BasicBlock(layerName + "_block" + std::to_string(i), m_inplanes, planes, 1,
-                                torch::nn::Sequential(), m_groups,
+        layers->push_back(
+            BasicBlock(m_inplanes, planes, 1,
+                                torch::nn::Sequential(),  m_groups,
                                 m_base_width, m_dilation));
-    }
 
     return layers;
 }
 
-torch::Tensor ResNet18::_forward_impl(torch::Tensor x)
+torch::Tensor ResNet18::forward(torch::Tensor x)
 {
-
     x = m_conv1->forward(x);
     x = m_bn1->forward(x);
     x = m_relu->forward(x);
@@ -251,8 +263,6 @@ torch::Tensor ResNet18::_forward_impl(torch::Tensor x)
 
     return x;
 }
-
-torch::Tensor ResNet18::forward(torch::Tensor x) { return _forward_impl(x); }
 
 
 std::shared_ptr<ResNet18>

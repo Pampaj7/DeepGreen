@@ -6,7 +6,7 @@
 
 struct BasicBlock : torch::nn::Module
 {
-    BasicBlock(std::string layerName, int64_t inplanes, int64_t planes, int64_t stride = 1,
+    BasicBlock(int64_t inplanes, int64_t planes, int64_t stride = 1,
                torch::nn::Sequential downsample = torch::nn::Sequential(),
                int64_t groups = 1, int64_t base_width = 64,
                int64_t dilation = 1);
@@ -25,10 +25,6 @@ struct BasicBlock : torch::nn::Module
 
 struct ResNet18 : torch::nn::Module
 {
-    ResNet18(const std::vector<int64_t> layers, int64_t num_classes = 1000,
-           bool zero_init_residual = false, int64_t groups = 1,
-           int64_t width_per_group = 64,
-           std::vector<int64_t> replace_stride_with_dilation = {});
 
     int64_t m_inplanes = 64;
     int64_t m_dilation = 1;
@@ -44,10 +40,20 @@ struct ResNet18 : torch::nn::Module
     torch::nn::AdaptiveAvgPool2d m_avgpool{nullptr};
     torch::nn::Linear m_fc{nullptr};
 
-    torch::nn::Sequential _make_layer(std::string layerName, int64_t planes, int64_t blocks,
-                                      int64_t stride = 1, bool dilate = false);
 
-    torch::Tensor _forward_impl(torch::Tensor x);
+    torch::nn::Sequential _make_layer(
+        int64_t planes,
+        int64_t blocks,
+        int64_t stride = 1,
+        bool dilate = false);
+
+    explicit ResNet18(
+        const std::vector<int64_t>& layers,
+        int64_t num_classes = 1000,
+        bool zero_init_residual = false,
+        int64_t groups = 1,
+        int64_t width_per_group = 64,
+        std::vector<int64_t> replace_stride_with_dilation = {});
 
     torch::Tensor forward(torch::Tensor x);
 };
