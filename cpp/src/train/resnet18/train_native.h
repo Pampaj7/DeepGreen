@@ -10,7 +10,26 @@
 #include "dataset_transforms.h"
 #include "utils.h"
 #include "model/ResNet18.h"
+#include "model/ResNet18_native.h"
 
+void print_num_parameters(torch::nn::Module& model) {
+    std::size_t total_params = 0;
+    for (const auto& param : model.parameters(/*recurse=*/true)) {
+        total_params += param.numel();
+    }
+    std::cout << "Numero totale di parametri: " << total_params << std::endl;
+}
+
+void print_trainable_parameters(torch::nn::Module& model) {
+    std::size_t trainable_params = 0;
+    for (const auto& param : model.parameters(/*recurse=*/true)) {
+        if (param.requires_grad()) {
+            trainable_params += param.numel();
+        }
+    }
+    std::cout << "Numero di parametri addestrabili: "
+              << trainable_params << std::endl;
+}
 
 template <typename Dataset>
 void train_native(const char* dataRootRelativePath, const char* classesJson,
@@ -79,9 +98,12 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
                     .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
 
 
+    std::cout << "LEIMAO MODEL" << std::endl;
     // model
     std::shared_ptr<ResNet18> model = build_resnet18(/*num_classes = */ 100);
-    //std::cout << *model << std::endl;
+    std::cout << *model << std::endl;
+    print_num_parameters(*model);
+    print_trainable_parameters(*model);
     model->to(device);
 
 
@@ -110,6 +132,35 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
         // TODO: tracker.start()
         CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
         //TODO: tracker.stop()
+    }
+
+
+
+
+
+    std::cout << "LIBTORCH MODEL" << std::endl;
+    // model
+    //std::shared_ptr<vision::models::ResNet18Impl> native_model = vision::models::build_native_resnet18(/*num_classes = */ 100);
+    vision::models::ResNet18 native_model(100);
+    std::cout << *native_model << std::endl;
+    print_num_parameters(*native_model);
+    print_trainable_parameters(*native_model);
+    native_model->to(device);
+
+
+    // optimizer
+    torch::optim::Adam native_optimizer(native_model->parameters(/* recurse = */ true), torch::optim::AdamOptions(1e-4));
+
+
+
+    // training loop
+    for (uint32_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
+        std::printf("Epoch {%u}/{%d}\n",
+            epoch,
+            numberOfEpochs);
+
+        CNNFunction::train(epoch, native_model, device, *train_loader, native_optimizer, train_dataset_size, criterion);
+        CNNFunction::test(native_model, device, *test_loader, test_dataset_size, criterion);
     }
 }
 

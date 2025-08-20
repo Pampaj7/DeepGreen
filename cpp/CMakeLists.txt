@@ -123,6 +123,8 @@ add_executable(resnet18_native
         src/utils.h
         src/model/ResNet18.cpp
         src/model/ResNet18.h
+        src/model/ResNet18_native.cpp
+        src/model/ResNet18_native.h
 )
 add_executable(resnet18_fashion
         src/train/resnet18/train_fashion.cpp
