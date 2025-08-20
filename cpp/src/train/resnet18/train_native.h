@@ -140,7 +140,6 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
 
     std::cout << "LIBTORCH MODEL" << std::endl;
     // model
-    //std::shared_ptr<vision::models::ResNet18Impl> native_model = vision::models::build_native_resnet18(/*num_classes = */ 100);
     vision::models::ResNet18 native_model(100);
     std::cout << *native_model << std::endl;
     print_num_parameters(*native_model);
