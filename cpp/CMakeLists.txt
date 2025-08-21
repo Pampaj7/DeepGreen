@@ -126,6 +126,21 @@ add_executable(resnet18_native
         src/model/ResNet18_native.cpp
         src/model/ResNet18_native.h
 )
+add_executable(vgg16_native
+        src/train/vgg16/train_native.cpp
+        src/train/vgg16/train_native.h
+        src/dataset/ImageFolder.h
+        src/dataset/CIFAR100.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+        src/model/VGG16_native.cpp
+        src/model/VGG16_native.h
+)
 add_executable(resnet18_fashion
         src/train/resnet18/train_fashion.cpp
         src/train/resnet18/train_resnet18.h
@@ -212,6 +227,7 @@ add_executable(vgg16_tiny
 )
 set(TARGETS
         resnet18_native
+        vgg16_native
         resnet18_fashion
         resnet18_cifar100
         resnet18_tiny
