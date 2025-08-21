@@ -60,11 +60,9 @@ BasicBlock::BasicBlock(
     TORCH_CHECK(
       groups == 1 && base_width == 64,
       "BasicBlock only supports groups=1 and base_width=64");
-    if (dilation > 1)
-    {
-        throw std::invalid_argument{
-            "Dilation > 1 not supported in BasicBlock"};
-    }
+    TORCH_CHECK(
+        dilation <= 1,
+        "Dilation > 1 not supported in BasicBlock");
 
     m_conv1 =
         register_module(
@@ -114,17 +112,12 @@ ResNet18::ResNet18(
     std::vector<int64_t> replace_stride_with_dilation)
 {
     if (replace_stride_with_dilation.size() == 0)
-    {
         // Each element in the tuple indicates if we should replace
         // the 2x2 stride with a dilated convolution instead.
         replace_stride_with_dilation = {false, false, false};
-    }
-    if (replace_stride_with_dilation.size() != 3)
-    {
-        throw std::invalid_argument{
-            "replace_stride_with_dilation should be empty or have exactly "
-            "three elements."};
-    }
+    TORCH_CHECK(
+        replace_stride_with_dilation.size() == 3,
+        "replace_stride_with_dilation should be empty or have exactly three elements.");
 
     m_groups = groups;
     m_base_width = width_per_group;
@@ -141,7 +134,7 @@ ResNet18::ResNet18(
         "maxpool",
         torch::nn::MaxPool2d{
             torch::nn::MaxPool2dOptions({3, 3}).stride({2, 2}).padding(
-                {1, 1})}); //TODO: su Pytorch è kernel_size=3, stride=2, padding=1, dilation=1 (senza doppie)
+                {1, 1})});
 
     m_layer1 = register_module("layer1", _make_layer(64, layers.at(0)));
     m_layer2 = register_module(

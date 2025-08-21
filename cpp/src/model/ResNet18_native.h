@@ -5,7 +5,7 @@
 
 namespace vision::models
 {
-    namespace _resnet18impl {
+    namespace _resnetimpl {
         // 3x3 convolution with padding
         torch::nn::Conv2d conv3x3(int64_t in, int64_t out, int64_t stride = 1, int64_t groups = 1);
 
@@ -30,17 +30,18 @@ namespace vision::models
 
             torch::Tensor forward(torch::Tensor x);
         };
-    } // namespace _resnet18impl
+    } // namespace _resnetimpl
 
 
-    struct ResNet18Impl : torch::nn::Module {
+    struct ResNetImpl : torch::nn::Module {
         int64_t groups, base_width, inplanes;
         torch::nn::Conv2d conv1;
         torch::nn::BatchNorm2d bn1;
         torch::nn::Sequential layer1, layer2, layer3, layer4;
         torch::nn::Linear fc;
 
-        explicit ResNet18Impl(
+        explicit ResNetImpl(
+            const std::vector<int64_t>& layers,
             int64_t num_classes = 1000,
             bool zero_init_residual = false,
             int64_t groups = 1,
@@ -52,6 +53,12 @@ namespace vision::models
             int64_t stride = 1);
 
         torch::Tensor forward(torch::Tensor x);
+    };
+
+    struct ResNet18Impl : ResNetImpl {
+        explicit ResNet18Impl(
+            int64_t num_classes = 1000,
+            bool zero_init_residual = false);
     };
 
     TORCH_MODULE(ResNet18);
