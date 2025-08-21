@@ -1,6 +1,6 @@
 #include "ResNet18_native.h"
 
-torch::nn::Conv2d vision::models::_resnet18impl::conv3x3(
+torch::nn::Conv2d vision::models::_resnetimpl::conv3x3(
         int64_t in,
         int64_t out,
         int64_t stride,
@@ -10,15 +10,15 @@ torch::nn::Conv2d vision::models::_resnet18impl::conv3x3(
     return torch::nn::Conv2d(O);
 }
 
-torch::nn::Conv2d vision::models::_resnet18impl::conv1x1(int64_t in, int64_t out, int64_t stride) {
+torch::nn::Conv2d vision::models::_resnetimpl::conv1x1(int64_t in, int64_t out, int64_t stride) {
     torch::nn::Conv2dOptions O(in, out, 1);
     O.stride(stride).bias(false);
     return torch::nn::Conv2d(O);
 }
 
-int vision::models::_resnet18impl::BasicBlock::expansion = 1;
+int vision::models::_resnetimpl::BasicBlock::expansion = 1;
 
-vision::models::_resnet18impl::BasicBlock::BasicBlock(
+vision::models::_resnetimpl::BasicBlock::BasicBlock(
         int64_t inplanes,
         int64_t planes,
         int64_t stride,
@@ -47,7 +47,7 @@ vision::models::_resnet18impl::BasicBlock::BasicBlock(
         register_module("downsample", this->downsample);
 }
 
-torch::Tensor vision::models::_resnet18impl::BasicBlock::forward(torch::Tensor x) {
+torch::Tensor vision::models::_resnetimpl::BasicBlock::forward(torch::Tensor x) {
     auto identity = x;
 
     auto out = conv1->forward(x);
@@ -65,31 +65,32 @@ torch::Tensor vision::models::_resnet18impl::BasicBlock::forward(torch::Tensor x
 
 
 
-torch::nn::Sequential vision::models::ResNet18Impl::_make_layer(
+torch::nn::Sequential vision::models::ResNetImpl::_make_layer(
         int64_t planes,
         int64_t blocks,
         int64_t stride)
 {
     torch::nn::Sequential downsample = nullptr;
-    if (stride != 1 || inplanes != planes * _resnet18impl::BasicBlock::expansion) {
+    if (stride != 1 || inplanes != planes * _resnetimpl::BasicBlock::expansion) {
         downsample = torch::nn::Sequential(
-            _resnet18impl::conv1x1(inplanes, planes * _resnet18impl::BasicBlock::expansion, stride),
-            torch::nn::BatchNorm2d(planes * _resnet18impl::BasicBlock::expansion));
+            _resnetimpl::conv1x1(inplanes, planes * _resnetimpl::BasicBlock::expansion, stride),
+            torch::nn::BatchNorm2d(planes * _resnetimpl::BasicBlock::expansion));
     }
 
     torch::nn::Sequential layers;
     layers->push_back(
-        _resnet18impl::BasicBlock(inplanes, planes, stride, downsample, groups, base_width));
+        _resnetimpl::BasicBlock(inplanes, planes, stride, downsample, groups, base_width));
 
-    inplanes = planes * _resnet18impl::BasicBlock::expansion;
+    inplanes = planes * _resnetimpl::BasicBlock::expansion;
 
     for (int i = 1; i < blocks; ++i)
-        layers->push_back(_resnet18impl::BasicBlock(inplanes, planes, 1, nullptr, groups, base_width));
+        layers->push_back(_resnetimpl::BasicBlock(inplanes, planes, 1, nullptr, groups, base_width));
 
     return layers;
 }
 
-vision::models::ResNet18Impl::ResNet18Impl(
+vision::models::ResNetImpl::ResNetImpl(
+        const std::vector<int64_t>& layers,
         int64_t num_classes,
         bool zero_init_residual,
         int64_t groups,
@@ -97,11 +98,11 @@ vision::models::ResNet18Impl::ResNet18Impl(
 : groups(groups), base_width(width_per_group), inplanes(64),
 conv1(torch::nn::Conv2dOptions(3, 64, 7).stride(2).padding(3).bias(false)),
 bn1(64),
-layer1(_make_layer(64, 2)),
-layer2(_make_layer(128, 2, 2)),
-layer3(_make_layer(256, 2, 2)),
-layer4(_make_layer(512, 2, 2)),
-fc(512 * _resnet18impl::BasicBlock::expansion, num_classes) {
+layer1(_make_layer(64, layers[0])),
+layer2(_make_layer(128, layers[1], 2)),
+layer3(_make_layer(256, layers[2], 2)),
+layer4(_make_layer(512, layers[3], 2)),
+fc(512 * _resnetimpl::BasicBlock::expansion, num_classes) {
     register_module("conv1", conv1);
     register_module("bn1", bn1);
     register_module("fc", fc);
@@ -130,12 +131,12 @@ fc(512 * _resnet18impl::BasicBlock::expansion, num_classes) {
     // https://arxiv.org/abs/1706.02677
     if (zero_init_residual)
         for (auto& module : modules(/*include_self=*/false)) {
-            if (auto* M = dynamic_cast<_resnet18impl::BasicBlock*>(module.get()))
+            if (auto* M = dynamic_cast<_resnetimpl::BasicBlock*>(module.get()))
                 torch::nn::init::constant_(M->bn2->weight, 0);
         }
 }
 
-torch::Tensor vision::models::ResNet18Impl::forward(torch::Tensor x) {
+torch::Tensor vision::models::ResNetImpl::forward(torch::Tensor x) {
     x = conv1->forward(x);
     x = bn1->forward(x).relu_();
     x = torch::max_pool2d(x, 3, 2, 1);
@@ -151,3 +152,6 @@ torch::Tensor vision::models::ResNet18Impl::forward(torch::Tensor x) {
 
     return x;
 }
+
+vision::models::ResNet18Impl::ResNet18Impl(int64_t num_classes, bool zero_init_residual)
+: ResNetImpl({2, 2, 2, 2}, num_classes, zero_init_residual) {}
