@@ -12,7 +12,7 @@ const char* kCifarClassesJson = "classes.json";
 const char* kResnetCifarFilename = RESNET18_CIFAR100_FILENAME;
 
 // The batch size for training.
-constexpr int32_t kTrainBatchSize = 64;
+constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
 constexpr int32_t kTestBatchSize = 128;
 // The number of epochs to train.
