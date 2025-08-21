@@ -2,18 +2,12 @@ library(torch)
 library(torchvision)
 
 
-# Costruisci ResNet18
 build_resnet18 <- function(num_classes = 100, pretrained = FALSE) {
-  model <- model_resnet18(pretrained = pretrained)
-  model$fc <- nn_linear(model$fc$in_features, num_classes)
-  if (!pretrained) {
-    model$apply(function(m) {
-      if (inherits(m, "nn_conv2d") || inherits(m, "nn_linear")) {
-        nn_init_kaiming_normal_(m$weight)
-        if (!is.null(m$bias)) nn_init_zeros_(m$bias)
-      }
-    })
-  }
+  # Backbone "community-accepted"
+  model <- torchvision::model_resnet18(pretrained = pretrained)
+  # Sostituisci solo la testa finale
+  in_f <- model$fc$in_features
+  model$fc <- nn_linear(in_f, num_classes)
   model
 }
 

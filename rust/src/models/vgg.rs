@@ -1,95 +1,25 @@
-use tch::{nn, nn::ModuleT};
-use tch::{no_grad, Tensor};
+// src/models/vgg32.rs
+use tch::{nn, nn::ModuleT, Device, Kind, Tensor, vision};
 
-
-pub fn vgg16<'a>(vs: &'a nn::Path<'a>, num_classes: i64) -> nn::FuncT<'a> {
-    let features = nn::seq_t()
-        .add(conv_block(&(vs / "conv1"), 3, 64, 2))
-        .add_fn(|x| x.max_pool2d_default(2))
-        .add(conv_block(&(vs / "conv2"), 64, 128, 2))
-        .add_fn(|x| x.max_pool2d_default(2))
-        .add(conv_block(&(vs / "conv3"), 128, 256, 3))
-        .add_fn(|x| x.max_pool2d_default(2))
-        .add(conv_block(&(vs / "conv4"), 256, 512, 3))
-        .add_fn(|x| x.max_pool2d_default(2))
-        .add(conv_block(&(vs / "conv5"), 512, 512, 3))
-        .add_fn(|x| x.max_pool2d_default(2)); // [B, 512, 7, 7]
-
-    let classifier = nn::seq_t()
-        .add(nn::linear(vs / "fc1", 512 * 7 * 7, 4096, Default::default()))
-        .add_fn(|x| x.relu())
-        .add_fn_t(|x, train| if train { x.dropout(0.5, train) } else { x.shallow_clone() })
-        .add(nn::linear(vs / "fc2", 4096, 4096, Default::default()))
-        .add_fn(|x| x.relu())
-        .add_fn_t(|x, train| if train { x.dropout(0.5, train) } else { x.shallow_clone() })
-        .add(nn::linear(vs / "fc3", 4096, num_classes, Default::default()));
-
-    nn::func_t(move |xs, train| {
-        let out = xs
-            .apply_t(&features, train)
-            .view([-1, 512 * 3 * 3]);
-        classifier.forward_t(&out, train)
-    })
+/// Wrapper minimalista: VGG16 stock da `tch::vision::vgg`,
+/// input nativi 32×32 (NCHW), nessun upsample/resize.
+pub struct Vgg16Stock32<'a> {
+    inner: nn::FuncT<'a>,
 }
 
-pub fn vgg16_tiny<'a>(vs: &'a nn::Path<'a>, num_classes: i64) -> nn::FuncT<'a> {
-    let features = nn::seq_t()
-        .add(conv_block(&(vs / "conv1"), 3, 64, 2))
-        .add_fn(|x| x.max_pool2d_default(2))   // -> 32×32
-        .add(conv_block(&(vs / "conv2"), 64, 128, 2))
-        .add_fn(|x| x.max_pool2d_default(2))   // -> 16×16
-        .add(conv_block(&(vs / "conv3"), 128, 256, 3))
-        .add_fn(|x| x.max_pool2d_default(2))   // -> 8×8
-        .add(conv_block(&(vs / "conv4"), 256, 512, 3))
-        .add_fn(|x| x.max_pool2d_default(2))   // -> 4×4
-        .add(conv_block(&(vs / "conv5"), 512, 512, 3))
-        .add_fn(|x| x.max_pool2d_default(2));  // -> 2×2
-
-    let classifier = nn::seq_t()
-        .add(nn::linear(vs / "fc1", 512, 4096, Default::default()))
-        .add_fn(|x| x.relu())
-        .add_fn_t(|x, train| if train { x.dropout(0.5, train) } else { x.shallow_clone() })
-        .add(nn::linear(vs / "fc2", 4096, 4096, Default::default()))
-        .add_fn(|x| x.relu())
-        .add_fn_t(|x, train| if train { x.dropout(0.5, train) } else { x.shallow_clone() })
-        .add(nn::linear(vs / "fc3", 4096, num_classes, Default::default()));
-
-    nn::func_t(move |xs, train| {
-        let out = xs
-            .apply_t(&features, train)
-            .flatten(1, -1);  // flatten dinamico → 512 per 32×32
-        classifier.forward_t(&out, train)
-    })
-}
-
-fn conv_block(vs: &nn::Path, in_c: i64, out_c: i64, num_convs: usize) -> nn::SequentialT {
-    let mut seq = nn::seq_t();
-    let mut input = in_c;
-    for i in 0..num_convs {
-        let conv_cfg = nn::ConvConfig {
-            padding: 1,
-            ..Default::default()
-        };
-        seq = seq
-            .add(nn::conv2d(&(vs / format!("conv{}", i)), input, out_c, 3, conv_cfg))
-            .add_fn(|x| x.relu());
-        input = out_c;
+impl<'a> Vgg16Stock32<'a> {
+    /// Crea il modello: num_classes personalizzabile.
+    /// Se vuoi caricare pesi pre-addestrati (solo quando num_classes==1000),
+    /// puoi fare `vs.load("vgg16.ot")?` subito dopo la costruzione.
+    pub fn new(vs: &'a nn::Path<'a>, num_classes: i64) -> Self {
+        let inner = tch::vision::vgg::vgg16(vs, num_classes);
+        Self { inner }
     }
-    seq
 }
 
-
-pub fn init_weights(vs: &nn::VarStore) {
-    no_grad(|| {
-        for (name, mut tensor) in vs.variables() {
-            if name.ends_with("weight") {
-                let std = (2.0 / tensor.size()[1] as f64).sqrt();
-                let new_tensor = Tensor::empty_like(&tensor).uniform_(-std, std);
-                let _ = tensor.copy_(&new_tensor);
-            } else if name.ends_with("bias") {
-                let new_tensor = Tensor::zeros_like(&tensor);
-                let _ = tensor.copy_(&new_tensor);
-            }
-        }
-    });
+impl<'a> nn::ModuleT for Vgg16Stock32<'a> {
+    fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
+        // xs atteso: [N, 3, 32, 32], float32 (preferibilmente normalizzato)
+        self.inner.forward_t(xs, train)
+    }
 }
