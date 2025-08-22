@@ -1,7 +1,6 @@
 #include "ResNet18.h"
 
 #include <memory>
-#include <stdexcept>
 #include <vector>
 
 #include <torch/torch.h>
