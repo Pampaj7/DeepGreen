@@ -9,8 +9,7 @@
 #include "cnn_setup.h"
 #include "dataset_transforms.h"
 #include "utils.h"
-#include "model/ResNet18.h"
-#include "model/ResNet18_native.h"
+#include "model/resnet18.h"
 
 void print_num_parameters(torch::nn::Module& model) {
     std::size_t total_params = 0;
@@ -98,21 +97,18 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
                     .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
 
 
-    std::cout << "LEIMAO MODEL" << std::endl;
-    // model
-    std::shared_ptr<ResNet18> model = build_resnet18(/*num_classes = */ 100);
-    std::cout << *model << std::endl;
-    print_num_parameters(*model);
-    print_trainable_parameters(*model);
-    model->to(device);
-
-
     // loss
     torch::nn::CrossEntropyLoss criterion{};
 
+    // model
+    models::ResNet18 resnet18(100);
+    std::cout << *resnet18 << std::endl;
+    print_num_parameters(*resnet18);
+    print_trainable_parameters(*resnet18);
+    resnet18->to(device);
 
     // optimizer
-    torch::optim::Adam optimizer(model->parameters(/* recurse = */ true), torch::optim::AdamOptions(1e-4));
+    torch::optim::Adam optimizer(resnet18->parameters(/* recurse = */ true), torch::optim::AdamOptions(1e-4));
 
 
     // tracker
@@ -126,41 +122,14 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
             numberOfEpochs);
 
         // TODO: tracker.start()
-        CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
+        CNNFunction::train(epoch, resnet18, device, *train_loader, optimizer, train_dataset_size, criterion);
         //TODO: tracker.stop()
 
         // TODO: tracker.start()
-        CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
+        CNNFunction::test(resnet18, device, *test_loader, test_dataset_size, criterion);
         //TODO: tracker.stop()
     }
 
-
-
-
-
-    std::cout << "LIBTORCH MODEL" << std::endl;
-    // model
-    vision::models::ResNet18 native_model(100);
-    std::cout << *native_model << std::endl;
-    print_num_parameters(*native_model);
-    print_trainable_parameters(*native_model);
-    native_model->to(device);
-
-
-    // optimizer
-    torch::optim::Adam native_optimizer(native_model->parameters(/* recurse = */ true), torch::optim::AdamOptions(1e-4));
-
-
-
-    // training loop
-    for (uint32_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
-        std::printf("Epoch {%u}/{%d}\n",
-            epoch,
-            numberOfEpochs);
-
-        CNNFunction::train(epoch, native_model, device, *train_loader, native_optimizer, train_dataset_size, criterion);
-        CNNFunction::test(native_model, device, *test_loader, test_dataset_size, criterion);
-    }
 }
 
 
