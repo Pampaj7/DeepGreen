@@ -121,10 +121,8 @@ add_executable(resnet18_native
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
-        src/model/ResNet18.cpp
-        src/model/ResNet18.h
-        src/model/ResNet18_native.cpp
-        src/model/ResNet18_native.h
+        src/model/resnet18.cpp
+        src/model/resnet18.h
 )
 add_executable(vgg16_native
         src/train/vgg16/train_native.cpp
