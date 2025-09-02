@@ -10,7 +10,7 @@ torch::jit::script::Module CNNSetup::load_model(const std::string& model_path)
     }
     catch (const c10::Error& e) {
         std::cerr << "error loading the model\n";
-        throw new std::runtime_error(e.msg());
+        throw std::runtime_error(e.msg());
     }
     std::cout << model_path << " loaded\n";
     return module;
