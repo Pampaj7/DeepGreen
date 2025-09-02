@@ -25,24 +25,26 @@ if(CUDA_ENABLED) # Using GPU
 
     if (WIN32)
         # Configure CUDA
-        set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+        set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+        set(CMAKE_CUDA_COMPILER "${CUDAToolkit_ROOT}/bin/nvcc.exe")
 
         # Configure LibTorch
         set(LIBTORCH_SPEC "libtorch_win32_cuda")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
     elseif (LINUX)
         # Configure CUDA
-        set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
-        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc") # only needed when run cmake remotely
+        set(CUDAToolkit_ROOT  "/home/marcopaglio/tools/cuda-12.8")
+        set(CMAKE_CUDA_COMPILER "${CUDAToolkit_ROOT}/bin/nvcc") # only needed when run cmake remotely
 
         # Configure LibTorch
         set(LIBTORCH_SPEC "libtorch_linux_cuda")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcu128.zip")
     endif ()
 
+    find_package(CUDAToolkit REQUIRED)
     # Add path to nvxt3 (cuda's profiler) which Libtorch (v.2.7.0) cannot be found.
     # Important: insert before "find_package(Torch REQUIRED)"
-    set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
+    set(NVTX3_INCLUDE_DIR "${CUDAToolkit_ROOT}/include/nvtx3")
     include_directories(${NVTX3_INCLUDE_DIR})
     enable_language(CUDA)
 else () # Using CPU
