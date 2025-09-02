@@ -29,8 +29,13 @@ if(CUDA_ENABLED) # Using GPU
         set(CMAKE_CUDA_COMPILER "${CUDAToolkit_ROOT}/bin/nvcc.exe")
 
         # Configure LibTorch
-        set(LIBTORCH_SPEC "libtorch_win32_cuda")
-        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            set(LIBTORCH_SPEC "libtorch_win32_cuda_debug")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
+        elseif (CMAKE_BUILD_TYPE MATCHES "Release")
+            set(LIBTORCH_SPEC "libtorch_win32_cuda_release")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-2.7.0%2Bcu128.zip")
+        endif ()
     elseif (LINUX)
         # Configure CUDA
         set(CUDAToolkit_ROOT  "/home/marcopaglio/tools/cuda-12.8")
@@ -50,8 +55,13 @@ if(CUDA_ENABLED) # Using GPU
 else () # Using CPU
     # Configure LibTorch
     if (WIN32)
-        set(LIBTORCH_SPEC "libtorch_win32_cpu")
-        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-debug-2.7.0%2Bcpu.zip")
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            set(LIBTORCH_SPEC "libtorch_win32_cpu_debug")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-debug-2.7.0%2Bcpu.zip")
+        elseif (CMAKE_BUILD_TYPE MATCHES "Release") #TODO: not tested
+            set(LIBTORCH_SPEC "libtorch_win32_cpu_release")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.7.0%2Bcpu.zip")
+        endif ()
     elseif (LINUX)
         set(LIBTORCH_SPEC "libtorch_linux_cpu")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcpu.zip")
@@ -63,6 +73,7 @@ include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
 
 # Download nlohmann JSON Reader
+# TODO:Il fetch usando più modalità (Debug, Release, etc) genera un errore nel load del cmake della modalità più lenta, a meno che non fosse già stato salvato
 set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/json_reader")
 FetchContent_Declare(
         json
