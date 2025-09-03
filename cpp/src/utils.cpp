@@ -19,6 +19,12 @@ std::string Utils::join_paths(std::string head, const std::string& tail)
     return head;
 }
 
+void Utils::removeFileIfExists(const std::string& fullPathName)
+{
+    if (std::filesystem::exists(fullPathName) && !std::filesystem::is_directory(fullPathName))
+        std::filesystem::remove(fullPathName);
+}
+
 std::string Utils::makeWindowsLongPathIfNeeded(const std::string& input_path) {
 #ifdef _WIN32
     // backslash convertion

@@ -140,6 +140,8 @@ add_executable(resnet18_fashion
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(resnet18_cifar100
         src/train/resnet18/train_cifar100.cpp
@@ -154,6 +156,8 @@ add_executable(resnet18_cifar100
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(resnet18_tiny
         src/train/resnet18/train_tiny.cpp
@@ -168,6 +172,8 @@ add_executable(resnet18_tiny
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_fashion
         src/train/vgg16/train_fashion.cpp
@@ -182,6 +188,8 @@ add_executable(vgg16_fashion
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_cifar100
         src/train/vgg16/train_cifar100.cpp
@@ -196,6 +204,8 @@ add_executable(vgg16_cifar100
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_tiny
         src/train/vgg16/train_tiny.cpp
@@ -210,6 +220,8 @@ add_executable(vgg16_tiny
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 set(TARGETS
         resnet18_fashion
