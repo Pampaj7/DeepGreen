@@ -13,6 +13,11 @@ find_package(OpenCV REQUIRED)
 MESSAGE(STATUS "OpenCV found.")
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+MESSAGE(STATUS "Python3 found.")
+include_directories(${Python3_INCLUDE_DIRS})
+set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
+
 
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
@@ -214,11 +219,14 @@ set(TARGETS
         vgg16_cifar100
         vgg16_tiny
 )
-message(STATUS ${CMAKE_SOURCE_DIR})
+
 foreach (target ${TARGETS})
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-    target_link_libraries(${target} ${OpenCV_LIBS})
+    target_link_libraries(${target}
+            ${OpenCV_LIBS}
+            ${Python3_LIBRARIES}
+    )
 
     target_link_libraries(${target} nlohmann_json::nlohmann_json)
 
@@ -240,12 +248,32 @@ foreach (target ${TARGETS})
                 CUDA_SEPARABLE_COMPILATION ON
         )
     endif ()
+
+    # Copy Python script in build folder
+    add_custom_command(
+            TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            ${PY_SCRIPT_PATH}/tracker/tracker_control.py
+            ${CMAKE_BINARY_DIR}/tracker_control.py
+    )
+    if (WIN32)
+        add_custom_command(
+                TARGET ${target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                ${PY_SCRIPT_PATH}/tracker/win_patch_codecarbon.py
+                ${CMAKE_BINARY_DIR}/win_patch_codecarbon.py
+        )
+    endif ()
 endforeach ()
 
 
 add_compile_definitions(PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
-
+# Windows requires to know where Python is located
+if (WIN32)
+    get_filename_component(PYTHON_DIR "${Python3_EXECUTABLE}" DIRECTORY)
+    add_compile_definitions(PYTHON_HOME=L"${PYTHON_DIR}")
+endif ()
 
 
 ### PYTHON SCRIPTS ###
@@ -253,13 +281,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
 include(RunPythonWithAutoInstall)
 include(GenerateModel)
 include(DownloadAndConvertDataset)
+include(InstallCodecarbon)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# Check if codecarbon is importable, or install it
+install_codecarbon()
 
 # Generate ResNet-18 and VGG-16 models for each dataset
 set(RESNET18_NAME "ResNet-18")
 set(VGG16_NAME "VGG-16")
-set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
 # Fashion-MNIST
 set(FASHION_MNIST_NAME "Fashion-MNIST")
