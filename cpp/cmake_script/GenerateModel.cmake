@@ -19,7 +19,7 @@ function(export_model_for_dataset MODEL_NAME DATASET_NAME NUM_CLASSES)
     set(OUTPUT_FILENAME "${MODEL_FILENAME}_${DATASET_FILENAME}")
 
     run_python_script_with_auto_install(
-            SCRIPT "${PY_SCRIPT_PATH}/${MODEL_FILENAME}.py"
+            SCRIPT "${PY_SCRIPT_PATH}/models/${MODEL_FILENAME}.py"
             ARGS ${OUTPUT_FILENAME} ${NUM_CLASSES}
             RESULT_VARIABLE export_success
             ERROR_VARIABLE export_error
