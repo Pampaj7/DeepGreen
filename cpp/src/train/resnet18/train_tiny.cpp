@@ -18,12 +18,15 @@ constexpr int32_t kTestBatchSize = 128;
 // The number of epochs to train.
 constexpr int32_t kNumberOfEpochs = 30;
 
+// File name in which to save results
+const std::string outputFileName = "resnet18_tiny";
+
 
 
 int main() {
     try {
-        train_resnet18<TinyImageNet200>(kTinyRelativePath, kTinyClassesJson, kResnetTinyFilename,
-            kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+        train_resnet18<TinyImageNet200>(outputFileName, kTinyRelativePath, kTinyClassesJson,
+            kResnetTinyFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {
