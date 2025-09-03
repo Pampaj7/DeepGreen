@@ -18,12 +18,15 @@ constexpr int32_t kTestBatchSize = 128;
 // The number of epochs to train.
 constexpr int32_t kNumberOfEpochs = 30;
 
+// File name in which to save results
+const std::string outputFileName = "vgg16_fashion";
+
 
 
 int main() {
     try {
-        train_vgg16<FashionMNIST>(kFashionRootRelativePath, kFashionClassesJson, kVggFashionFilename,
-            kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+        train_vgg16<FashionMNIST>(outputFileName, kFashionRootRelativePath, kFashionClassesJson,
+            kVggFashionFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {

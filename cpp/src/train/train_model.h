@@ -1,21 +1,18 @@
 #ifndef TRAIN_MODEL_H
 #define TRAIN_MODEL_H
-#include <Python.h> // to be placed before any other standard library to avoid conflicts
 #include <iostream>
 #include <torch/torch.h>
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 #include "dataset/ImageFolder.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "dataset_transforms.h"
 #include "utils.h"
+#include "python/PythonTracker.h"
 
 
 template <typename Dataset>
-void train_model(const char* dataRootRelativePath, const char* classesJson,
+void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
     const char* model_dataset_filename, int32_t modelMinImageSize,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
@@ -100,26 +97,15 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
     torch::optim::Adam optimizer(parameters, torch::optim::AdamOptions(1e-4));
 
 
-    // tracker
-    // TODO: remove file before using
-    // TODO: here create tracker
-#ifdef _WIN32
-    // Windows requires to specify Python Home into DDL directories in order to resolve:
-    // ImportError: DLL load failed while importing _psutil_windows
-    std::wstring pythonHome = PYTHON_HOME;
-    SetDllDirectoryW(pythonHome.c_str());
-#endif
-    Py_Initialize();
-#ifdef _WIN32
-    PyRun_SimpleString("import win_patch_codecarbon");
-#endif
-#ifdef __linux__
-        // Linux requires to add cwd (where Py script are located) into Python sys.path
-        PyRun_SimpleString("import sys");
-        PyRun_SimpleString("sys.path.append('.')");
-#endif
-    PyRun_SimpleString("from tracker_control import Tracker;");
+    // Remove existing emission file
+    const std::string outputDir = Utils::join_paths(PROJECT_SOURCE_DIR, "emissions");
+    const std::string trainOutputFile = outputFileName + "_train.csv";
+    Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
+    const std::string testOutputFile = outputFileName + "_test.csv";
+    Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
 
+    // tracker
+    PythonTracker::initializeTracker();
 
     // training loop
     for (uint32_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
@@ -127,20 +113,16 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
             epoch,
             numberOfEpochs);
 
-        // TODO: tracker.start()
-        PyRun_SimpleString("Tracker.start_tracker('output', 'emissions.csv')");
+        PythonTracker::startTracker(outputDir, trainOutputFile);
         CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
-        //TODO: tracker.stop()
-        PyRun_SimpleString("Tracker.stop_tracker()");
+        PythonTracker::stopTracker();
 
-        // TODO: tracker.start()
-        PyRun_SimpleString("Tracker.start_tracker('output', 'emissions.csv')");
+        PythonTracker::startTracker(outputDir, testOutputFile);
         CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
-        //TODO: tracker.stop()
-        PyRun_SimpleString("Tracker.stop_tracker()");
+        PythonTracker::stopTracker();
     }
 
-    Py_Finalize();
+    PythonTracker::finalizeTracker();
 }
 
 
