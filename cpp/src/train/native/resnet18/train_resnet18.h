@@ -9,7 +9,10 @@
 #include "cnn_setup.h"
 #include "dataset_transforms.h"
 #include "utils.h"
-#include "model/VGG16_native.h"
+#include "model/resnet18.h"
+
+// Minimum size required by ResNet-18 for the feature vector not to cancel out
+constexpr int32_t kResNetMinImageSize = 28;
 
 void print_num_parameters(torch::nn::Module& model) {
     std::size_t total_params = 0;
@@ -30,12 +33,10 @@ void print_trainable_parameters(torch::nn::Module& model) {
               << trainable_params << std::endl;
 }
 
-
 template <typename Dataset>
-void train_native(const char* dataRootRelativePath, const char* classesJson,
-    int32_t modelMinImageSize,
+void train_resnet18(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
-{
+{ //TODO: use outputFileName
     // device (CPU or GPU)
     torch::Device device = CNNSetup::get_device_available();
 
@@ -45,11 +46,11 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
     {
         std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
     };
-    if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize) // resize only if necessary
+    if (Dataset::getImageHeight() < kResNetMinImageSize || Dataset::getImageWidth() < kResNetMinImageSize) // resize only if necessary
         transform_list.push_back(
             std::make_shared<DatasetTransforms::ResizeTo>(
-                Dataset::getImageHeight() < modelMinImageSize ? modelMinImageSize : Dataset::getImageHeight(),
-                Dataset::getImageWidth() < modelMinImageSize ? modelMinImageSize : Dataset::getImageWidth()
+                Dataset::getImageHeight() < kResNetMinImageSize ? kResNetMinImageSize : Dataset::getImageHeight(),
+                Dataset::getImageWidth() < kResNetMinImageSize ? kResNetMinImageSize : Dataset::getImageWidth()
             )
         );
     if (Dataset::isGrayscale())
@@ -98,33 +99,22 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
                     .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
 
 
-
-    std::cout << "LIBTORCH MODEL" << std::endl;
-    // model
-    vision::models::VGG16 native_model(100, false);
-    native_model->apply(
-        [](torch::nn::Module& m) {
-            if (auto* conv = m.as<torch::nn::Conv2d>()) {
-            torch::nn::init::kaiming_normal_(conv->weight);
-            torch::nn::init::zeros_(conv->bias);
-            }
-            else if (auto* linear = m.as<torch::nn::Linear>()) {
-                torch::nn::init::kaiming_normal_(linear->weight);
-                torch::nn::init::zeros_(linear->bias);
-            }
-        }
-    );
-    std::cout << *native_model << std::endl;
-    print_num_parameters(*native_model);
-    print_trainable_parameters(*native_model);
-    native_model->to(device);
-
     // loss
     torch::nn::CrossEntropyLoss criterion{};
 
-    // optimizer
-    torch::optim::Adam native_optimizer(native_model->parameters(/* recurse = */ true), torch::optim::AdamOptions(1e-4));
+    // model
+    models::ResNet18 resnet18(100);
+    std::cout << *resnet18 << std::endl;
+    print_num_parameters(*resnet18);
+    print_trainable_parameters(*resnet18);
+    resnet18->to(device);
 
+    // optimizer
+    torch::optim::Adam optimizer(resnet18->parameters(/* recurse = */ true), torch::optim::AdamOptions(1e-4));
+
+
+    // tracker
+    // TODO: here create tracker
 
 
     // training loop
@@ -133,9 +123,15 @@ void train_native(const char* dataRootRelativePath, const char* classesJson,
             epoch,
             numberOfEpochs);
 
-        CNNFunction::train(epoch, native_model, device, *train_loader, native_optimizer, train_dataset_size, criterion);
-        CNNFunction::test(native_model, device, *test_loader, test_dataset_size, criterion);
+        // TODO: tracker.start()
+        CNNFunction::train(epoch, resnet18, device, *train_loader, optimizer, train_dataset_size, criterion);
+        //TODO: tracker.stop()
+
+        // TODO: tracker.start()
+        CNNFunction::test(resnet18, device, *test_loader, test_dataset_size, criterion);
+        //TODO: tracker.stop()
     }
+
 }
 
 
