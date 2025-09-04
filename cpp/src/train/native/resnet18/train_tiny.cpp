@@ -1,12 +1,12 @@
 #include <iostream>
 
-#include "dataset/CIFAR100.h"
+#include "dataset/TinyImageNet200.h"
 #include "train/native/resnet18/train_resnet18.h"
 
 
-// Where to find the CIFAR-100 dataset.
-const char* kCifarRelativePath = "../data/cifar100_png";
-const char* kCifarClassesJson = "classes.json";
+// Where to find the Tiny ImageNet-200 dataset.
+const char* kTinyRelativePath = "../data/tiny_imagenet_png";
+const char* kTinyClassesJson = "classes.json";
 
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
@@ -16,15 +16,14 @@ constexpr int32_t kTestBatchSize = 128;
 constexpr int32_t kNumberOfEpochs = 30;
 
 // File name in which to save results
-const std::string outputFileName = "resnet18_cifar100";
+const std::string outputFileName = "resnet18_tiny";
 
 
 
 int main() {
     try {
-        train_resnet18<CIFAR100>(outputFileName, kCifarRelativePath, kCifarClassesJson,
+        train_resnet18<TinyImageNet200>(outputFileName, kTinyRelativePath, kTinyClassesJson,
             kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
-
 
     }
     catch (const std::exception& ex) {

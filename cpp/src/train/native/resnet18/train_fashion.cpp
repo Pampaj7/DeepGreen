@@ -1,12 +1,12 @@
 #include <iostream>
 
-#include "dataset/CIFAR100.h"
+#include "dataset/FashionMNIST.h"
 #include "train/native/resnet18/train_resnet18.h"
 
 
-// Where to find the CIFAR-100 dataset.
-const char* kCifarRelativePath = "../data/cifar100_png";
-const char* kCifarClassesJson = "classes.json";
+// Where to find the Fashion-MNIST dataset.
+const char* kFashionRelativePath = "../data/fashion_mnist_png";
+const char* kFashionClassesJson = "classes.json";
 
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
@@ -16,15 +16,14 @@ constexpr int32_t kTestBatchSize = 128;
 constexpr int32_t kNumberOfEpochs = 30;
 
 // File name in which to save results
-const std::string outputFileName = "resnet18_cifar100";
+const std::string outputFileName = "resnet18_fashion";
 
 
 
 int main() {
     try {
-        train_resnet18<CIFAR100>(outputFileName, kCifarRelativePath, kCifarClassesJson,
+        train_resnet18<FashionMNIST>(outputFileName, kFashionRelativePath, kFashionClassesJson,
             kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
-
 
     }
     catch (const std::exception& ex) {
