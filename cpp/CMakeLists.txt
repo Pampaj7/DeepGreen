@@ -127,7 +127,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
-add_executable(resnet18_fashion_native
+# Training with native models
+add_executable(resnet18_fashion
         src/train/native/resnet18/train_fashion.cpp
         src/train/native/resnet18/train_resnet18.h
         src/train/native/train_model.h
@@ -145,7 +146,7 @@ add_executable(resnet18_fashion_native
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(resnet18_cifar100_native
+add_executable(resnet18_cifar100
         src/train/native/resnet18/train_cifar100.cpp
         src/train/native/resnet18/train_resnet18.h
         src/train/native/train_model.h
@@ -163,7 +164,7 @@ add_executable(resnet18_cifar100_native
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(resnet18_tiny_native
+add_executable(resnet18_tiny
         src/train/native/resnet18/train_tiny.cpp
         src/train/native/resnet18/train_resnet18.h
         src/train/native/train_model.h
@@ -181,7 +182,7 @@ add_executable(resnet18_tiny_native
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(vgg16_fashion_native
+add_executable(vgg16_fashion
         src/train/native/vgg16/train_fashion.cpp
         src/train/native/vgg16/train_vgg16.h
         src/train/native/train_model.h
@@ -199,7 +200,7 @@ add_executable(vgg16_fashion_native
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(vgg16_cifar100_native
+add_executable(vgg16_cifar100
         src/train/native/vgg16/train_cifar100.cpp
         src/train/native/vgg16/train_vgg16.h
         src/train/native/train_model.h
@@ -217,7 +218,7 @@ add_executable(vgg16_cifar100_native
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(vgg16_tiny_native
+add_executable(vgg16_tiny
         src/train/native/vgg16/train_tiny.cpp
         src/train/native/vgg16/train_vgg16.h
         src/train/native/train_model.h
@@ -236,115 +237,116 @@ add_executable(vgg16_tiny_native
         src/python/PythonTracker.h
 )
 
-add_executable(resnet18_fashion_imported
-        src/train/imported/resnet18/train_fashion.cpp
-        src/train/imported/resnet18/train_resnet18.h
-        src/train/imported/train_model.h
-        src/dataset/ImageFolder.h
-        src/dataset/FashionMNIST.h
-        src/cnn_function.h
-        src/cnn_setup.cpp
-        src/cnn_setup.h
-        src/dataset_transforms.cpp
-        src/dataset_transforms.h
-        src/utils.cpp
-        src/utils.h
-        src/python/PythonTracker.cpp
-        src/python/PythonTracker.h
-)
-add_executable(resnet18_cifar100_imported
-        src/train/imported/resnet18/train_cifar100.cpp
-        src/train/imported/resnet18/train_resnet18.h
-        src/train/imported/train_model.h
-        src/dataset/ImageFolder.h
-        src/dataset/CIFAR100.h
-        src/cnn_function.h
-        src/cnn_setup.cpp
-        src/cnn_setup.h
-        src/dataset_transforms.cpp
-        src/dataset_transforms.h
-        src/utils.cpp
-        src/utils.h
-        src/python/PythonTracker.cpp
-        src/python/PythonTracker.h
-)
-add_executable(resnet18_tiny_imported
-        src/train/imported/resnet18/train_tiny.cpp
-        src/train/imported/resnet18/train_resnet18.h
-        src/train/imported/train_model.h
-        src/dataset/ImageFolder.h
-        src/dataset/TinyImageNet200.h
-        src/cnn_function.h
-        src/cnn_setup.cpp
-        src/cnn_setup.h
-        src/dataset_transforms.cpp
-        src/dataset_transforms.h
-        src/utils.cpp
-        src/utils.h
-        src/python/PythonTracker.cpp
-        src/python/PythonTracker.h
-)
-add_executable(vgg16_fashion_imported
-        src/train/imported/vgg16/train_fashion.cpp
-        src/train/imported/vgg16/train_vgg16.h
-        src/train/imported/train_model.h
-        src/dataset/ImageFolder.h
-        src/dataset/FashionMNIST.h
-        src/cnn_function.h
-        src/cnn_setup.cpp
-        src/cnn_setup.h
-        src/dataset_transforms.cpp
-        src/dataset_transforms.h
-        src/utils.cpp
-        src/utils.h
-        src/python/PythonTracker.cpp
-        src/python/PythonTracker.h
-)
-add_executable(vgg16_cifar100_imported
-        src/train/imported/vgg16/train_cifar100.cpp
-        src/train/imported/vgg16/train_vgg16.h
-        src/train/imported/train_model.h
-        src/dataset/ImageFolder.h
-        src/dataset/CIFAR100.h
-        src/cnn_function.h
-        src/cnn_setup.cpp
-        src/cnn_setup.h
-        src/dataset_transforms.cpp
-        src/dataset_transforms.h
-        src/utils.cpp
-        src/utils.h
-        src/python/PythonTracker.cpp
-        src/python/PythonTracker.h
-)
-add_executable(vgg16_tiny_imported
-        src/train/imported/vgg16/train_tiny.cpp
-        src/train/imported/vgg16/train_vgg16.h
-        src/train/imported/train_model.h
-        src/dataset/ImageFolder.h
-        src/dataset/TinyImageNet200.h
-        src/cnn_function.h
-        src/cnn_setup.cpp
-        src/cnn_setup.h
-        src/dataset_transforms.cpp
-        src/dataset_transforms.h
-        src/utils.cpp
-        src/utils.h
-        src/python/PythonTracker.cpp
-        src/python/PythonTracker.h
-)
+# Training with TorchScript models: NO MORE USED
+#add_executable(resnet18_fashion_imported
+#        src/train/imported/resnet18/train_fashion.cpp
+#        src/train/imported/resnet18/train_resnet18.h
+#        src/train/imported/train_model.h
+#        src/dataset/ImageFolder.h
+#        src/dataset/FashionMNIST.h
+#        src/cnn_function.h
+#        src/cnn_setup.cpp
+#        src/cnn_setup.h
+#        src/dataset_transforms.cpp
+#        src/dataset_transforms.h
+#        src/utils.cpp
+#        src/utils.h
+#        src/python/PythonTracker.cpp
+#        src/python/PythonTracker.h
+#)
+#add_executable(resnet18_cifar100_imported
+#        src/train/imported/resnet18/train_cifar100.cpp
+#        src/train/imported/resnet18/train_resnet18.h
+#        src/train/imported/train_model.h
+#        src/dataset/ImageFolder.h
+#        src/dataset/CIFAR100.h
+#        src/cnn_function.h
+#        src/cnn_setup.cpp
+#        src/cnn_setup.h
+#        src/dataset_transforms.cpp
+#        src/dataset_transforms.h
+#        src/utils.cpp
+#        src/utils.h
+#        src/python/PythonTracker.cpp
+#        src/python/PythonTracker.h
+#)
+#add_executable(resnet18_tiny_imported
+#        src/train/imported/resnet18/train_tiny.cpp
+#        src/train/imported/resnet18/train_resnet18.h
+#        src/train/imported/train_model.h
+#        src/dataset/ImageFolder.h
+#        src/dataset/TinyImageNet200.h
+#        src/cnn_function.h
+#        src/cnn_setup.cpp
+#        src/cnn_setup.h
+#        src/dataset_transforms.cpp
+#        src/dataset_transforms.h
+#        src/utils.cpp
+#        src/utils.h
+#        src/python/PythonTracker.cpp
+#        src/python/PythonTracker.h
+#)
+#add_executable(vgg16_fashion_imported
+#        src/train/imported/vgg16/train_fashion.cpp
+#        src/train/imported/vgg16/train_vgg16.h
+#        src/train/imported/train_model.h
+#        src/dataset/ImageFolder.h
+#        src/dataset/FashionMNIST.h
+#        src/cnn_function.h
+#        src/cnn_setup.cpp
+#        src/cnn_setup.h
+#        src/dataset_transforms.cpp
+#        src/dataset_transforms.h
+#        src/utils.cpp
+#        src/utils.h
+#        src/python/PythonTracker.cpp
+#        src/python/PythonTracker.h
+#)
+#add_executable(vgg16_cifar100_imported
+#        src/train/imported/vgg16/train_cifar100.cpp
+#        src/train/imported/vgg16/train_vgg16.h
+#        src/train/imported/train_model.h
+#        src/dataset/ImageFolder.h
+#        src/dataset/CIFAR100.h
+#        src/cnn_function.h
+#        src/cnn_setup.cpp
+#        src/cnn_setup.h
+#        src/dataset_transforms.cpp
+#        src/dataset_transforms.h
+#        src/utils.cpp
+#        src/utils.h
+#        src/python/PythonTracker.cpp
+#        src/python/PythonTracker.h
+#)
+#add_executable(vgg16_tiny_imported
+#        src/train/imported/vgg16/train_tiny.cpp
+#        src/train/imported/vgg16/train_vgg16.h
+#        src/train/imported/train_model.h
+#        src/dataset/ImageFolder.h
+#        src/dataset/TinyImageNet200.h
+#        src/cnn_function.h
+#        src/cnn_setup.cpp
+#        src/cnn_setup.h
+#        src/dataset_transforms.cpp
+#        src/dataset_transforms.h
+#        src/utils.cpp
+#        src/utils.h
+#        src/python/PythonTracker.cpp
+#        src/python/PythonTracker.h
+#)
 set(TARGETS
-        resnet18_fashion_native
-        resnet18_cifar100_native
-        resnet18_tiny_native
-        vgg16_fashion_native
-        vgg16_cifar100_native
-        vgg16_tiny_native
-        resnet18_fashion_imported
-        resnet18_cifar100_imported
-        resnet18_tiny_imported
-        vgg16_fashion_imported
-        vgg16_cifar100_imported
-        vgg16_tiny_imported
+        resnet18_fashion
+        resnet18_cifar100
+        resnet18_tiny
+        vgg16_fashion
+        vgg16_cifar100
+        vgg16_tiny
+#        resnet18_fashion_imported
+#        resnet18_cifar100_imported
+#        resnet18_tiny_imported
+#        vgg16_fashion_imported
+#        vgg16_cifar100_imported
+#        vgg16_tiny_imported
 )
 
 foreach (target ${TARGETS})
@@ -406,24 +408,16 @@ endif ()
 ### PYTHON SCRIPTS ###
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
 include(RunPythonWithAutoInstall)
-include(GenerateModel)
-include(DownloadAndConvertDataset)
-include(InstallCodecarbon)
 
 # Check if codecarbon is importable, or install it
+include(InstallCodecarbon)
 install_codecarbon()
 
-# Generate ResNet-18 and VGG-16 models for each dataset
-set(RESNET18_NAME "ResNet-18")
-set(VGG16_NAME "VGG-16")
+# Download and convert datasets to png-datasets
+include(DownloadAndConvertDataset)
 
 # Fashion-MNIST
 set(FASHION_MNIST_NAME "Fashion-MNIST")
-set(FASHION_MNIST_NUM_CLASSES 10)
-export_model_for_dataset(${RESNET18_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
-export_model_for_dataset(${VGG16_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
-add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
-
 option(DOWNLOAD_AND_CONVERT_FASHIONMNIST "Download the Fashion-MNIST dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_FASHIONMNIST)
     download_and_convert_dataset(${FASHION_MNIST_NAME} "fashion_mnist_png" "download_convert_fashion")
@@ -431,11 +425,6 @@ endif()
 
 # Cifar100
 set(CIFAR100_NAME "CIFAR-100")
-set(CIFAR100_NUM_CLASSES 100)
-export_model_for_dataset(${RESNET18_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
-export_model_for_dataset(${VGG16_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
-add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
-
 option(DOWNLOAD_AND_CONVERT_CIFAR100 "Download the CIFAR-100 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_CIFAR100)
     download_and_convert_dataset(${CIFAR100_NAME} "cifar100_png" "download_convert_cifar100")
@@ -443,12 +432,28 @@ endif()
 
 # Tiny ImageNet-200
 set(TINY_IMAGENET200_NAME "Tiny ImageNet-200")
-set(TINY_IMAGENET200_NUM_CLASSES 200)
-export_model_for_dataset(${RESNET18_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
-export_model_for_dataset(${VGG16_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
-add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
-
 option(DOWNLOAD_AND_CONVERT_TINYIMAGENET200 "Download the Tiny ImageNet-200 dataset from the internet and convert to PNGs" OFF)
 if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
     download_and_convert_dataset(${TINY_IMAGENET200_NAME} "tiny_imagenet_png" "download_convert_tinyimage")
 endif()
+
+## Generate models for each dataset
+#include(GenerateModel)
+#set(FASHION_MNIST_NUM_CLASSES 10)
+#add_compile_definitions(FASHION_MNIST_NUM_CLASSES="${FASHION_MNIST_NUM_CLASSES}")
+#set(CIFAR100_NUM_CLASSES 100)
+#add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
+#set(TINY_IMAGENET200_NUM_CLASSES 200)
+#add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
+#
+## ResNet-18
+#set(RESNET18_NAME "ResNet-18")
+#export_model_for_dataset(${RESNET18_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
+#export_model_for_dataset(${RESNET18_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
+#export_model_for_dataset(${RESNET18_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+#
+## VGG-16
+#set(VGG16_NAME "VGG-16")
+#export_model_for_dataset(${VGG16_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
+#export_model_for_dataset(${VGG16_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
+#export_model_for_dataset(${VGG16_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
