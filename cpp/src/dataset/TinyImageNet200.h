@@ -8,6 +8,7 @@ class TinyImageNet200 final : public DatasetInfo<TinyImageNet200> {
     friend class DatasetInfo<TinyImageNet200>;
 
 private:
+    static constexpr uint32_t num_classes = 200;
     static constexpr uint32_t num_train_samples = 100000;
     static constexpr uint32_t num_test_samples = 10000;
     static constexpr uint32_t image_height = 64;
@@ -19,7 +20,6 @@ private:
     static constexpr auto dataset_name = "Tiny ImageNet-200";
     static constexpr auto train_folder = "train";
     static constexpr auto test_folder = "val";
-    static constexpr auto num_classes = TINY_IMAGENET200_NUM_CLASSES;
 };
 
 
