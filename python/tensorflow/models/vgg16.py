@@ -39,6 +39,31 @@ def get_loaders(dataset_path, img_size=(32, 32), batch_size=128):
 
     return train_generator, test_generator, len(train_generator.class_indices)
 
+from tf_keras import callbacks
+
+class PercentProgbar(callbacks.ProgbarLogger):
+    def __init__(self):
+        super().__init__(count_mode="steps")  # <-- serve per abilitare la barra
+
+    def on_epoch_end(self, epoch, logs=None):
+        if logs is not None:
+            if "accuracy" in logs:
+                logs["accuracy"] *= 100
+            if "val_accuracy" in logs:
+                logs["val_accuracy"] *= 100
+        super().on_epoch_end(epoch, logs)
+
+    def on_train_batch_end(self, batch, logs=None):
+        if logs and "accuracy" in logs:
+            logs["accuracy"] *= 100
+        super().on_train_batch_end(batch, logs)
+
+    def on_test_batch_end(self, batch, logs=None):
+        if logs and "accuracy" in logs:
+            logs["accuracy"] *= 100
+        super().on_test_batch_end(batch, logs)
+
+
 
 def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint_path, img_size=(32, 32), epochs=30, batch_size=128):
     train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size)
@@ -52,25 +77,34 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
     for epoch in range(1, epochs + 1):
         # Tracker for training
-        tracker_train = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=f"{output_file_train}_epoch{epoch}.csv")
+        tracker_train = EmissionsTracker(
+            output_dir="python/tensorflow/emissions/",
+            output_file=f"{output_file_train}_epoch{epoch}.csv",
+            save_to_file=True,
+            allow_multiple_runs=True
+        )
         tracker_train.start()
 
         model.fit(
             train_loader,
             validation_data=test_loader,
             epochs=1,
-            initial_epoch=epoch - 1
+            steps_per_epoch=len(train_loader),   # <-- garantisce progress bar stabile
+            verbose=1,                           # <-- forza la barra
+            callbacks=[PercentProgbar()]
         )
+
 
         tracker_train.stop()
 
         # Tracker for evaluation
-        tracker_eval = EmissionsTracker(output_dir="python/tensorflow/emissions/", output_file=f"{output_file_eval}_epoch{epoch}.csv")
+        tracker_eval = EmissionsTracker(output_dir="python/tensorflow/emissions/", 
+                                        output_file=f"{output_file_eval}_epoch{epoch}.csv",
+                                        save_to_file=True,
+                                        allow_multiple_runs=True)
         tracker_eval.start()
 
         model.evaluate(test_loader)
 
         tracker_eval.stop()
 
-    os.makedirs("checkpoints", exist_ok=True)
-    model.save_weights(checkpoint_path)
