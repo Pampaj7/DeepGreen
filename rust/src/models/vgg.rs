@@ -1,16 +1,13 @@
 // src/models/vgg32.rs
 use tch::{nn, nn::ModuleT, Device, Kind, Tensor, vision};
 
-/// Wrapper minimalista: VGG16 stock da `tch::vision::vgg`,
-/// input nativi 32×32 (NCHW), nessun upsample/resize.
+
 pub struct Vgg16Stock32<'a> {
     inner: nn::FuncT<'a>,
 }
 
 impl<'a> Vgg16Stock32<'a> {
-    /// Crea il modello: num_classes personalizzabile.
-    /// Se vuoi caricare pesi pre-addestrati (solo quando num_classes==1000),
-    /// puoi fare `vs.load("vgg16.ot")?` subito dopo la costruzione.
+
     pub fn new(vs: &'a nn::Path<'a>, num_classes: i64) -> Self {
         let inner = tch::vision::vgg::vgg16(vs, num_classes);
         Self { inner }

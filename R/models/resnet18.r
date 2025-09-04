@@ -21,34 +21,66 @@ build_resnet18 <- function(num_classes = 100, pretrained = FALSE) {
 # ===== Data loaders =====
 get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
                         grayscale = FALSE, test_split = "test") {
-
-  if (grayscale) {
-    transform <- function(img) {
-      img <- torch_tensor(img / 255, dtype = torch_float())$permute(c(3,1,2))
-      img %>%
-        torchvision::transform_resize(size = c(img_size[2], img_size[1])) %>%
-        torchvision::transform_grayscale(num_output_channels = 3)
-    }
-  } else {
-    transform <- function(img) {
-      img <- torch_tensor(img / 255, dtype = torch_float())$permute(c(3,1,2))
-      img %>% torchvision::transform_resize(size = c(img_size[2], img_size[1]))
-    }
+  .log("Checking dataset path: %s", dataset_path)
+  if (!dir.exists(file.path(dataset_path, "train"))) {
+    stop("Train directory does not exist: ", file.path(dataset_path, "train"))
+  }
+  if (!dir.exists(file.path(dataset_path, test_split))) {
+    stop("Test directory does not exist: ", file.path(dataset_path, test_split))
   }
 
-  train_set <- torchvision::image_folder_dataset(file.path(dataset_path, "train"), transform = transform)
-  test_set  <- torchvision::image_folder_dataset(file.path(dataset_path, test_split), transform = transform)
+  # Fashion MNIST is grayscale (1 channel), but ResNet18 expects 3 channels
+  transform <- function(img) {
+    # Convert image to tensor and normalize
+    img <- torch_tensor(img / 255, dtype = torch_float())
+    
+    # If img is already a single channel (grayscale), it has shape [height, width]
+    # Otherwise, it has shape [height, width, channels]
+    if (length(dim(img)) == 2) {
+      img <- img$unsqueeze(3) # Add channel dimension: [height, width, 1]
+    }
+    
+    # Permute to [channels, height, width]
+    img <- img$permute(c(3, 1, 2))
+    
+    # Resize to target size
+    img <- torchvision::transform_resize(img, size = c(img_size[2], img_size[1]))
+    
+    # If grayscale, replicate the single channel to 3 channels
+    if (grayscale) {
+      if (img$size(1) == 1) {
+        img <- img$repeat_interleave(3, dim = 1) # Replicate to [3, height, width]
+      }
+    }
+    
+    img
+  }
 
-  train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE,  num_workers = 2)
-  test_loader  <- dataloader(test_set,  batch_size = batch_size, shuffle = FALSE, num_workers = 2)
+  .log("Loading train dataset from %s", file.path(dataset_path, "train"))
+  train_set <- tryCatch({
+    torchvision::image_folder_dataset(file.path(dataset_path, "train"), transform = transform)
+  }, error = function(e) {
+    stop("Failed to load train dataset: ", e$message)
+  })
+  .log("Train dataset loaded. Classes: %s, Samples: %d", paste(train_set$classes, collapse = ", "), length(train_set))
+
+  .log("Loading test dataset from %s", file.path(dataset_path, test_split))
+  test_set <- tryCatch({
+    torchvision::image_folder_dataset(file.path(dataset_path, test_split), transform = transform)
+  }, error = function(e) {
+    stop("Failed to load test dataset: ", e$message)
+  })
+  .log("Test dataset loaded. Classes: %s, Samples: %d", paste(test_set$classes, collapse = ", "), length(test_set))
+
+  train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE, num_workers = 0)
+  test_loader  <- dataloader(test_set, batch_size = batch_size, shuffle = FALSE, num_workers = 0)
 
   list(
     train_loader = train_loader,
-    test_loader  = test_loader,
-    num_classes  = length(train_set$classes)
+    test_loader = test_loader,
+    num_classes = length(train_set$classes)
   )
 }
-
 # ===== Train / Eval =====
 train <- function(model, train_loader, criterion, optimizer, device) {
   model$train()
