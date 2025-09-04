@@ -13,6 +13,11 @@ find_package(OpenCV REQUIRED)
 MESSAGE(STATUS "OpenCV found.")
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+MESSAGE(STATUS "Python3 found.")
+include_directories(${Python3_INCLUDE_DIRS})
+set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
+
 
 option(CUDA_ENABLED "Set CUDA for LibTorch" ON)
 if(CUDA_ENABLED) # Using GPU
@@ -25,31 +30,43 @@ if(CUDA_ENABLED) # Using GPU
 
     if (WIN32)
         # Configure CUDA
-        set(CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+        set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
+        set(CMAKE_CUDA_COMPILER "${CUDAToolkit_ROOT}/bin/nvcc.exe")
 
         # Configure LibTorch
-        set(LIBTORCH_SPEC "libtorch_win32_cuda")
-        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            set(LIBTORCH_SPEC "libtorch_win32_cuda_debug")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-debug-2.7.0%2Bcu128.zip")
+        elseif (CMAKE_BUILD_TYPE MATCHES "Release")
+            set(LIBTORCH_SPEC "libtorch_win32_cuda_release")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-win-shared-with-deps-2.7.0%2Bcu128.zip")
+        endif ()
     elseif (LINUX)
         # Configure CUDA
-        set(CUDA_TOOLKIT_ROOT_DIR "/home/marcopaglio/tools/cuda-12.8")
-        set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc") # only needed when run cmake remotely
+        set(CUDAToolkit_ROOT  "/home/marcopaglio/tools/cuda-12.8")
+        set(CMAKE_CUDA_COMPILER "${CUDAToolkit_ROOT}/bin/nvcc") # only needed when run cmake remotely
 
         # Configure LibTorch
         set(LIBTORCH_SPEC "libtorch_linux_cuda")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cu128/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcu128.zip")
     endif ()
 
+    find_package(CUDAToolkit REQUIRED)
     # Add path to nvxt3 (cuda's profiler) which Libtorch (v.2.7.0) cannot be found.
     # Important: insert before "find_package(Torch REQUIRED)"
-    set(NVTX3_INCLUDE_DIR "${CUDA_TOOLKIT_ROOT_DIR}/include/nvtx3")
+    set(NVTX3_INCLUDE_DIR "${CUDAToolkit_ROOT}/include/nvtx3")
     include_directories(${NVTX3_INCLUDE_DIR})
     enable_language(CUDA)
 else () # Using CPU
     # Configure LibTorch
     if (WIN32)
-        set(LIBTORCH_SPEC "libtorch_win32_cpu")
-        set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-debug-2.7.0%2Bcpu.zip")
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            set(LIBTORCH_SPEC "libtorch_win32_cpu_debug")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-debug-2.7.0%2Bcpu.zip")
+        elseif (CMAKE_BUILD_TYPE MATCHES "Release") #TODO: not tested
+            set(LIBTORCH_SPEC "libtorch_win32_cpu_release")
+            set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.7.0%2Bcpu.zip")
+        endif ()
     elseif (LINUX)
         set(LIBTORCH_SPEC "libtorch_linux_cpu")
         set(LIBTORCH_URL "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.7.0%2Bcpu.zip")
@@ -61,6 +78,7 @@ include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
 
 # Download nlohmann JSON Reader
+# TODO:Il fetch usando più modalità (Debug, Release, etc) genera un errore nel load del cmake della modalità più lenta, a meno che non fosse già stato salvato
 set(FETCHCONTENT_BASE_DIR "${PROJECT_SOURCE_DIR}/tools/json_reader")
 FetchContent_Declare(
         json
@@ -152,6 +170,8 @@ add_executable(resnet18_fashion
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(resnet18_cifar100
         src/train/resnet18/train_cifar100.cpp
@@ -166,6 +186,8 @@ add_executable(resnet18_cifar100
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(resnet18_tiny
         src/train/resnet18/train_tiny.cpp
@@ -180,6 +202,8 @@ add_executable(resnet18_tiny
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_fashion
         src/train/vgg16/train_fashion.cpp
@@ -194,6 +218,8 @@ add_executable(vgg16_fashion
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_cifar100
         src/train/vgg16/train_cifar100.cpp
@@ -208,6 +234,8 @@ add_executable(vgg16_cifar100
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_tiny
         src/train/vgg16/train_tiny.cpp
@@ -222,6 +250,8 @@ add_executable(vgg16_tiny
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 set(TARGETS
         resnet18_native
@@ -233,11 +263,14 @@ set(TARGETS
         vgg16_cifar100
         vgg16_tiny
 )
-message(STATUS ${CMAKE_SOURCE_DIR})
+
 foreach (target ${TARGETS})
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-    target_link_libraries(${target} ${OpenCV_LIBS})
+    target_link_libraries(${target}
+            ${OpenCV_LIBS}
+            ${Python3_LIBRARIES}
+    )
 
     target_link_libraries(${target} nlohmann_json::nlohmann_json)
 
@@ -259,12 +292,32 @@ foreach (target ${TARGETS})
                 CUDA_SEPARABLE_COMPILATION ON
         )
     endif ()
+
+    # Copy Python script in build folder
+    add_custom_command(
+            TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            ${PY_SCRIPT_PATH}/tracker/tracker_control.py
+            ${CMAKE_BINARY_DIR}/tracker_control.py
+    )
+    if (WIN32)
+        add_custom_command(
+                TARGET ${target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                ${PY_SCRIPT_PATH}/tracker/win_patch_codecarbon.py
+                ${CMAKE_BINARY_DIR}/win_patch_codecarbon.py
+        )
+    endif ()
 endforeach ()
 
 
 add_compile_definitions(PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_compile_definitions(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
-
+# Windows requires to know where Python is located
+if (WIN32)
+    get_filename_component(PYTHON_DIR "${Python3_EXECUTABLE}" DIRECTORY)
+    add_compile_definitions(PYTHON_HOME=L"${PYTHON_DIR}")
+endif ()
 
 
 ### PYTHON SCRIPTS ###
@@ -272,13 +325,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_script")
 include(RunPythonWithAutoInstall)
 include(GenerateModel)
 include(DownloadAndConvertDataset)
+include(InstallCodecarbon)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# Check if codecarbon is importable, or install it
+install_codecarbon()
 
 # Generate ResNet-18 and VGG-16 models for each dataset
 set(RESNET18_NAME "ResNet-18")
 set(VGG16_NAME "VGG-16")
-set(PY_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/py_script")
 
 # Fashion-MNIST
 set(FASHION_MNIST_NAME "Fashion-MNIST")

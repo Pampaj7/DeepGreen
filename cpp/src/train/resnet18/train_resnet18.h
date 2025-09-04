@@ -6,10 +6,11 @@
 constexpr int32_t kResNetMinImageSize = 28;
 
 template <typename Dataset>
-void train_resnet18(const char* dataRootRelativePath, const char* classesJson, const char* resnet_dataset_filename,
-    const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
+void train_resnet18(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
+    const char* resnet_dataset_filename, const int32_t trainBatchSize, const int32_t testBatchSize,
+    const int32_t numberOfEpochs)
 {
-    train_model<Dataset>(dataRootRelativePath, classesJson,
+    train_model<Dataset>(outputFileName, dataRootRelativePath, classesJson,
         resnet_dataset_filename, kResNetMinImageSize,
         trainBatchSize, testBatchSize, numberOfEpochs);
 }
