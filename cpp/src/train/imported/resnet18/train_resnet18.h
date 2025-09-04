@@ -1,6 +1,6 @@
 #ifndef TRAIN_RESNET18_H
 #define TRAIN_RESNET18_H
-#include "train/train_model.h"
+#include "train/imported/train_model.h"
 
 // Minimum size required by ResNet-18 for the feature vector not to cancel out
 constexpr int32_t kResNetMinImageSize = 28;

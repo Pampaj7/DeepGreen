@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "dataset/TinyImageNet200.h"
-#include "train/resnet18/train_resnet18.h"
+#include "train/imported/resnet18/train_resnet18.h"
 
 
 // Where to find the Tiny ImageNet-200 dataset.

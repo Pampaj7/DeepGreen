@@ -3,7 +3,6 @@
 #include <iostream>
 
 #include "dataset/CIFAR100.h"
-#include "train/vgg16/train_vgg16.h"
 
 
 // Where to find the CIFAR-100 dataset.

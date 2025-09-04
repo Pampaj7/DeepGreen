@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "dataset/FashionMNIST.h"
-#include "train/resnet18/train_resnet18.h"
+#include "train/imported/resnet18/train_resnet18.h"
 
 
 // Where to find the Fashion-MNIST dataset.
