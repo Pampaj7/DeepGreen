@@ -157,10 +157,10 @@ add_executable(vgg16_native
         src/model/VGG16_native.cpp
         src/model/VGG16_native.h
 )
-add_executable(resnet18_fashion
-        src/train/resnet18/train_fashion.cpp
-        src/train/resnet18/train_resnet18.h
-        src/train/train_model.h
+add_executable(resnet18_fashion_imported
+        src/train/imported/resnet18/train_fashion.cpp
+        src/train/imported/resnet18/train_resnet18.h
+        src/train/imported/train_model.h
         src/dataset/ImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
@@ -173,10 +173,10 @@ add_executable(resnet18_fashion
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(resnet18_cifar100
-        src/train/resnet18/train_cifar100.cpp
-        src/train/resnet18/train_resnet18.h
-        src/train/train_model.h
+add_executable(resnet18_cifar100_imported
+        src/train/imported/resnet18/train_cifar100.cpp
+        src/train/imported/resnet18/train_resnet18.h
+        src/train/imported/train_model.h
         src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -189,10 +189,10 @@ add_executable(resnet18_cifar100
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(resnet18_tiny
-        src/train/resnet18/train_tiny.cpp
-        src/train/resnet18/train_resnet18.h
-        src/train/train_model.h
+add_executable(resnet18_tiny_imported
+        src/train/imported/resnet18/train_tiny.cpp
+        src/train/imported/resnet18/train_resnet18.h
+        src/train/imported/train_model.h
         src/dataset/ImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
@@ -205,10 +205,10 @@ add_executable(resnet18_tiny
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(vgg16_fashion
-        src/train/vgg16/train_fashion.cpp
-        src/train/vgg16/train_vgg16.h
-        src/train/train_model.h
+add_executable(vgg16_fashion_imported
+        src/train/imported/vgg16/train_fashion.cpp
+        src/train/imported/vgg16/train_vgg16.h
+        src/train/imported/train_model.h
         src/dataset/ImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
@@ -221,10 +221,10 @@ add_executable(vgg16_fashion
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(vgg16_cifar100
-        src/train/vgg16/train_cifar100.cpp
-        src/train/vgg16/train_vgg16.h
-        src/train/train_model.h
+add_executable(vgg16_cifar100_imported
+        src/train/imported/vgg16/train_cifar100.cpp
+        src/train/imported/vgg16/train_vgg16.h
+        src/train/imported/train_model.h
         src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -237,10 +237,10 @@ add_executable(vgg16_cifar100
         src/python/PythonTracker.cpp
         src/python/PythonTracker.h
 )
-add_executable(vgg16_tiny
-        src/train/vgg16/train_tiny.cpp
-        src/train/vgg16/train_vgg16.h
-        src/train/train_model.h
+add_executable(vgg16_tiny_imported
+        src/train/imported/vgg16/train_tiny.cpp
+        src/train/imported/vgg16/train_vgg16.h
+        src/train/imported/train_model.h
         src/dataset/ImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
@@ -256,12 +256,12 @@ add_executable(vgg16_tiny
 set(TARGETS
         resnet18_native
         vgg16_native
-        resnet18_fashion
-        resnet18_cifar100
-        resnet18_tiny
-        vgg16_fashion
-        vgg16_cifar100
-        vgg16_tiny
+        resnet18_fashion_imported
+        resnet18_cifar100_imported
+        resnet18_tiny_imported
+        vgg16_fashion_imported
+        vgg16_cifar100_imported
+        vgg16_tiny_imported
 )
 
 foreach (target ${TARGETS})

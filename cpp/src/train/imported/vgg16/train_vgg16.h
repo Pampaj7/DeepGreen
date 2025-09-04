@@ -1,6 +1,6 @@
 #ifndef TRAIN_VGG16_H
 #define TRAIN_VGG16_H
-#include "train/train_model.h"
+#include "train/imported/train_model.h"
 
 // Minimum size required by VGG-16 for the feature vector not to cancel out
 constexpr int32_t kVggMinImageSize = 32;

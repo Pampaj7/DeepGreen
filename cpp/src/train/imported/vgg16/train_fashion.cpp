@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "dataset/FashionMNIST.h"
-#include "train/vgg16/train_vgg16.h"
+#include "train/imported/vgg16/train_vgg16.h"
 
 
 // Where to find the Fashion-MNIST dataset.

@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "dataset/TinyImageNet200.h"
-#include "train/vgg16/train_vgg16.h"
+#include "train/imported/vgg16/train_vgg16.h"
 
 
 // Where to find the Tiny ImageNet-200 dataset.
