@@ -10,6 +10,7 @@ using json = nlohmann::json;
 template <typename Derived>
 class DatasetInfo {
 public:
+    static uint32_t getNumClasses() { return Derived::num_classes; }
     static uint32_t getNumTrainSamples() { return Derived::num_train_samples; }
     static uint32_t getNumTestSamples() { return Derived::num_test_samples; }
     static uint32_t getImageHeight() { return Derived::image_height; }
@@ -42,7 +43,7 @@ public:
             int idx_label = 0;
             for (auto& [key, value] : class_json.items())
                 class_to_index[value] = idx_label++;
-            assert(idx_label == std::stoi(Derived::num_classes)); // required: 0 <= label < num_classes
+            assert(idx_label == Derived::num_classes); // required: 0 <= label < num_classes
     });
 
     return class_to_index;

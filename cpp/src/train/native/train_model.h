@@ -11,9 +11,28 @@
 #include "python/PythonTracker.h"
 
 
-template <typename Dataset>
+void print_num_parameters(torch::nn::Module& model) {
+    std::size_t total_params = 0;
+    for (const auto& param : model.parameters(/*recurse=*/true)) {
+        total_params += param.numel();
+    }
+    std::cout << "Numero totale di parametri: " << total_params << std::endl;
+}
+
+void print_trainable_parameters(torch::nn::Module& model) {
+    std::size_t trainable_params = 0;
+    for (const auto& param : model.parameters(/*recurse=*/true)) {
+        if (param.requires_grad()) {
+            trainable_params += param.numel();
+        }
+    }
+    std::cout << "Numero di parametri addestrabili: "
+              << trainable_params << std::endl;
+}
+
+template <typename Model, typename Dataset>
 void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
-    const char* model_dataset_filename, int32_t modelMinImageSize,
+    Model& model, int32_t modelMinImageSize,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // device (CPU or GPU)
@@ -82,17 +101,16 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     torch::nn::CrossEntropyLoss criterion{};
 
     // model
-    torch::jit::script::Module model = CNNSetup::load_model(
-        Utils::join_paths(CMAKE_BINARY_DIR, model_dataset_filename));
-    model.to(device);
+    std::cout << *model << std::endl;
+    print_num_parameters(*model);
+    print_trainable_parameters(*model);
+    model->to(device);
 
     // optimizer
-    auto params_list = model.parameters();
-    std::vector<torch::Tensor> parameters;
-    for (const auto& p : params_list) {
-        parameters.push_back(p);
-    }
-    torch::optim::Adam optimizer(parameters, torch::optim::AdamOptions(1e-4));
+    torch::optim::Adam optimizer(
+        model->parameters(/* recurse = */ true),
+        torch::optim::AdamOptions(1e-4)
+    );
 
 
     // Remove existing emission file

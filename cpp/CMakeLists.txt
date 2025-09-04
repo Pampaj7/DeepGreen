@@ -130,6 +130,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 add_executable(resnet18_cifar100_native
         src/train/native/resnet18/train_cifar100.cpp
         src/train/native/resnet18/train_resnet18.h
+        src/train/native/train_model.h
+        src/model/resnet18.cpp
+        src/model/resnet18.h
         src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -139,12 +142,15 @@ add_executable(resnet18_cifar100_native
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
-        src/model/resnet18.cpp
-        src/model/resnet18.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
 add_executable(vgg16_cifar100_native
         src/train/native/vgg16/train_cifar100.cpp
         src/train/native/vgg16/train_vgg16.h
+        src/train/native/train_model.h
+        src/model/VGG16_native.cpp
+        src/model/VGG16_native.h
         src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -154,9 +160,10 @@ add_executable(vgg16_cifar100_native
         src/dataset_transforms.h
         src/utils.cpp
         src/utils.h
-        src/model/VGG16_native.cpp
-        src/model/VGG16_native.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
 )
+
 add_executable(resnet18_fashion_imported
         src/train/imported/resnet18/train_fashion.cpp
         src/train/imported/resnet18/train_resnet18.h
