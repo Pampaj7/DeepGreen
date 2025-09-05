@@ -14,8 +14,8 @@ private:
     static constexpr uint32_t image_height = 64;
     static constexpr uint32_t image_width = 64;
     static constexpr uint32_t image_channels = 3;
-    static constexpr std::array<double, image_channels> mean{0.4914, 0.4822, 0.4465}; //TODO
-    static constexpr std::array<double, image_channels> std{0.2470, 0.2434, 0.2616}; //TODO
+    static constexpr std::array<double, image_channels> mean{0.485,0.456,0.406}; //TODO
+    static constexpr std::array<double, image_channels> std{0.229,0.224,0.225}; //TODO
 
     static constexpr auto dataset_name = "Tiny ImageNet-200";
     static constexpr auto train_folder = "train";
