@@ -75,7 +75,7 @@ models::_resnetimpl::BasicBlock::BasicBlock(
 
 torch::Tensor models::_resnetimpl::BasicBlock::forward(torch::Tensor x)
 {
-    auto identity = x;
+    auto identity = x; //TODO:.clone();??
 
     auto out = m_conv1->forward(x);
     out = m_bn1->forward(out);

@@ -11,25 +11,6 @@
 #include "python/PythonTracker.h"
 
 
-void print_num_parameters(torch::nn::Module& model) {
-    std::size_t total_params = 0;
-    for (const auto& param : model.parameters(/*recurse=*/true)) {
-        total_params += param.numel();
-    }
-    std::cout << "Numero totale di parametri: " << total_params << std::endl;
-}
-
-void print_trainable_parameters(torch::nn::Module& model) {
-    std::size_t trainable_params = 0;
-    for (const auto& param : model.parameters(/*recurse=*/true)) {
-        if (param.requires_grad()) {
-            trainable_params += param.numel();
-        }
-    }
-    std::cout << "Numero di parametri addestrabili: "
-              << trainable_params << std::endl;
-}
-
 template <typename Model, typename Dataset>
 void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
     Model& model, int32_t modelMinImageSize,
@@ -102,8 +83,8 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
 
     // model
     std::cout << *model << std::endl;
-    print_num_parameters(*model);
-    print_trainable_parameters(*model);
+    CNNSetup::print_num_parameters(*model);
+    CNNSetup::print_trainable_parameters(*model);
     model->to(device);
 
     // optimizer
