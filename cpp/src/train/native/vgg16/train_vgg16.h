@@ -13,7 +13,7 @@ void train_vgg16(const std::string& outputFileName, const char* dataRootRelative
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // create vgg16
-    models::VGG16 vgg16(Dataset::getNumClasses(), false);
+    models::VGG16 vgg16(Dataset::getNumClasses());
     /*vgg16->apply(
         [](torch::nn::Module& m) {
             if (auto* conv = m.as<torch::nn::Conv2d>()) {
