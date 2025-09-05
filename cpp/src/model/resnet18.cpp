@@ -1,14 +1,12 @@
 #include "resnet18.h"
 
-#include <memory>
 #include <vector>
-#include <torch/torch.h>
 
 torch::nn::Conv2dOptions
 create_conv2d_options(const int64_t in_planes, const int64_t out_planes,
         const int64_t kerner_size, const int64_t stride = 1,
         const int64_t padding = 0, const int64_t groups = 1,
-        const int64_t dilation = 1, const bool bias = false)
+        const int64_t dilation = 1, const bool bias = true)
 {
     const torch::nn::Conv2dOptions conv_options =
         torch::nn::Conv2dOptions(in_planes, out_planes, kerner_size)
@@ -217,9 +215,5 @@ torch::Tensor models::ResNetImpl::forward(torch::Tensor x)
 
 models::ResNet18Impl::ResNet18Impl(
         const int64_t num_classes,
-        const bool zero_init_residual,
-        const int64_t groups,
-        const int64_t width_per_group,
-        const std::vector<int64_t>& replace_stride_with_dilation)
-    : ResNetImpl({2, 2, 2, 2}, num_classes, zero_init_residual,
-                 groups, width_per_group, replace_stride_with_dilation) {}
+        const bool zero_init_residual)
+    : ResNetImpl({2, 2, 2, 2}, num_classes, zero_init_residual) {}

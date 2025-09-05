@@ -61,10 +61,7 @@ namespace models
 
     struct ResNet18Impl final : ResNetImpl
     {
-        explicit ResNet18Impl(int64_t num_classes = 1000,
-            bool zero_init_residual = false, int64_t groups = 1,
-            int64_t width_per_group = 64,
-            const std::vector<int64_t>& replace_stride_with_dilation = {});
+        explicit ResNet18Impl(int64_t num_classes = 1000, bool zero_init_residual = false);
     };
 
     TORCH_MODULE(ResNet18);
