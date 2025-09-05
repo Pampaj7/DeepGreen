@@ -9,6 +9,10 @@ namespace CNNSetup {
 
     torch::Device get_device_available();
 
+    void print_num_parameters(const torch::nn::Module& model);
+
+    void print_trainable_parameters(const torch::nn::Module& model);
+
 };
 
 
