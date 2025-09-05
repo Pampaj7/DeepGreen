@@ -2,7 +2,7 @@
 #define TRAIN_NATIVE_H
 #include <torch/torch.h>
 
-#include "model/VGG16_native.h"
+#include "model/vgg16.h"
 #include "train/native/train_model.h"
 
 // Minimum size required by VGG-16 for the feature vector not to cancel out
@@ -13,7 +13,7 @@ void train_vgg16(const std::string& outputFileName, const char* dataRootRelative
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // create vgg16
-    vision::models::VGG16 vgg16(Dataset::getNumClasses(), false);
+    models::VGG16 vgg16(Dataset::getNumClasses(), false);
     /*vgg16->apply(
         [](torch::nn::Module& m) {
             if (auto* conv = m.as<torch::nn::Conv2d>()) {
@@ -27,7 +27,7 @@ void train_vgg16(const std::string& outputFileName, const char* dataRootRelative
         }
     );*/
 
-    train_model<vision::models::VGG16, Dataset>(outputFileName, dataRootRelativePath, classesJson,
+    train_model<models::VGG16, Dataset>(outputFileName, dataRootRelativePath, classesJson,
         vgg16, kVggMinImageSize,
         trainBatchSize, testBatchSize, numberOfEpochs);
 }
