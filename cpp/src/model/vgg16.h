@@ -24,7 +24,7 @@ namespace models
 
     struct VGG16Impl final : VGGImpl
     {
-        explicit VGG16Impl(int64_t num_classes = 1000, bool init_weights = true);
+        explicit VGG16Impl(int64_t num_classes = 1000);
     };
 
     TORCH_MODULE(VGG16);

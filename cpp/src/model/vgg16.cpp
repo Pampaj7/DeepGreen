@@ -39,6 +39,7 @@ models::VGGImpl::VGGImpl(
         )
     );
 
+    // basic weights initialization
     if (init_weights)
         _initialize_weights();
 }
@@ -75,6 +76,5 @@ torch::nn::Sequential models::makeLayers(const std::vector<int>& cfg)
 static std::vector<int> cfg = {64, 64, -1, 128, 128, -1, 256, 256, 256, -1, 512, 512, 512, -1, 512, 512, 512, -1};
 
 models::VGG16Impl::VGG16Impl(
-        const int64_t num_classes,
-        const bool init_weights)
-    : VGGImpl(makeLayers(cfg), num_classes, init_weights) {}
+        const int64_t num_classes)
+    : VGGImpl(makeLayers(cfg), num_classes) {}

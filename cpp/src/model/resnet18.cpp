@@ -170,6 +170,7 @@ models::ResNetImpl::ResNetImpl(
                        torch::nn::AdaptiveAvgPool2dOptions({1, 1})));
     m_fc = register_module("fc", torch::nn::Linear(512 * _resnetimpl::BasicBlock::m_expansion, num_classes));
 
+    // basic weights initialization
     for (auto& module : modules(/*include_self=*/false)) {
         if (const auto conv = dynamic_cast<torch::nn::Conv2dImpl*>(module.get()))
             torch::nn::init::kaiming_normal_(
