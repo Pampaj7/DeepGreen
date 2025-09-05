@@ -186,8 +186,8 @@ add_executable(vgg16_fashion
         src/train/native/vgg16/train_fashion.cpp
         src/train/native/vgg16/train_vgg16.h
         src/train/native/train_model.h
-        src/model/VGG16_native.cpp
-        src/model/VGG16_native.h
+        src/model/vgg16.cpp
+        src/model/vgg16.h
         src/dataset/ImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
@@ -204,8 +204,8 @@ add_executable(vgg16_cifar100
         src/train/native/vgg16/train_cifar100.cpp
         src/train/native/vgg16/train_vgg16.h
         src/train/native/train_model.h
-        src/model/VGG16_native.cpp
-        src/model/VGG16_native.h
+        src/model/vgg16.cpp
+        src/model/vgg16.h
         src/dataset/ImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
@@ -222,8 +222,8 @@ add_executable(vgg16_tiny
         src/train/native/vgg16/train_tiny.cpp
         src/train/native/vgg16/train_vgg16.h
         src/train/native/train_model.h
-        src/model/VGG16_native.cpp
-        src/model/VGG16_native.h
+        src/model/vgg16.cpp
+        src/model/vgg16.h
         src/dataset/ImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
