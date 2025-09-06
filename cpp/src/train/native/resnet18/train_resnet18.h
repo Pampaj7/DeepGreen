@@ -9,13 +9,19 @@ constexpr int32_t kResNetMinImageSize = 28;
 
 template <typename Dataset>
 void train_resnet18(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
-    const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
+    const int32_t imgResize, const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
+    if (imgResize < kResNetMinImageSize)
+        throw std::invalid_argument(
+            "ResNet-18 requires image sizes to be at least " +
+            std::to_string(kResNetMinImageSize) + "x" +
+            std::to_string(kResNetMinImageSize) + " pixels");
+
     // create resnet18
     models::ResNet18 resnet18(Dataset::getNumClasses());
 
     train_model<models::ResNet18, Dataset>(outputFileName, dataRootRelativePath, classesJson,
-        resnet18, kResNetMinImageSize,
+        resnet18, imgResize,
         trainBatchSize, testBatchSize, numberOfEpochs);
 }
 
