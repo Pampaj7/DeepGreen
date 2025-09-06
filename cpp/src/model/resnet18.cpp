@@ -4,12 +4,12 @@
 
 torch::nn::Conv2dOptions
 create_conv2d_options(const int64_t in_planes, const int64_t out_planes,
-        const int64_t kerner_size, const int64_t stride = 1,
+        const int64_t kernel_size, const int64_t stride = 1,
         const int64_t padding = 0, const int64_t groups = 1,
-        const int64_t dilation = 1, const bool bias = true)
+        const int64_t dilation = 1, const bool bias = false) // Note: default value of Conv2dOptions for bias is true
 {
     const torch::nn::Conv2dOptions conv_options =
-        torch::nn::Conv2dOptions(in_planes, out_planes, kerner_size)
+        torch::nn::Conv2dOptions(in_planes, out_planes, kernel_size)
             .stride(stride)
             .padding(padding)
             .bias(bias)
@@ -27,7 +27,7 @@ torch::nn::Conv2d models::_resnetimpl::conv3x3(
         const int64_t dilation)
 {
     torch::nn::Conv2dOptions conv_options = create_conv2d_options(
-        in_planes, out_planes, /*kerner_size = */ 3, stride,
+        in_planes, out_planes, /*kernel_size = */ 3, stride,
         /*padding = */ dilation, groups, /*dilation = */ dilation, false);
     return torch::nn::Conv2d(conv_options);
 }
@@ -38,18 +38,18 @@ torch::nn::Conv2d models::_resnetimpl::conv1x1(
         const int64_t stride)
 {
     torch::nn::Conv2dOptions conv_options = create_conv2d_options(
-        in_planes, out_planes, /*kerner_size = */ 1, stride,
+        in_planes, out_planes, /*kernel_size = */ 1, stride,
         /*padding = */ 0, /*groups = */ 1, /*dilation = */ 1, false);
     return torch::nn::Conv2d(conv_options);
 }
 
 
 
-models::_resnetimpl::BasicBlock::BasicBlock(
+models::_resnetimpl::BasicBlockImpl::BasicBlockImpl(
         const int64_t inplanes,
         const int64_t planes,
         const int64_t stride,
-        const torch::nn::Sequential& downsample,
+        torch::nn::Sequential downsample,
         const int64_t groups,
         const int64_t base_width,
         const int64_t dilation)
@@ -68,14 +68,14 @@ models::_resnetimpl::BasicBlock::BasicBlock(
     m_conv2 = register_module("conv2", conv3x3(planes, planes));
     m_bn2 = register_module("bn2", torch::nn::BatchNorm2d(planes));
 
-    if (!downsample.is_empty())
-        m_downsample = register_module("downsample", downsample);
+    if (downsample && !downsample->is_empty())
+        m_downsample = register_module("downsample", std::move(downsample));
     m_stride = stride;
 }
 
-torch::Tensor models::_resnetimpl::BasicBlock::forward(torch::Tensor x)
+torch::Tensor models::_resnetimpl::BasicBlockImpl::forward(torch::Tensor x)
 {
-    auto identity = x; //TODO:.clone();??
+    auto identity = x;
 
     auto out = m_conv1->forward(x);
     out = m_bn1->forward(out);
@@ -84,7 +84,7 @@ torch::Tensor models::_resnetimpl::BasicBlock::forward(torch::Tensor x)
     out = m_conv2->forward(out);
     out = m_bn2->forward(out);
 
-    if (!m_downsample.is_empty())
+    if (m_downsample)
         identity = m_downsample->forward(x);
 
     out += identity;
@@ -108,10 +108,10 @@ torch::nn::Sequential models::ResNetImpl::_make_layer(
         m_dilation *= stride;
         stride = 1;
     }
-    if (stride != 1 || m_inplanes != planes * _resnetimpl::BasicBlock::m_expansion) {
+    if (stride != 1 || m_inplanes != planes * _resnetimpl::BasicBlockImpl::m_expansion) {
         downsample = torch::nn::Sequential(_resnetimpl::conv1x1(
-            m_inplanes, planes * _resnetimpl::BasicBlock::m_expansion, stride),
-            torch::nn::BatchNorm2d(planes * _resnetimpl::BasicBlock::m_expansion));
+            m_inplanes, planes * _resnetimpl::BasicBlockImpl::m_expansion, stride),
+            torch::nn::BatchNorm2d(planes * _resnetimpl::BasicBlockImpl::m_expansion));
     }
 
     torch::nn::Sequential layers;
@@ -119,7 +119,7 @@ torch::nn::Sequential models::ResNetImpl::_make_layer(
         _resnetimpl::BasicBlock(m_inplanes, planes, stride, downsample,
                                 m_groups, m_base_width, previous_dilation));
 
-    m_inplanes = planes * _resnetimpl::BasicBlock::m_expansion;
+    m_inplanes = planes * _resnetimpl::BasicBlockImpl::m_expansion;
 
     for (int64_t i = 1; i < blocks; ++i)
         layers->push_back(
@@ -151,7 +151,7 @@ models::ResNetImpl::ResNetImpl(
 
     m_conv1 = register_module("conv1",
         torch::nn::Conv2d(create_conv2d_options(/*in_planes = */ 3, /*out_planes = */ m_inplanes,
-                                            /*kerner_size = */ 7, /*stride = */ 2, /*padding = */ 3,
+                                            /*kernel_size = */ 7, /*stride = */ 2, /*padding = */ 3,
                                             /*groups = */ 1, /*dilation = */ 1, /*bias = */ false)));
     m_bn1 = register_module("bn1", torch::nn::BatchNorm2d(m_inplanes));
     m_relu = register_module("relu", torch::nn::ReLU(true));
@@ -168,7 +168,7 @@ models::ResNetImpl::ResNetImpl(
 
     m_avgpool = register_module("avgpool", torch::nn::AdaptiveAvgPool2d(
                        torch::nn::AdaptiveAvgPool2dOptions({1, 1})));
-    m_fc = register_module("fc", torch::nn::Linear(512 * _resnetimpl::BasicBlock::m_expansion, num_classes));
+    m_fc = register_module("fc", torch::nn::Linear(512 * _resnetimpl::BasicBlockImpl::m_expansion, num_classes));
 
     // basic weights initialization
     for (auto& module : modules(/*include_self=*/false)) {
@@ -190,7 +190,7 @@ models::ResNetImpl::ResNetImpl(
     // https://arxiv.org/abs/1706.02677
     if (zero_init_residual)
         for (auto& module : modules(/*include_self=*/false)) {
-            if (auto* M = dynamic_cast<_resnetimpl::BasicBlock*>(module.get()))
+            if (auto* M = dynamic_cast<_resnetimpl::BasicBlockImpl*>(module.get()))
                 torch::nn::init::constant_(M->m_bn2->weight, 0);
         }
 }

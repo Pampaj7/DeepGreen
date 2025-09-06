@@ -15,10 +15,10 @@ namespace models
         // 1x1 convolution
         torch::nn::Conv2d conv1x1(int64_t in_planes, int64_t out_planes, int64_t stride = 1);
 
-        struct BasicBlock : torch::nn::Module
+        struct BasicBlockImpl final : torch::nn::Module
         {
-            BasicBlock(int64_t inplanes, int64_t planes, int64_t stride = 1,
-                const torch::nn::Sequential& downsample = nullptr,
+            BasicBlockImpl(int64_t inplanes, int64_t planes, int64_t stride = 1,
+                torch::nn::Sequential downsample = {},
                 int64_t groups = 1, int64_t base_width = 64, int64_t dilation = 1);
 
             static constexpr int64_t m_expansion = 1;
@@ -32,6 +32,9 @@ namespace models
 
             torch::Tensor forward(torch::Tensor x);
         };
+
+        TORCH_MODULE(BasicBlock);
+
     } // namespace _resnetimpl
 
 
