@@ -20,12 +20,12 @@ void models::VGGImpl::_initialize_weights()
 }
 
 models::VGGImpl::VGGImpl(
-    const torch::nn::Sequential& features,
+    torch::nn::Sequential features,
     const int64_t num_classes,
     const bool init_weights,
     const double dropout)
 {
-    m_features = register_module("features", features);
+    m_features = register_module("features", std::move(features));
     m_avgpool = register_module("avgpool", torch::nn::AdaptiveAvgPool2d(
                        torch::nn::AdaptiveAvgPool2dOptions({7, 7})));
     m_classifier = register_module("classifier", torch::nn::Sequential(
