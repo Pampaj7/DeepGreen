@@ -23,7 +23,7 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     // transformations
     auto transform_list = std::vector<TorchTrasformPtr>
     {
-        std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd()),
+        //std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd()),
         std::make_shared<DatasetTransforms::ResizeTo>(imgResize, imgResize)
     };
     if (Dataset::isGrayscale())
