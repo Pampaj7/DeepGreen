@@ -13,7 +13,7 @@
 
 template <typename Model, typename Dataset>
 void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
-    Model& model, int32_t modelMinImageSize,
+    Model& model, int32_t imgResize,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // device (CPU or GPU)
@@ -23,15 +23,9 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     // transformations
     auto transform_list = std::vector<TorchTrasformPtr>
     {
-        std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
+        std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd()),
+        std::make_shared<DatasetTransforms::ResizeTo>(imgResize, imgResize)
     };
-    if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize) // resize only if necessary
-        transform_list.push_back(
-            std::make_shared<DatasetTransforms::ResizeTo>(
-                Dataset::getImageHeight() < modelMinImageSize ? modelMinImageSize : Dataset::getImageHeight(),
-                Dataset::getImageWidth() < modelMinImageSize ? modelMinImageSize : Dataset::getImageWidth()
-            )
-        );
     if (Dataset::isGrayscale())
         transform_list.push_back(std::make_shared<DatasetTransforms::ReplicateChannels>());
 

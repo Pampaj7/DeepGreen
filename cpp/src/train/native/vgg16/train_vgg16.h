@@ -10,8 +10,14 @@ constexpr int32_t kVggMinImageSize = 32;
 
 template <typename Dataset>
 void train_vgg16(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
-    const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
+    const int32_t imgResize, const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
+    if (imgResize < kVggMinImageSize)
+        throw std::invalid_argument(
+            "VGG-16 requires image sizes to be at least " +
+            std::to_string(kVggMinImageSize) + "x" +
+            std::to_string(kVggMinImageSize) + " pixels");
+
     // create vgg16
     models::VGG16 vgg16(Dataset::getNumClasses());
     /*vgg16->apply(
@@ -28,7 +34,7 @@ void train_vgg16(const std::string& outputFileName, const char* dataRootRelative
     );*/
 
     train_model<models::VGG16, Dataset>(outputFileName, dataRootRelativePath, classesJson,
-        vgg16, kVggMinImageSize,
+        vgg16, imgResize,
         trainBatchSize, testBatchSize, numberOfEpochs);
 }
 

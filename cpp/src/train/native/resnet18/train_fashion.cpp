@@ -8,6 +8,8 @@
 const char* kFashionRelativePath = "../data/fashion_mnist_png";
 const char* kFashionClassesJson = "classes.json";
 
+// The image resize value (single value for both dimensions).
+constexpr int32_t imageSize = 32;
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
@@ -22,7 +24,7 @@ const std::string outputFileName = "resnet18_fashion";
 
 int main() {
     try {
-        train_resnet18<FashionMNIST>(outputFileName, kFashionRelativePath, kFashionClassesJson,
+        train_resnet18<FashionMNIST>(outputFileName, kFashionRelativePath, kFashionClassesJson, imageSize,
             kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
