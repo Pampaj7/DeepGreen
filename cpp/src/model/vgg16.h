@@ -13,7 +13,7 @@ namespace models
 
         void _initialize_weights();
 
-        explicit VGGImpl(const torch::nn::Sequential& features,
+        explicit VGGImpl(torch::nn::Sequential features,
             int64_t num_classes = 1000, bool init_weights = true,
             double dropout = 0.5);
 
