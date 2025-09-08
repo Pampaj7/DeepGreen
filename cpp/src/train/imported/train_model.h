@@ -8,10 +8,11 @@
 #include "cnn_setup.h"
 #include "dataset_transforms.h"
 #include "utils.h"
+#include "python/PythonTracker.h"
 
 
 template <typename Dataset>
-void train_model(const char* dataRootRelativePath, const char* classesJson,
+void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
     const char* model_dataset_filename, int32_t modelMinImageSize,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
@@ -77,15 +78,13 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
                     .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
 
 
+    // loss
+    torch::nn::CrossEntropyLoss criterion{};
+
     // model
     torch::jit::script::Module model = CNNSetup::load_model(
         Utils::join_paths(CMAKE_BINARY_DIR, model_dataset_filename));
     model.to(device);
-
-
-    // loss
-    torch::nn::CrossEntropyLoss criterion{};
-
 
     // optimizer
     auto params_list = model.parameters();
@@ -96,9 +95,15 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
     torch::optim::Adam optimizer(parameters, torch::optim::AdamOptions(1e-4));
 
 
-    // tracker
-    // TODO: here create tracker
+    // Remove existing emission file
+    const std::string outputDir = Utils::join_paths(PROJECT_SOURCE_DIR, "emissions");
+    const std::string trainOutputFile = outputFileName + "_train.csv";
+    Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
+    const std::string testOutputFile = outputFileName + "_test.csv";
+    Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
 
+    // tracker
+    PythonTracker::initializeTracker();
 
     // training loop
     for (uint32_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
@@ -106,14 +111,16 @@ void train_model(const char* dataRootRelativePath, const char* classesJson,
             epoch,
             numberOfEpochs);
 
-        // TODO: tracker.start()
+        PythonTracker::startTracker(outputDir, trainOutputFile);
         CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
-        //TODO: tracker.stop()
+        PythonTracker::stopTracker();
 
-        // TODO: tracker.start()
+        PythonTracker::startTracker(outputDir, testOutputFile);
         CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
-        //TODO: tracker.stop()
+        PythonTracker::stopTracker();
     }
+
+    PythonTracker::finalizeTracker();
 }
 
 
