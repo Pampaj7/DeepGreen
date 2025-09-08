@@ -20,6 +20,9 @@ void train_vgg16(const std::string& outputFileName, const char* dataRootRelative
 
     // create vgg16
     models::VGG16 vgg16(Dataset::getNumClasses());
+    //std::cout << *vgg16 << std::endl;
+    //CNNSetup::print_num_parameters(*vgg16);
+    //CNNSetup::print_trainable_parameters(*vgg16);
     /*vgg16->apply(
         [](torch::nn::Module& m) {
             if (auto* conv = m.as<torch::nn::Conv2d>()) {

@@ -19,6 +19,9 @@ void train_resnet18(const std::string& outputFileName, const char* dataRootRelat
 
     // create resnet18
     models::ResNet18 resnet18(Dataset::getNumClasses());
+    //std::cout << *resnet18 << std::endl;
+    //CNNSetup::print_num_parameters(*resnet18);
+    //CNNSetup::print_trainable_parameters(*resnet18);
 
     train_model<models::ResNet18, Dataset>(outputFileName, dataRootRelativePath, classesJson,
         resnet18, imgResize,

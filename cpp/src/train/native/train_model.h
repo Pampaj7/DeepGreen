@@ -76,9 +76,6 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     torch::nn::CrossEntropyLoss criterion{};
 
     // model
-    std::cout << *model << std::endl;
-    CNNSetup::print_num_parameters(*model);
-    CNNSetup::print_trainable_parameters(*model);
     model->to(device);
 
     // optimizer
@@ -105,12 +102,18 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
             numberOfEpochs);
 
         PythonTracker::startTracker(outputDir, trainOutputFile);
-        CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
+        float train_loss = CNNFunction::train(model, device, *train_loader, optimizer, train_dataset_size, criterion);
         PythonTracker::stopTracker();
 
         PythonTracker::startTracker(outputDir, testOutputFile);
-        CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
+        auto test_loss_and_acc = CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
         PythonTracker::stopTracker();
+
+        std::printf(
+            "Train Loss: %.4f | Test Loss:  %.4f | Accuracy: %.2f%%\n",
+            train_loss,
+            test_loss_and_acc.at(0),
+            test_loss_and_acc.at(1));
     }
 
     PythonTracker::finalizeTracker();
