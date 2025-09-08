@@ -11,6 +11,8 @@ const char* kCifarClassesJson = "classes.json";
 // VGG-16 model for CIFAR-100
 const char* kVggCifarFilename = VGG16_CIFAR100_FILENAME;
 
+// The image resize value (single value for both dimensions).
+constexpr int32_t imageSize = 32;
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
@@ -26,7 +28,7 @@ const std::string outputFileName = "vgg16_cifar100";
 int main() {
     try {
         train_vgg16<CIFAR100>(outputFileName, kCifarRootRelativePath, kCifarClassesJson,
-            kVggCifarFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+            kVggCifarFilename, imageSize, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {

@@ -13,7 +13,7 @@
 
 template <typename Model, typename Dataset>
 void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
-    Model& model, int32_t imgResize,
+    Model& model, const int32_t imgResize,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // device (CPU or GPU)

@@ -13,7 +13,7 @@
 
 template <typename Dataset>
 void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
-    const char* model_dataset_filename, int32_t modelMinImageSize,
+    const char* model_dataset_filename, const int32_t imgResize,
     const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
 {
     // device (CPU or GPU)
@@ -23,15 +23,9 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     // transformations
     auto transform_list = std::vector<TorchTrasformPtr>
     {
-        std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd())
+        //std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd()),
+        std::make_shared<DatasetTransforms::ResizeTo>(imgResize, imgResize)
     };
-    if (Dataset::getImageHeight() < modelMinImageSize || Dataset::getImageWidth() < modelMinImageSize) // resize only if necessary
-        transform_list.push_back(
-            std::make_shared<DatasetTransforms::ResizeTo>(
-                Dataset::getImageHeight() < modelMinImageSize ? modelMinImageSize : Dataset::getImageHeight(),
-                Dataset::getImageWidth() < modelMinImageSize ? modelMinImageSize : Dataset::getImageWidth()
-            )
-        );
     if (Dataset::isGrayscale())
         transform_list.push_back(std::make_shared<DatasetTransforms::ReplicateChannels>());
 
@@ -112,12 +106,18 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
             numberOfEpochs);
 
         PythonTracker::startTracker(outputDir, trainOutputFile);
-        CNNFunction::train(epoch, model, device, *train_loader, optimizer, train_dataset_size, criterion);
+        float train_loss = CNNFunction::train(model, device, *train_loader, optimizer, train_dataset_size, criterion);
         PythonTracker::stopTracker();
 
         PythonTracker::startTracker(outputDir, testOutputFile);
-        CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
+        auto test_loss_and_acc = CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
         PythonTracker::stopTracker();
+
+        std::printf(
+            "Train Loss: %.4f | Test Loss:  %.4f | Accuracy: %.2f%%\n",
+            train_loss,
+            test_loss_and_acc.at(0),
+            test_loss_and_acc.at(1));
     }
 
     PythonTracker::finalizeTracker();

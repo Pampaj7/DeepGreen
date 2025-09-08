@@ -11,6 +11,8 @@ const char* kCifarClassesJson = "classes.json";
 // ResNet-18 model for CIFAR-100
 const char* kResnetCifarFilename = RESNET18_CIFAR100_FILENAME;
 
+// The image resize value (single value for both dimensions).
+constexpr int32_t imageSize = 32;
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
@@ -26,7 +28,7 @@ const std::string outputFileName = "resnet18_cifar100";
 int main() {
     try {
         train_resnet18<CIFAR100>(outputFileName, kCifarRelativePath, kCifarClassesJson,
-            kResnetCifarFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+            kResnetCifarFilename, imageSize, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {
