@@ -28,3 +28,22 @@ torch::Device CNNSetup::get_device_available()
     }
     return {device_type};
 }
+
+void CNNSetup::print_num_parameters(const torch::nn::Module& model)
+{
+    std::size_t total_params = 0;
+    for (const auto& param : model.parameters(/*recurse=*/true)) {
+        total_params += param.numel();
+    }
+    std::cout << "Total parameters number: " << total_params << std::endl;
+}
+
+void CNNSetup::print_trainable_parameters(const torch::nn::Module& model)
+{
+    std::size_t trainable_params = 0;
+    for (const auto& param : model.parameters(/*recurse=*/true)) {
+        if (param.requires_grad())
+            trainable_params += param.numel();
+    }
+    std::cout << "Total trainable parameters: " << trainable_params << std::endl;
+}

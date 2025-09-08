@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "dataset/CIFAR100.h"
-#include "train/resnet18/train_resnet18.h"
+#include "train/imported/resnet18/train_resnet18.h"
 
 
 // Where to find the CIFAR-100 dataset.
@@ -18,12 +18,15 @@ constexpr int32_t kTestBatchSize = 128;
 // The number of epochs to train.
 constexpr int32_t kNumberOfEpochs = 30;
 
+// File name in which to save results
+const std::string outputFileName = "resnet18_cifar100";
+
 
 
 int main() {
     try {
-        train_resnet18<CIFAR100>(kCifarRelativePath, kCifarClassesJson, kResnetCifarFilename,
-            kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+        train_resnet18<CIFAR100>(outputFileName, kCifarRelativePath, kCifarClassesJson,
+            kResnetCifarFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {

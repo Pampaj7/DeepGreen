@@ -7,6 +7,8 @@ namespace Utils {
 
     std::string join_paths(std::string head, const std::string& tail);
 
+    void removeFileIfExists(const std::string& fullPathName);
+
     /**
      * On Windows systems the maximum path length is limited to 260 characters (MAX_PATH limit)
      * and some APIs (e.g. OpenCV) could fail, unless:
