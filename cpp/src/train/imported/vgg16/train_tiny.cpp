@@ -11,6 +11,8 @@ const char* kTinyClassesJson = "classes.json";
 // VGG-16 model for Tiny ImageNet-200
 const char* kVggTinyFilename = VGG16_TINYIMAGENET200_FILENAME;
 
+// The image resize value (single value for both dimensions).
+constexpr int32_t imageSize = 32;
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
@@ -26,7 +28,7 @@ const std::string outputFileName = "vgg16_tiny";
 int main() {
     try {
         train_vgg16<TinyImageNet200>(outputFileName, kTinyRootRelativePath, kTinyClassesJson,
-            kVggTinyFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+            kVggTinyFilename, imageSize, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {

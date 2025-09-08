@@ -11,6 +11,8 @@ const char* kFashionClassesJson = "classes.json";
 // VGG-16 model for Fashion-MNIST
 const char* kVggFashionFilename = VGG16_FASHIONMNIST_FILENAME;
 
+// The image resize value (single value for both dimensions).
+constexpr int32_t imageSize = 32;
 // The batch size for training.
 constexpr int32_t kTrainBatchSize = 128;
 // The batch size for testing.
@@ -26,7 +28,7 @@ const std::string outputFileName = "vgg16_fashion";
 int main() {
     try {
         train_vgg16<FashionMNIST>(outputFileName, kFashionRootRelativePath, kFashionClassesJson,
-            kVggFashionFilename, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
+            kVggFashionFilename, imageSize, kTrainBatchSize, kTestBatchSize, kNumberOfEpochs);
 
     }
     catch (const std::exception& ex) {
