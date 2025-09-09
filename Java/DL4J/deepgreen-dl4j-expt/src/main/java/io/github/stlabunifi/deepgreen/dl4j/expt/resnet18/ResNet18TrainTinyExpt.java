@@ -6,7 +6,6 @@ import java.nio.file.Paths;
 
 import org.nd4j.common.io.ClassPathResource;
 import org.deeplearning4j.nn.graph.ComputationGraph;
-//import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
@@ -17,9 +16,6 @@ import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class ResNet18TrainTinyExpt {
-
-	//public final static String resnet18_py_filepath = "/models/resnet18.py";
-	//public final static String resnet18_tiny_h5_filename = "resnet18_tiny.h5";
 
 	public final static int rngSeed = 1234; 	// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
@@ -36,14 +32,6 @@ public class ResNet18TrainTinyExpt {
 
 	public static void main(String[] args) throws Exception {
 		try {
-			// Generate Keras model
-			//Path modelFilePath = Paths.get(resnet18_tiny_h5_filename);
-			//if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
-			//	System.out.println("Generating ResNet-18 model in h5 format...");
-			//	String pyScriptFullPath = new ClassPathResource(resnet18_py_filepath).getFile().getPath();
-			//	PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_tiny_h5_filename, numClasses, lrAdam);
-			//}
-
 			// Load Tiny ImageNet-200
 			Path datasetDir = Paths.get(tiny_png_dirpath);
 			if (!Files.exists(datasetDir) || !Files.isDirectory(datasetDir)) {
@@ -63,17 +51,8 @@ public class ResNet18TrainTinyExpt {
 			tinyTest.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
 
 
-			// Import Keras ResNet-18 model with training config
-			//ComputationGraph importedResnet18 = KerasModelImport.importKerasModelAndWeights(
-			//		/* modelHdf5Stream = */resnet18_tiny_h5_filename,
-			//		/* enforceTrainingConfig = */true);
-			//
-			//ComputationGraph resnet18 = ModelRebuilder
-			//		.rebuildModelWithInputShape(importedResnet18, rngSeed, imgHeight, imgWidth, imgChannels);
-
 			ComputationGraph resnet18 = ResNet18GraphBuilder.buildResNet18(numClasses, rngSeed, 
 					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
-
 
 			// Listener
 			resnet18.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
