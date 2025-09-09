@@ -1,4 +1,4 @@
-package io.github.stlabunifi.deepgreen.dl4j.expt.vgg16;
+package io.github.stlabunifi.deepgreen.dl4j.expt.imported.vgg16;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -6,17 +6,21 @@ import java.nio.file.Paths;
 
 import org.nd4j.common.io.ClassPathResource;
 import org.deeplearning4j.nn.graph.ComputationGraph;
+import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.Vgg16GraphBuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class Vgg16TrainTinyExpt {
+
+	public final static String vgg16_py_filepath = "/models/vgg16.py";
+	public final static String vgg16_tiny_h5_filename = "vgg16_tiny.h5";
 
 	public final static int rngSeed = 1234; 	// random number seed for reproducibility
 	public final static int batchSize = 64; 	// batch size for each epoch
@@ -33,6 +37,14 @@ public class Vgg16TrainTinyExpt {
 
 	public static void main(String[] args) throws Exception {
 		try {
+			// Generate Keras model
+			Path modelFilePath = Paths.get(vgg16_tiny_h5_filename);
+			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
+				System.out.println("Generating VGG-16 model in h5 format...");
+				String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_tiny_h5_filename, numClasses, lrAdam);
+			}
+
 			// Load Tiny ImageNet-200
 			Path datasetDir = Paths.get(tiny_png_dirpath);
 			if (!Files.exists(datasetDir) || !Files.isDirectory(datasetDir)) {
@@ -52,8 +64,14 @@ public class Vgg16TrainTinyExpt {
 			tinyTest.setPreProcessor(new VGG16ImagePreProcessor());
 
 
-			ComputationGraph vgg16 = Vgg16GraphBuilder.buildVGG16(numClasses, rngSeed, 
-					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
+			// Import Keras VGG-16 model with training config
+			ComputationGraph importedVgg16 = KerasModelImport.importKerasModelAndWeights(
+					/* modelHdf5Stream = */vgg16_tiny_h5_filename,
+					/* enforceTrainingConfig = */true);
+			
+			ComputationGraph vgg16 = ModelRebuilder
+					.rebuildModelWithInputShape(importedVgg16, rngSeed, 
+							transformed_imgHeight, transformed_imgHeight, transformed_imgChannels);
 
 			// Listener
 			vgg16.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
