@@ -6,17 +6,17 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class PythonTrackerHandler {
-	private static String defaultTracker = "src/main/resources/tracker/tracker_control.py";
+	private static String defaultTracker = "tracker/tracker_control.py";
 	private static String readyWord = "READY"; // used as synchronization barrier
 
 	private Process process;
@@ -34,8 +34,15 @@ public class PythonTrackerHandler {
 		executor = null;
 		pythonPath = "Linux".equals(System.getProperty("os.name")) ? "python3" : "python";
 		
-		Path filePath = Paths.get(defaultTracker);
-		if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+		Path filePath;
+		try {
+			filePath = Paths.get(
+					Objects.requireNonNull(
+						getClass()
+						.getClassLoader()
+						.getResource("tracker.py"))
+					.toURI());
+		} catch(Exception e) {
 			throw new FileNotFoundException("There is no Python tracker file at: " + defaultTracker);
 		}
 		trackerPath = filePath.toAbsolutePath().toString();
