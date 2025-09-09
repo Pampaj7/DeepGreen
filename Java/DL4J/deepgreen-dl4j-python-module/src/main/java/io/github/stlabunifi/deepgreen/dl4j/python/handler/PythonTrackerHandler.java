@@ -40,7 +40,7 @@ public class PythonTrackerHandler {
 					Objects.requireNonNull(
 						getClass()
 						.getClassLoader()
-						.getResource("tracker.py"))
+						.getResource(defaultTracker))
 					.toURI());
 		} catch(Exception e) {
 			throw new FileNotFoundException("There is no Python tracker file at: " + defaultTracker);
