@@ -18,7 +18,7 @@ import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonTrackerHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
-public class Resnet18TrainCifar100Expt {
+public class ResNet18TrainCifar100Expt {
 
 	public final static String emission_output_dir = "emissions";
 	public final static String emission_filename = "resnet18_cifar100.csv";
@@ -41,7 +41,14 @@ public class Resnet18TrainCifar100Expt {
 
 	public static void main(String[] args) {
 		try {
-			Path emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
+			String moduleBaseDir = System.getProperty("module.basedir");
+			Path emissionOutputDir;
+			if (moduleBaseDir != null && !moduleBaseDir.isBlank()) {
+				emissionOutputDir = Paths.get(moduleBaseDir, emission_output_dir);
+			} else {
+				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
+			}
+			System.out.println(emissionOutputDir); //TODO:check
 			// Remove existing emission file
 			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
 			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
