@@ -77,18 +77,19 @@ public class ResNet18TrainCifar100Expt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
+				
 				trackerHandler.startTracker(emission_filename);
 				resnet18.fit(cifar100Train);
 				trackerHandler.stopTracker();
-				System.out.println("Epoch " + (i + 1) + " completed.");
+				
+				// Evaluation
+				trackerHandler.startTracker(emission_filename);
+				var eval = resnet18.evaluate(cifar100Test);
+				trackerHandler.stopTracker();
+				
+				System.out.println(eval.stats());
 			}
-			
-			// Evaluation
-			System.out.println("Starting evaluation...");
-			trackerHandler.startTracker(emission_filename);
-			var eval = resnet18.evaluate(cifar100Test);
-			trackerHandler.stopTracker();
-			System.out.println(eval.stats());
 			
 		} catch (Exception e) {
 			e.printStackTrace();

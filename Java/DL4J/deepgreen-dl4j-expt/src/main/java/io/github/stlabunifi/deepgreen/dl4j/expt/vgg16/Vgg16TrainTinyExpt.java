@@ -80,18 +80,18 @@ public class Vgg16TrainTinyExpt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
+				
 				trackerHandler.startTracker(emission_filename);
 				vgg16.fit(tinyTrain);
 				trackerHandler.stopTracker();
-				System.out.println("Epoch " + (i + 1) + " completed.");
-			}
 			
-			// Evaluation
-			System.out.println("Starting evaluation...");
-			trackerHandler.startTracker(emission_filename);
-			var eval = vgg16.evaluate(tinyTest);
-			trackerHandler.stopTracker();
-			System.out.println(eval.stats());
+				trackerHandler.startTracker(emission_filename);
+				var eval = vgg16.evaluate(tinyTest);
+				trackerHandler.stopTracker();
+				
+				System.out.println(eval.stats());
+			}
 			
 		} catch (Exception e) {
 			e.printStackTrace();
