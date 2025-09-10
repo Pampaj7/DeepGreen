@@ -22,6 +22,9 @@
     <maven.install.version>3.1.2</maven.install.version>
     <maven.deploy.version>3.1.2</maven.deploy.version>
     <maven.site.version>3.12.1</maven.site.version>
+    
+    <!-- VERSIONS FOR OTHER PLUGINS -->
+    <exec.version>3.5.1</exec.version>
   </properties>
 
   <dependencyManagement>
@@ -69,6 +72,7 @@
   <build>
     <pluginManagement>
       <plugins>
+        <!-- DEFAULT MAVEN PLUGINS -->
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
           <version>${maven.antrun.version}</version>
@@ -100,6 +104,21 @@
         <plugin>
           <artifactId>maven-site-plugin</artifactId>
           <version>${maven.site.version}</version>
+        </plugin>
+
+        <!-- OTHER PLUGINS -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>${exec.version}</version>
+          <configuration>
+            <systemProperties>
+              <systemProperty>
+                <key>module.basedir</key>
+                <value>${project.basedir}</value>
+              </systemProperty>
+            </systemProperties>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
