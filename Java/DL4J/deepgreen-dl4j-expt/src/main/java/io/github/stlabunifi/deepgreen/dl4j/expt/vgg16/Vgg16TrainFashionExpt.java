@@ -80,18 +80,18 @@ public class Vgg16TrainFashionExpt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
+				
 				trackerHandler.startTracker(emission_filename);
 				vgg16.fit(fashionTrain);
 				trackerHandler.stopTracker();
-				System.out.println("Epoch " + (i + 1) + " completed.");
+				
+				trackerHandler.startTracker(emission_filename);
+				var eval = vgg16.evaluate(fashionTest);
+				trackerHandler.stopTracker();
+				
+				System.out.println(eval.stats());
 			}
-			
-			// Evaluation
-			System.out.println("Starting evaluation...");
-			trackerHandler.startTracker(emission_filename);
-			var eval = vgg16.evaluate(fashionTest);
-			trackerHandler.stopTracker();
-			System.out.println(eval.stats());
 			
 		} catch (Exception e) {
 			e.printStackTrace();

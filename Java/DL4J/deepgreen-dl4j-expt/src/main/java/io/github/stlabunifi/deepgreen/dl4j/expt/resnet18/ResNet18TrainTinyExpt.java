@@ -80,18 +80,18 @@ public class ResNet18TrainTinyExpt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
+				
 				trackerHandler.startTracker(emission_filename);
 				resnet18.fit(tinyTrain);
 				trackerHandler.stopTracker();
-				System.out.println("Epoch " + (i + 1) + " completed.");
-			}
 			
-			// Evaluation
-			System.out.println("Starting evaluation...");
-			trackerHandler.startTracker(emission_filename);
-			var eval = resnet18.evaluate(tinyTest);
-			trackerHandler.stopTracker();
-			System.out.println(eval.stats());
+				trackerHandler.startTracker(emission_filename);
+				var eval = resnet18.evaluate(tinyTest);
+				trackerHandler.stopTracker();
+				
+				System.out.println(eval.stats());
+			}
 			
 		} catch (Exception e) {
 			e.printStackTrace();
