@@ -12,10 +12,14 @@ import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
+import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonTrackerHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 public class ResNet18TrainTinyExpt {
+
+	public final static String emission_output_dir = "emissions";
+	public final static String emission_filename = "resnet18_tiny.csv";
 
 	public final static int rngSeed = 1234; 	// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
@@ -30,8 +34,24 @@ public class ResNet18TrainTinyExpt {
 	public static final String tiny_downloader_py_filepath = "/dataset/download_convert_tinyimage.py"; // located in reasources
 	public static final String tiny_png_dirpath = "data/tiny_imagenet_png";
 
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		try {
+			String moduleBaseDir = System.getProperty("module.basedir");
+			Path emissionOutputDir;
+			if (moduleBaseDir != null && !moduleBaseDir.isBlank()) {
+				emissionOutputDir = Paths.get(moduleBaseDir, emission_output_dir);
+			} else {
+				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
+			}
+			System.out.println(emissionOutputDir); //TODO:check
+			// Remove existing emission file
+			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
+			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
+				Files.delete(emissionFilePath);
+
+			PythonTrackerHandler trackerHandler = new PythonTrackerHandler(emissionOutputDir.toString());
+
+
 			// Load Tiny ImageNet-200
 			Path datasetDir = Paths.get(tiny_png_dirpath);
 			if (!Files.exists(datasetDir) || !Files.isDirectory(datasetDir)) {
@@ -60,13 +80,17 @@ public class ResNet18TrainTinyExpt {
 			// Training
 			System.out.println("Starting training...");
 			for (int i = 0; i < numEpochs; i++) {
+				trackerHandler.startTracker(emission_filename);
 				resnet18.fit(tinyTrain);
+				trackerHandler.stopTracker();
 				System.out.println("Epoch " + (i + 1) + " completed.");
 			}
 			
 			// Evaluation
 			System.out.println("Starting evaluation...");
+			trackerHandler.startTracker(emission_filename);
 			var eval = resnet18.evaluate(tinyTest);
+			trackerHandler.stopTracker();
 			System.out.println(eval.stats());
 			
 		} catch (Exception e) {
