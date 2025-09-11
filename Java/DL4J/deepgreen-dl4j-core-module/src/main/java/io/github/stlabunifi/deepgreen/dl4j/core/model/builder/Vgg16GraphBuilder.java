@@ -1,11 +1,13 @@
 package io.github.stlabunifi.deepgreen.dl4j.core.model.builder;
 
-import java.util.Map;
+//import java.util.Map;
 
-import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
-import org.deeplearning4j.nn.conf.graph.GraphVertex;
-import org.deeplearning4j.nn.conf.graph.LayerVertex;
-import org.deeplearning4j.nn.conf.layers.BaseLayer;
+//import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
+//import org.deeplearning4j.nn.conf.graph.GraphVertex;
+//import org.deeplearning4j.nn.conf.graph.LayerVertex;
+//import org.deeplearning4j.nn.conf.layers.BaseLayer;
+//import org.deeplearning4j.nn.weights.WeightInitXavierUniform;
+
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.transferlearning.TransferLearning;
@@ -14,7 +16,6 @@ import org.deeplearning4j.zoo.model.VGG16;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
-import org.deeplearning4j.nn.weights.WeightInitXavierUniform;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
@@ -34,11 +35,8 @@ public class Vgg16GraphBuilder {
 		// Temporarily initialization in order to obtain the original configuration
 		ComputationGraph vgg16 = vgg16Zoo.init();
 
-		// This configuration has two flaws: 
-		// 1) Output layer uses NEGATIVELOGLIKELIHOOD, instead of MCXENT (same as TensorFlow's categorical_crossentropy)
-		// 2) Default initializer are XAVIER = gaussian distribution, instead of XAVIER_UNIFORM = uniform distribution (same as TensorFlow's GlorotUniform)
 
-		// Fix 1)
+		// 1) Output layer uses NEGATIVELOGLIKELIHOOD, instead of MCXENT (same as TensorFlow's categorical_crossentropy)
 		// Substitute the last layer (i.e. 20) with a new one with MCXENT as loss function
 		ComputationGraph vgg16WithCrossEntropyLoss = new TransferLearning.GraphBuilder(vgg16)
 			.removeVertexAndConnections("20")
@@ -53,7 +51,8 @@ public class Vgg16GraphBuilder {
 			.setOutputs("output")
 			.build();
 
-		// Fix 2)
+/*
+		// 2) Default initializer are XAVIER = gaussian distribution, instead of XAVIER_UNIFORM = uniform distribution (same as TensorFlow's GlorotUniform)
 		// Deep copy of configuration (using JSON for compatibility)
 		String confJson = vgg16WithCrossEntropyLoss.getConfiguration().toJson();
 		ComputationGraphConfiguration conf = ComputationGraphConfiguration.fromJson(confJson);
@@ -73,12 +72,13 @@ public class Vgg16GraphBuilder {
 		// Create a new ComputationGraph with the new initializer XAVIER_UNIFORM
 		ComputationGraph vgg16WithLossAndWeights = new ComputationGraph(conf);
 		vgg16WithLossAndWeights.init();
+*/
+
+		ModelInspector.printWeightInitializer(vgg16WithCrossEntropyLoss);
+		ModelInspector.printGraphSummary(vgg16WithCrossEntropyLoss);
+		ModelInspector.printGraphDetails(vgg16WithCrossEntropyLoss);
 		
-		ModelInspector.printWeightInitializer(vgg16WithLossAndWeights);
-		ModelInspector.printGraphSummary(vgg16WithLossAndWeights);
-		ModelInspector.printGraphDetails(vgg16WithLossAndWeights);
-		
-		return vgg16WithLossAndWeights;
+		return vgg16WithCrossEntropyLoss;
 	}
 
 }
