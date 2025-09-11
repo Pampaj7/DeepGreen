@@ -14,7 +14,7 @@ OUTPUT_PNG = "../plots/energy_stacked"     # base path (senza estensione ok)
 STACK_BY = "model"                         # "model" | "dataset" | "model_dataset"
 
 FILTERS = {
-    "fase": "eval",        # es: "train" | "inference" | None
+    "fase": "all",        # es: "train" | "inference" | None
     # "dataset": "CIFAR100",
     # "model": "ResNet18",   # oppure "modello" se nel CSV in italiano
 }

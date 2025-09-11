@@ -1,11 +1,10 @@
-conda create -n tf -c conda-forge python=3.10 tensorflow=2.14 cudatoolkit=11.8 cudnn=8.9 -y
-conda activate tf
 
-then try: python -c "import tensorflow as tf; print(tf.__version__); print(tf.config.list_physical_devices('GPU'))"
+export PATH=/usr/local/cuda-12.2/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-12.2/lib64:$LD_LIBRARY_PATH
 
-if works you'll see stuff like that: 
+which ptxas
+ptxas --version
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 
-2.14.0
-[PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
 
 env - tf

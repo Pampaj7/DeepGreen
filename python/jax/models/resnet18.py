@@ -8,7 +8,6 @@ import optax
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from codecarbon import EmissionsTracker
 from tqdm import tqdm
-
 from flaxmodels import ResNet18 as FMResNet18
 
 

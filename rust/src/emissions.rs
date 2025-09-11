@@ -3,6 +3,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
+use std::fs;
 
 static TRACKER_PROCESS: Lazy<Mutex<Option<(Child, ChildStdin)>>> = Lazy::new(|| Mutex::new(None));
 
@@ -36,12 +37,17 @@ println!("[Rust] Tracker daemon started");
 }
 
 pub fn start_tracker(output_dir: &str, output_file: &str) {
+    // fix per lock di codecarbon
+    let _ = fs::remove_file("/tmp/.codecarbon.lock");
+
     if let Some((_, ref mut stdin)) = *TRACKER_PROCESS.lock().unwrap() {
-        writeln!(stdin, "START {} {}", output_dir, output_file).expect("Failed to write to tracker stdin");
+        writeln!(stdin, "START {} {}", output_dir, output_file)
+            .expect("Failed to write START to tracker stdin");
     } else {
         panic!("Tracker daemon not initialized");
     }
 }
+
 
 pub fn stop_tracker() {
     if let Some((_, ref mut stdin)) = *TRACKER_PROCESS.lock().unwrap() {

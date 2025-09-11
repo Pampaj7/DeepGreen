@@ -34,8 +34,6 @@ fn main() {
 
     // --- Shuffle training data
     let mut rng = rand::thread_rng();
-    train_data.shuffle(&mut rng);
-    println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());
 
     // --- Model
     let vs = nn::VarStore::new(device);
@@ -48,6 +46,8 @@ fn main() {
 
     for epoch in 1..=epochs {
         // --- Tracker: start TRAIN
+        train_data.shuffle(&mut rng);
+
         let train_file = format!("vgg_tinyimagenet_train_epoch{:02}.csv", epoch);
         start_tracker("emissions", &train_file);
 
@@ -60,20 +60,8 @@ fn main() {
             let input = Tensor::cat(&images, 0).to_device(device);
             let target = Tensor::from_slice(&labels).to_kind(Kind::Int64).to_device(device);
 
-            if batch_idx < 3 {
-                println!("[Debug Train] Batch {batch_idx}: input shape = {:?}", input.size());
-                let mut label_count = HashMap::new();
-                for l in &labels {
-                    *label_count.entry(*l).or_insert(0) += 1;
-                }
-                println!("[Debug Train] Label distribution: {:?}", label_count);
-            }
 
             let output = net.forward_t(&input, true);
-
-            if output.size()[1] != 200 {
-                println!("⚠️ WARNING: Output dim is {:?} instead of [B, 200]", output.size());
-            }
 
             let loss = output.cross_entropy_for_logits(&target);
             opt.backward_step(&loss);
