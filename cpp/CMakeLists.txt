@@ -334,6 +334,9 @@ add_executable(vgg16_tiny
 #        src/python/PythonTracker.cpp
 #        src/python/PythonTracker.h
 #)
+
+add_executable(training_rest src/time_to_sleep.cpp)
+
 set(TARGETS
         resnet18_fashion
         resnet18_cifar100
@@ -457,3 +460,22 @@ endif()
 #export_model_for_dataset(${VGG16_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
 #export_model_for_dataset(${VGG16_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
 #export_model_for_dataset(${VGG16_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+
+
+add_custom_target(run_all
+    COMMAND resnet18_cifar100
+    COMMAND training_rest
+    COMMAND resnet18_fashion
+    COMMAND training_rest
+    COMMAND resnet18_tiny
+    COMMAND training_rest
+    COMMAND vgg16_cifar100
+    COMMAND training_rest
+    COMMAND vgg16_fashion
+    COMMAND training_rest
+    COMMAND vgg16_tiny
+    DEPENDS resnet18_cifar100 resnet18_fashion resnet18_tiny vgg16_cifar100 vgg16_fashion vgg16_tiny training_rest
+    USES_TERMINAL
+)
+# Run all with:
+# $ cmake --build build --target run_all --config Release
