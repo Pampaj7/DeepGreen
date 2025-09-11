@@ -1,9 +1,20 @@
 package io.github.stlabunifi.deepgreen.dl4j.core.model.builder;
 
+import java.util.Map;
+
+import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
+import org.deeplearning4j.nn.conf.graph.GraphVertex;
+import org.deeplearning4j.nn.conf.graph.LayerVertex;
+import org.deeplearning4j.nn.conf.layers.BaseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
+import org.deeplearning4j.nn.transferlearning.TransferLearning;
 import org.deeplearning4j.zoo.ZooModel;
 import org.deeplearning4j.zoo.model.VGG16;
+import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.learning.config.Adam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.deeplearning4j.nn.weights.WeightInitXavierUniform;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
@@ -12,6 +23,7 @@ public class Vgg16GraphBuilder {
 	@SuppressWarnings("deprecation")
 	public static ComputationGraph buildVGG16(int numClasses, int seed, 
 			int imgChannels, int imgHeight, int imgWidth, double lr) {
+		// Build the VGG-16 ZooModel
 		ZooModel<?> vgg16Zoo = VGG16.builder()
 				.numClasses(numClasses)
 				.seed(seed)
@@ -19,10 +31,54 @@ public class Vgg16GraphBuilder {
 				.updater(new Adam(lr))
 				.build();
 		
+		// Temporarily initialization in order to obtain the original configuration
 		ComputationGraph vgg16 = vgg16Zoo.init();
-		ModelInspector.printGraphDetails(vgg16);
+
+		// This configuration has two flaws: 
+		// 1) Output layer uses NEGATIVELOGLIKELIHOOD, instead of MCXENT (same as TensorFlow's categorical_crossentropy)
+		// 2) Default initializer are XAVIER = gaussian distribution, instead of XAVIER_UNIFORM = uniform distribution (same as TensorFlow's GlorotUniform)
+
+		// Fix 1)
+		// Substitute the last layer (i.e. 20) with a new one with MCXENT as loss function
+		ComputationGraph vgg16WithCrossEntropyLoss = new TransferLearning.GraphBuilder(vgg16)
+			.removeVertexAndConnections("20")
+			.addLayer("output",
+				new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+					.nIn(4096) // output size of penultimate layer (i.e. 19 in VGG16)
+					.nOut(numClasses)
+					.activation(Activation.SOFTMAX)
+					.updater(new Adam(lr))
+					.build(),
+				"19") // linked to penultimate layer
+			.setOutputs("output")
+			.build();
+
+		// Fix 2)
+		// Deep copy of configuration (using JSON for compatibility)
+		String confJson = vgg16WithCrossEntropyLoss.getConfiguration().toJson();
+		ComputationGraphConfiguration conf = ComputationGraphConfiguration.fromJson(confJson);
 		
-		return vgg16;
+		// Set XAVIER_UNIFORM for every BaseLayer (Conv, Dense, Output, etc)
+		for (Map.Entry<String, GraphVertex> e : conf.getVertices().entrySet()) {
+			GraphVertex gv = e.getValue();
+			if (gv instanceof LayerVertex) {
+				LayerVertex lv = (LayerVertex) gv;
+				if (lv.getLayerConf() != null && lv.getLayerConf().getLayer() instanceof BaseLayer) {
+					BaseLayer bl = (BaseLayer) lv.getLayerConf().getLayer();
+					bl.setWeightInitFn(new WeightInitXavierUniform());
+				}
+			}
+		}
+		
+		// Create a new ComputationGraph with the new initializer XAVIER_UNIFORM
+		ComputationGraph vgg16WithLossAndWeights = new ComputationGraph(conf);
+		vgg16WithLossAndWeights.init();
+		
+		ModelInspector.printWeightInitializer(vgg16WithLossAndWeights);
+		ModelInspector.printGraphSummary(vgg16WithLossAndWeights);
+		ModelInspector.printGraphDetails(vgg16WithLossAndWeights);
+		
+		return vgg16WithLossAndWeights;
 	}
 
 }

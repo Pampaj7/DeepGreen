@@ -8,10 +8,16 @@ import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.graph.GraphVertex;
+import org.deeplearning4j.nn.conf.graph.LayerVertex;
+import org.deeplearning4j.nn.conf.layers.BaseLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class ModelInspector {
+
+	public static void printGraphSummary(ComputationGraph graph) {
+		System.out.println(graph.summary());
+	}
 
 	public static void printGraphDetails(ComputationGraph graph) {
 		ComputationGraphConfiguration conf = graph.getConfiguration();
@@ -50,6 +56,22 @@ public class ModelInspector {
 
 		System.out.println("Total number of parameters: " + graph.numParams());
 		System.out.println("\n======================================");
+	}
+
+	public static void printWeightInitializer(ComputationGraph graph) {
+		graph.getConfiguration().getVertices().forEach((name, vertex) -> {
+			if (vertex instanceof LayerVertex) {
+				org.deeplearning4j.nn.conf.layers.Layer lconf = ((LayerVertex) vertex).getLayerConf().getLayer();
+				if (lconf instanceof BaseLayer) {
+					BaseLayer bl = (BaseLayer) lconf;
+					System.out.println(name + " -> " + bl.getWeightInitFn());
+				} else {
+					System.out.println(name + " -> layer senza pesi trainabili");
+				}
+			} else {
+				System.out.println(name + " -> non è un layer");
+			}
+		});
 	}
 
 
