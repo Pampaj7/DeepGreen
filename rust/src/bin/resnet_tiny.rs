@@ -19,8 +19,6 @@ fn main() {
     let mut train_data = load_tiny_imagenet("/home/pampaj/DeepGreen/data/tiny_imagenet_png/train", device).unwrap();
     let test_data = load_tiny_imagenet("/home/pampaj/DeepGreen/data/tiny_imagenet_png/val", device).unwrap();
     let mut rng = rand::thread_rng();
-    train_data.shuffle(&mut rng);
-    println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());
 
     // --- Model
     let vs = nn::VarStore::new(device);
@@ -35,6 +33,8 @@ fn main() {
     let epochs = 30;
 
     for epoch in 1..=epochs {
+        train_data.shuffle(&mut rng);
+
         // --- START TRAIN tracker
         let train_file = format!("resnet_tinyimagenet_train_epoch{:02}.csv", epoch);
         start_tracker("emissions", &train_file);
@@ -52,20 +52,9 @@ fn main() {
             let input = Tensor::cat(&images, 0);
             let target = Tensor::from_slice(&labels).to_kind(Kind::Int64).to_device(device);
 
-            if batch_idx < 3 {
-                println!("[Debug Train] Batch {batch_idx}: input shape = {:?}", input.size());
-                let mut label_count = HashMap::new();
-                for l in &labels {
-                    *label_count.entry(*l).or_insert(0) += 1;
-                }
-                println!("[Debug Train] Label distribution: {:?}", label_count);
-            }
-
             let output = net.forward_t(&input, true);
 
-            if output.size()[1] != num_classes {
-                println!("⚠️ WARNING: Output dimension is {:?} instead of [B, {}]", output.size(), num_classes);
-            }
+
 
             let loss = output.cross_entropy_for_logits(&target);
             opt.backward_step(&loss);

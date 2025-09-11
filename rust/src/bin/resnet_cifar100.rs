@@ -17,8 +17,6 @@ fn main() {
     let test_data = load_cifar100("/home/pampaj/DeepGreen/data/cifar100_png/test", device, None).unwrap();
     
     let mut rng = rand::thread_rng();
-    train_data.shuffle(&mut rng);
-    println!("Train size: {}, Test size: {}", train_data.len(), test_data.len());
 
     // --- Model
     let vs = nn::VarStore::new(device);
@@ -31,6 +29,7 @@ fn main() {
 
     for epoch in 1..=epochs {
         // --- Training
+        train_data.shuffle(&mut rng);
 
         // Start emissions tracker
         let train_file = format!("resnet_cifar100_train_epoch{:02}.csv", epoch);
@@ -46,18 +45,9 @@ fn main() {
                 .to_kind(Kind::Int64)
                 .to_device(device);
 
-            if batch_idx < 3 {
-                let mut label_count = HashMap::new();
-                for l in &labels {
-                    *label_count.entry(*l).or_insert(0) += 1;
-                }
-            }
 
             let output = net.forward_t(&input, true);
 
-            if output.size()[1] != 100 {
-                println!("⚠️ WARNING: Output dimension is {:?} instead of [B, 100]", output.size());
-            }
 
             let loss = output.cross_entropy_for_logits(&target);
             opt.backward_step(&loss);
