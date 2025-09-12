@@ -66,10 +66,10 @@ public class ModelInspector {
 					BaseLayer bl = (BaseLayer) lconf;
 					System.out.println(name + " -> " + bl.getWeightInitFn());
 				} else {
-					System.out.println(name + " -> layer senza pesi trainabili");
+					System.out.println(name + " -> layer without trainable weights");
 				}
 			} else {
-				System.out.println(name + " -> non è un layer");
+				System.out.println(name + " -> not a layer");
 			}
 		});
 	}
