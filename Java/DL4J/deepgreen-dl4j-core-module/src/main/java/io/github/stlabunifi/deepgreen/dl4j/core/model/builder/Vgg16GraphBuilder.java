@@ -16,6 +16,9 @@ import org.deeplearning4j.zoo.model.VGG16;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.deeplearning4j.nn.conf.CacheMode;
+import org.deeplearning4j.nn.conf.WorkspaceMode;
+import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
@@ -30,6 +33,9 @@ public class Vgg16GraphBuilder {
 				.seed(seed)
 				.inputShape(new int[] {imgChannels, imgHeight, imgWidth})
 				.updater(new Adam(lr))
+				.cacheMode(CacheMode.DEVICE) // Default: CacheMode.NONE
+				.workspaceMode(WorkspaceMode.ENABLED) // Default value
+				.cudnnAlgoMode(ConvolutionLayer.AlgoMode.PREFER_FASTEST) // Default value
 				.build();
 		
 		// Temporarily initialization in order to obtain the original configuration

@@ -1,5 +1,10 @@
 package io.github.stlabunifi.deepgreen.dl4j.core.model.builder;
 
+//import org.deeplearning4j.nn.conf.distribution.TruncatedNormalDistribution;
+//import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
+//import org.deeplearning4j.nn.weights.IWeightInit;
+//import org.deeplearning4j.nn.weights.WeightInitDistribution;
+
 import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.CNN2DFormat;
@@ -8,7 +13,6 @@ import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
 import org.deeplearning4j.nn.conf.ConvolutionMode;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.WorkspaceMode;
-//import org.deeplearning4j.nn.conf.distribution.TruncatedNormalDistribution;
 import org.deeplearning4j.nn.conf.graph.ElementWiseVertex;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.ActivationLayer;
@@ -18,21 +22,17 @@ import org.deeplearning4j.nn.conf.layers.GlobalPoolingLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.conf.layers.PoolingType;
 import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
-//import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
+import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.nd4j.linalg.learning.config.Adam;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
-import org.nd4j.linalg.learning.config.Adam;
-//import org.deeplearning4j.nn.weights.IWeightInit;
-import org.deeplearning4j.nn.weights.WeightInit;
-//import org.deeplearning4j.nn.weights.WeightInitDistribution;
-
 public class ResNet18GraphBuilder {
 
-	static private CacheMode cacheMode = CacheMode.NONE;
+	static private CacheMode cacheMode = CacheMode.DEVICE; // Default: CacheMode.NONE
 	static private WorkspaceMode workspaceMode = WorkspaceMode.ENABLED;
 	static private ConvolutionLayer.AlgoMode cudnnAlgoMode = ConvolutionLayer.AlgoMode.PREFER_FASTEST;
 
@@ -51,6 +51,8 @@ public class ResNet18GraphBuilder {
 		ComputationGraph model = new ComputationGraph(conf);
 		model.init();
 		
+		ModelInspector.printWeightInitializer(model);
+		ModelInspector.printGraphSummary(model);
 		ModelInspector.printGraphDetails(model);
 		return model;
 	}
@@ -63,12 +65,13 @@ public class ResNet18GraphBuilder {
 				.activation(Activation.IDENTITY)
 				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
 				.updater(new Adam(lr))
-				.weightInit(WeightInit.RELU) 	// same to "kernel_initializer="he_normal"" in Python,
-												// i.e., set weights via a truncated normal distribution centered on 0 with stddev = sqrt(2 / fan_in)
+				.weightInit(WeightInit.RELU) 	// set weights via a truncated normal distribution centered on 0 with stddev = sqrt(2 / fan_in)
 												// where fan_in is the number of input units in the weight tensor.
+												// This is similar to "kernel_initializer="he_normal"" in Python,
+												// but PyTorch uses fan_out = kernel_size * out_channels.
 												// Differs from ResNet50: "new WeightInitDistribution(new TruncatedNormalDistribution(0.0, 0.5))"
-				.l1(1e-7)
-				.l2(5e-5)
+				//.l1(1e-7) // used in ResNet50
+				//.l2(5e-5) // used in ResNet50
 				.miniBatch(true)
 				.cacheMode(cacheMode)
 				.trainingWorkspaceMode(workspaceMode)
@@ -93,7 +96,11 @@ public class ResNet18GraphBuilder {
 						.convolutionMode(ConvolutionMode.Same)
 						.build(),
 					"input")
-			.addLayer("bn1", new BatchNormalization.Builder().build(), "conv1")
+			.addLayer("bn1", new BatchNormalization.Builder()
+						.eps(1e-5)
+						.decay(0.9)
+						.build(),
+					"conv1")
 			.addLayer("relu1", new ActivationLayer.Builder().activation(Activation.RELU).build(), "bn1")
 			.addLayer("maxpool", new SubsamplingLayer.Builder(PoolingType.MAX)
 						.kernelSize(3,3)
@@ -158,7 +165,11 @@ public class ResNet18GraphBuilder {
 						.convolutionMode(ConvolutionMode.Same) // padding 1x1
 						.build(),
 					input)
-			.addLayer(bn1, new BatchNormalization.Builder().build(), conv1)
+			.addLayer(bn1, new BatchNormalization.Builder()
+						.eps(1e-5)
+						.decay(0.9)
+						.build(),
+					conv1)
 			.addLayer(relu1, new ActivationLayer.Builder().activation(Activation.RELU).build(), bn1)
 
 			// Second conv
@@ -170,7 +181,11 @@ public class ResNet18GraphBuilder {
 						.convolutionMode(ConvolutionMode.Same) // padding 1x1
 						.build(),
 					relu1)
-			.addLayer(bn2, new BatchNormalization.Builder().build(), conv2);
+			.addLayer(bn2, new BatchNormalization.Builder()
+						.eps(1e-5)
+						.decay(0.9)
+						.build(),
+					conv2);
 
 		// Shortcut branch
 		String shortcutOut;
@@ -186,10 +201,14 @@ public class ResNet18GraphBuilder {
 							// conv 1x1 doesn't require padding, i.e. .convolutionMode(ConvolutionMode.Same)
 							.build(),
 						input)
-				.addLayer(shortcutBN, new BatchNormalization.Builder().build(), shortcutConv); 	// Although not present in DLJ (see https://github.com/deepjavalibrary/d2l-java/blob/master/chapter_convolutional-modern/resnet.ipynb),
-																								// both the official PyTorch (see https://docs.pytorch.org/vision/main/_modules/torchvision/models/resnet.html#resnet18)
-																								// and Tensorflow (https://github.com/tensorflow/models/blob/master/official/vision/modeling/backbones/resnet.py)
-																								// implementations use the bn layer here.
+				.addLayer(shortcutBN, new BatchNormalization.Builder()
+							.eps(1e-5)
+							.decay(0.9)
+							.build(),
+						shortcutConv); 	// Although not present in DLJ (see https://github.com/deepjavalibrary/d2l-java/blob/master/chapter_convolutional-modern/resnet.ipynb),
+										// both the official PyTorch (see https://docs.pytorch.org/vision/main/_modules/torchvision/models/resnet.html#resnet18)
+										// and Tensorflow (https://github.com/tensorflow/models/blob/master/official/vision/modeling/backbones/resnet.py)
+										// implementations use the bn layer here.
 			shortcutOut = shortcutBN;
 		} else {
 			shortcutOut = input; // equivalent to identity block
