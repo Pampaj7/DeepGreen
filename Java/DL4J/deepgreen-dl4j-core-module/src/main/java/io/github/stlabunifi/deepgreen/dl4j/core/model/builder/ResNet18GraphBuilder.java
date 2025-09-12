@@ -71,7 +71,7 @@ public class ResNet18GraphBuilder {
 												// but PyTorch uses fan_out = kernel_size * out_channels.
 												// Differs from ResNet50: "new WeightInitDistribution(new TruncatedNormalDistribution(0.0, 0.5))"
 				//.l1(1e-7) // used in ResNet50
-				//.l2(5e-5) // used in ResNet50
+				//.l2(1e-4) // used in paper ResNet-18 (but with different training config); ResNet50 of DL4J uses 5e-5
 				.miniBatch(true)
 				.cacheMode(cacheMode)
 				.trainingWorkspaceMode(workspaceMode)

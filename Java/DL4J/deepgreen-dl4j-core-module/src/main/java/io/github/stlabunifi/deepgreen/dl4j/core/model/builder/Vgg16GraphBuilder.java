@@ -19,6 +19,7 @@ import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.deeplearning4j.nn.conf.CacheMode;
 import org.deeplearning4j.nn.conf.WorkspaceMode;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.FeedForwardLayer;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
@@ -43,17 +44,24 @@ public class Vgg16GraphBuilder {
 
 
 		// 1) Output layer uses NEGATIVELOGLIKELIHOOD, instead of MCXENT (same as TensorFlow's categorical_crossentropy)
-		// Substitute the last layer (i.e. 20) with a new one with MCXENT as loss function
+		// Get last and second to last vertexes names
+		String lastVertex = vgg16.getConfiguration().getNetworkOutputs().get(0); // "20" in VGG16
+		String secondToLastVertex = vgg16.getConfiguration().getVertexInputs().get(lastVertex).get(0); // "19" in VGG16
+		
+		// Get the output size of the second to last layer
+		long nOut = ((FeedForwardLayer) vgg16.getLayer(secondToLastVertex).conf().getLayer()).getNOut();
+		
+		// Substitute the last layer with a new one with MCXENT as loss function
 		ComputationGraph vgg16WithCrossEntropyLoss = new TransferLearning.GraphBuilder(vgg16)
-			.removeVertexAndConnections("20")
+			.removeVertexAndConnections(lastVertex)
 			.addLayer("output",
 				new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-					.nIn(4096) // output size of penultimate layer (i.e. 19 in VGG16)
+					.nIn(nOut)
 					.nOut(numClasses)
 					.activation(Activation.SOFTMAX)
 					.updater(new Adam(lr))
 					.build(),
-				"19") // linked to penultimate layer
+				secondToLastVertex) // linked to second to last layer
 			.setOutputs("output")
 			.build();
 
