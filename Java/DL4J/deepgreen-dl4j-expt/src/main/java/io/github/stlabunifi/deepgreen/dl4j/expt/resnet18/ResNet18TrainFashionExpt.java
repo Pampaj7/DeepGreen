@@ -43,7 +43,7 @@ public class ResNet18TrainFashionExpt {
 			} else {
 				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
 			}
-			System.out.println(emissionOutputDir); //TODO:check
+			
 			// Remove existing emission file
 			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
 			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))

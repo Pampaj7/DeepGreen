@@ -21,7 +21,7 @@ public class ResNet18TrainTinyExpt {
 	public final static String emission_output_dir = "emissions";
 	public final static String emission_filename = "resnet18_tiny.csv";
 
-	public final static int rngSeed = 1234; 	// random number seed for reproducibility
+	public final static int rngSeed = 123; 	// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
 	public final static int numClasses = 200; 	// number of output classes
 	public final static int numEpochs = 30; 	// number of epochs to perform
@@ -43,7 +43,7 @@ public class ResNet18TrainTinyExpt {
 			} else {
 				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
 			}
-			System.out.println(emissionOutputDir); //TODO:check
+			
 			// Remove existing emission file
 			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
 			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
