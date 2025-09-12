@@ -10,3 +10,7 @@ build/
 ### Java ###
 /.metadata/
 **.h5
+
+
+### Other Files ###
+0.0**
