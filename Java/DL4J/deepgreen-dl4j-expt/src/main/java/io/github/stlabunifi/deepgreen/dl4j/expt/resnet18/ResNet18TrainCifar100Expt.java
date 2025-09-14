@@ -73,7 +73,7 @@ public class ResNet18TrainCifar100Expt {
 					imgChannels, imgHeight, imgWidth, lrAdam);
 
 			// Listener
-			resnet18.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
+			resnet18.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			
 			// Training
 			System.out.println("Starting training...");

@@ -75,7 +75,7 @@ public class ResNet18TrainFashionExpt {
 					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
 
 			// Listener
-			resnet18.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
+			resnet18.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			
 			// Training
 			System.out.println("Starting training...");

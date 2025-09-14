@@ -69,7 +69,7 @@ public class Vgg16TrainCifar100Expt {
 					.rebuildSequentialModelWithOutputLayer(importedVgg16, rngSeed, imgHeight, imgWidth, imgChannels);
 
 			// Listener
-			vgg16.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
+			vgg16.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			
 			// Training
 			System.out.println("Starting training...");

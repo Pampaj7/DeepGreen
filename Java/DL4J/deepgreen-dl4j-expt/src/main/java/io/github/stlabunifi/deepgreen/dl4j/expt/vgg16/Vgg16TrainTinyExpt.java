@@ -76,7 +76,7 @@ public class Vgg16TrainTinyExpt {
 					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
 
 			// Listener
-			vgg16.setListeners(new ScoreIterationListener(100)); // print score every 100 batches
+			vgg16.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			
 			// Training
 			System.out.println("Starting training...");
