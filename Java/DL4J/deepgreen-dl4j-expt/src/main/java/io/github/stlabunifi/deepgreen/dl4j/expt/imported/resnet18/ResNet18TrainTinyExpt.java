@@ -59,7 +59,7 @@ public class ResNet18TrainTinyExpt {
 			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 	
-			// Normalize from (0-255) to (0-1)
+			// Normalize from (0 - 255) to (-1 - 1)
 			tinyTrain.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
 			tinyTest.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
 

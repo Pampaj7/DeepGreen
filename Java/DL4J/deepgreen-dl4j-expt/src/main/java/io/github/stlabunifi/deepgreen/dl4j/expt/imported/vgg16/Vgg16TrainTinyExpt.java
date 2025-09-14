@@ -59,7 +59,7 @@ public class Vgg16TrainTinyExpt {
 			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 	
-			// Normalize from (0-255) to (0-1)
+			// Subtract the mean RGB value
 			tinyTrain.setPreProcessor(new VGG16ImagePreProcessor());
 			tinyTest.setPreProcessor(new VGG16ImagePreProcessor());
 
