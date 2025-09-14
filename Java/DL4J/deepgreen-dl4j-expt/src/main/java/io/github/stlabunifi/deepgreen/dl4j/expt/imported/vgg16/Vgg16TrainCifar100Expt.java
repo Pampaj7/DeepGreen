@@ -52,8 +52,8 @@ public class Vgg16TrainCifar100Expt {
 				PythonCommandHandler.runDownloadDatasetScript(scriptPath, cifar100_png_dirpath);
 			}
 
-			DataSetIterator cifar100Train = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, true);
-			DataSetIterator cifar100Test = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, false);
+			DataSetIterator cifar100Train = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, true, true);
+			DataSetIterator cifar100Test = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, false, false);
 
 			// Normalize from (0-255) to (0-1)
 			cifar100Train.setPreProcessor(new VGG16ImagePreProcessor());

@@ -60,9 +60,9 @@ public class ResNet18TrainFashionExpt {
 				PythonCommandHandler.runDownloadDatasetScript(scriptPath, fashion_png_dirpath);
 			}
 
-			DataSetIterator fashionTrain = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, true,
+			DataSetIterator fashionTrain = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, true, true,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
-			DataSetIterator fashionTest = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, false,
+			DataSetIterator fashionTest = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 
 			// Normalize from (0-255) to (0-1)
