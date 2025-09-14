@@ -65,9 +65,10 @@ public class ResNet18TrainFashionExpt {
 			DataSetIterator fashionTest = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 
-			// Normalize from (0-255) to (0-1)
-			fashionTrain.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
-			fashionTest.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
+			// Normalize from (0 - 255) to (0 - 1)
+			ImagePreProcessingScaler scaler = new ImagePreProcessingScaler(0, 1);
+			fashionTrain.setPreProcessor(scaler);
+			fashionTest.setPreProcessor(scaler);
 
 
 			ComputationGraph resnet18 = ResNet18GraphBuilder.buildResNet18(numClasses, rngSeed, 

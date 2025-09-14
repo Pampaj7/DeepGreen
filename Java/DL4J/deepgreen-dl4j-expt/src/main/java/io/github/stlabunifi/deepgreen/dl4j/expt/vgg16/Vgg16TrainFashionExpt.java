@@ -7,7 +7,7 @@ import java.nio.file.Paths;
 import org.nd4j.common.io.ClassPathResource;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
-import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
+import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.FashionMNISTDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.Vgg16GraphBuilder;
@@ -65,9 +65,10 @@ public class Vgg16TrainFashionExpt {
 			DataSetIterator fashionTest = FashionMNISTDataloader.loadDataAndTransform(fashion_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 
-			// Normalize from (0-255) to (0-1)
-			fashionTrain.setPreProcessor(new VGG16ImagePreProcessor());
-			fashionTest.setPreProcessor(new VGG16ImagePreProcessor());
+			// Normalize from (0 - 255) to (0 - 1)
+			ImagePreProcessingScaler scaler = new ImagePreProcessingScaler(0, 1);
+			fashionTrain.setPreProcessor(scaler);
+			fashionTest.setPreProcessor(scaler);
 
 
 			ComputationGraph vgg16 = Vgg16GraphBuilder.buildVGG16(numClasses, rngSeed, 
