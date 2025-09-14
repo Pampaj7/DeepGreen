@@ -19,7 +19,7 @@ import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 public class ResNet18TrainTinyExpt {
 
 	public final static String emission_output_dir = "emissions";
-	public final static String emission_filename = "resnet18_tiny.csv";
+	public final static String emission_filename = "resnet18_tiny";
 
 	public final static int rngSeed = 123; 	// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
@@ -44,10 +44,15 @@ public class ResNet18TrainTinyExpt {
 				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
 			}
 			
-			// Remove existing emission file
-			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
-			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
-				Files.delete(emissionFilePath);
+			// Remove existing emission files
+			String train_emission_filename = emission_filename + "_train.csv";
+			Path trainEmissionFilePath = emissionOutputDir.resolve(train_emission_filename);
+			if (Files.exists(trainEmissionFilePath) && !Files.isDirectory(trainEmissionFilePath))
+				Files.delete(trainEmissionFilePath);
+			String test_emission_filename = emission_filename +  "_test.csv";
+			Path testEmissionFilePath = emissionOutputDir.resolve(test_emission_filename);
+			if (Files.exists(testEmissionFilePath) && !Files.isDirectory(testEmissionFilePath))
+				Files.delete(testEmissionFilePath);
 
 			PythonTrackerHandler trackerHandler = new PythonTrackerHandler(emissionOutputDir.toString());
 
@@ -83,11 +88,11 @@ public class ResNet18TrainTinyExpt {
 			for (int i = 0; i < numEpochs; i++) {
 				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
 				
-				trackerHandler.startTracker(emission_filename);
+				trackerHandler.startTracker(train_emission_filename);
 				resnet18.fit(tinyTrain);
 				trackerHandler.stopTracker();
 			
-				trackerHandler.startTracker(emission_filename);
+				trackerHandler.startTracker(test_emission_filename);
 				var eval = resnet18.evaluate(tinyTest);
 				trackerHandler.stopTracker();
 				

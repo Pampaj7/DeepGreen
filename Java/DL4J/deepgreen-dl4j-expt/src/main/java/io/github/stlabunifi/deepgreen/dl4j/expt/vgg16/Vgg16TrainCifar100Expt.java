@@ -19,7 +19,7 @@ import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 public class Vgg16TrainCifar100Expt {
 
 	public final static String emission_output_dir = "emissions";
-	public final static String emission_filename = "vgg16_cifar100.csv";
+	public final static String emission_filename = "vgg16_cifar100";
 
 	public final static int rngSeed = 123; 	// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
@@ -44,10 +44,15 @@ public class Vgg16TrainCifar100Expt {
 				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
 			}
 			
-			// Remove existing emission file
-			Path emissionFilePath = emissionOutputDir.resolve(emission_filename);
-			if (Files.exists(emissionFilePath) && !Files.isDirectory(emissionFilePath))
-				Files.delete(emissionFilePath);
+			// Remove existing emission files
+			String train_emission_filename = emission_filename + "_train.csv";
+			Path trainEmissionFilePath = emissionOutputDir.resolve(train_emission_filename);
+			if (Files.exists(trainEmissionFilePath) && !Files.isDirectory(trainEmissionFilePath))
+				Files.delete(trainEmissionFilePath);
+			String test_emission_filename = emission_filename +  "_test.csv";
+			Path testEmissionFilePath = emissionOutputDir.resolve(test_emission_filename);
+			if (Files.exists(testEmissionFilePath) && !Files.isDirectory(testEmissionFilePath))
+				Files.delete(testEmissionFilePath);
 
 			PythonTrackerHandler trackerHandler = new PythonTrackerHandler(emissionOutputDir.toString());
 
@@ -80,11 +85,11 @@ public class Vgg16TrainCifar100Expt {
 			for (int i = 0; i < numEpochs; i++) {
 				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
 				
-				trackerHandler.startTracker(emission_filename);
+				trackerHandler.startTracker(train_emission_filename);
 				vgg16.fit(cifar100Train);
 				trackerHandler.stopTracker();
 				
-				trackerHandler.startTracker(emission_filename);
+				trackerHandler.startTracker(test_emission_filename);
 				var eval = vgg16.evaluate(cifar100Test);
 				trackerHandler.stopTracker();
 				
