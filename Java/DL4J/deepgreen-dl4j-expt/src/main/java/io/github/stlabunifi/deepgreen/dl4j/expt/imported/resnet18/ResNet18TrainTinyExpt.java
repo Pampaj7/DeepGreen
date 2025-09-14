@@ -54,9 +54,9 @@ public class ResNet18TrainTinyExpt {
 			}
 
 
-			DataSetIterator tinyTrain = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, true,
+			DataSetIterator tinyTrain = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, true, true,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
-			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false,
+			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 	
 			// Normalize from (0-255) to (0-1)

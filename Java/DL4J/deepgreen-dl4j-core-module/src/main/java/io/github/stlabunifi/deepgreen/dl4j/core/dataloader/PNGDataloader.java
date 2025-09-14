@@ -13,11 +13,16 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 
 public class PNGDataloader {
 
+	private static final int RNG_SEED = 123;
+
 	static DataSetIterator loadPNGData(File dataDir, int batchSize,
-			int height, int width, int channels, int numClasses, int seed) throws Exception {
+			int height, int width, int channels, int numClasses, boolean shuffle) throws Exception {
 
 		ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
-		FileSplit fileSplit = new FileSplit(dataDir, NativeImageLoader.ALLOWED_FORMATS, new Random(seed));
+		
+		Random rng = shuffle ? new Random(RNG_SEED) : null;
+		FileSplit fileSplit = new FileSplit(dataDir, NativeImageLoader.ALLOWED_FORMATS, rng);
+		
 		RecordReader recordReader = new ImageRecordReader(height, width, channels, labelMaker);
 		recordReader.initialize(fileSplit);
 
