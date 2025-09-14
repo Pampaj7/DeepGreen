@@ -7,7 +7,7 @@ import java.nio.file.Paths;
 import org.nd4j.common.io.ClassPathResource;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
-import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
+import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.Vgg16GraphBuilder;
@@ -65,10 +65,11 @@ public class Vgg16TrainTinyExpt {
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 			DataSetIterator tinyTest = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, false, false,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
-	
-			// Normalize from (0-255) to (0-1)
-			tinyTrain.setPreProcessor(new VGG16ImagePreProcessor());
-			tinyTest.setPreProcessor(new VGG16ImagePreProcessor());
+
+			// Normalize from (0 - 255) to (0 - 1)
+			ImagePreProcessingScaler scaler = new ImagePreProcessingScaler(0, 1);
+			tinyTrain.setPreProcessor(scaler);
+			tinyTest.setPreProcessor(scaler);
 
 
 			ComputationGraph vgg16 = Vgg16GraphBuilder.buildVGG16(numClasses, rngSeed, 
