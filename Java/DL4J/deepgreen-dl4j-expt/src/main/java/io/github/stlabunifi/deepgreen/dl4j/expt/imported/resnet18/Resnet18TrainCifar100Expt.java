@@ -55,7 +55,7 @@ public class Resnet18TrainCifar100Expt {
 			DataSetIterator cifar100Train = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, true, true);
 			DataSetIterator cifar100Test = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, false, false);
 
-			// Normalize from (0-255) to (0-1)
+			// Normalize from (0 - 255) to (-1 - 1)
 			cifar100Train.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
 			cifar100Test.setPreProcessor(new ImagePreProcessingScaler(-1, 1));
 

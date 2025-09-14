@@ -55,7 +55,7 @@ public class Vgg16TrainCifar100Expt {
 			DataSetIterator cifar100Train = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, true, true);
 			DataSetIterator cifar100Test = Cifar100Dataloader.loadData(cifar100_png_dirpath, batchSize, false, false);
 
-			// Normalize from (0-255) to (0-1)
+			// Subtract the mean RGB value
 			cifar100Train.setPreProcessor(new VGG16ImagePreProcessor());
 			cifar100Test.setPreProcessor(new VGG16ImagePreProcessor());
 
