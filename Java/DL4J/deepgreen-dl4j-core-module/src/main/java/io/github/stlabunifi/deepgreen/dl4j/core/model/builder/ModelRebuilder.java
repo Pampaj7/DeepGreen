@@ -1,4 +1,4 @@
-package io.github.stlabunifi.deepgreen.dl4j.core.model;
+package io.github.stlabunifi.deepgreen.dl4j.core.model.builder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +19,8 @@ import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
 import org.apache.commons.lang3.SerializationUtils;
+
+import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelInspector;
 
 public class ModelRebuilder {
 

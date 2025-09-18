@@ -11,7 +11,7 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.TinyImageNetDataloader;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ModelRebuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
@@ -41,9 +41,9 @@ public class ResNet18TrainTinyExpt {
 			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
 				System.out.println("Generating ResNet-18 model in h5 format...");
 				String pyScriptFullPath = new ClassPathResource(resnet18_py_filepath).getFile().getPath();
-				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_tiny_h5_filename, numClasses, lrAdam);
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, resnet18_tiny_h5_filename, numClasses, lrAdam,
+						transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);
 			}
-			Files.createFile(modelFilePath);
 
 			// Load Tiny ImageNet-200
 			Path datasetDir = Paths.get(tiny_png_dirpath);
@@ -52,7 +52,6 @@ public class ResNet18TrainTinyExpt {
 				String scriptPath = new ClassPathResource(tiny_downloader_py_filepath).getFile().getPath();
 				PythonCommandHandler.runDownloadDatasetScript(scriptPath, tiny_png_dirpath);
 			}
-
 
 			DataSetIterator tinyTrain = TinyImageNetDataloader.loadDataAndTransform(tiny_png_dirpath, batchSize, true, true,
 					transformed_imgHeight, transformed_imgWidth, transformed_imgChannels);

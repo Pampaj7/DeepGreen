@@ -41,6 +41,8 @@ if __name__ == "__main__":
 		params["num_classes"] = int(sys.argv[2])
 	if len(sys.argv) > 3:
 		params["lr"] = float(sys.argv[3])
+	if len(sys.argv) > 6:
+		params["input_shape"] = (int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6]))
 	#params["pretrained_weights"] = models.VGG16_Weights.IMAGENET1K_V1
 
 	export_vgg16(**(params))
