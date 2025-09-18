@@ -11,7 +11,7 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 
 import io.github.stlabunifi.deepgreen.dl4j.core.dataloader.Cifar100Dataloader;
-import io.github.stlabunifi.deepgreen.dl4j.core.model.ModelRebuilder;
+import io.github.stlabunifi.deepgreen.dl4j.core.model.builder.ModelRebuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
@@ -41,7 +41,8 @@ public class Vgg16TrainCifar100Expt {
 			if (!Files.exists(modelFilePath) || !Files.isRegularFile(modelFilePath)) {
 				System.out.println("Generating VGG-16 model in h5 format...");
 				String pyScriptFullPath = new ClassPathResource(vgg16_py_filepath).getFile().getPath();
-				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_cifar100_h5_filename, numClasses, lrAdam);
+				PythonCommandHandler.runGenerateModelScript(pyScriptFullPath, vgg16_cifar100_h5_filename, numClasses, lrAdam,
+						imgHeight, imgWidth, imgChannels);
 			}
 
 			// Load CIFAR-100

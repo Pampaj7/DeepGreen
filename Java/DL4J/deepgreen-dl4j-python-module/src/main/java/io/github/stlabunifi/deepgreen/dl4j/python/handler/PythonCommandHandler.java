@@ -17,11 +17,13 @@ public class PythonCommandHandler {
 	 * 	}
 	 * @param lr 
 	 */
-	public static void runGenerateModelScript(String scriptPath, String modelH5Filename, int numClasses, double lr) throws IOException, InterruptedException {
+	public static void runGenerateModelScript(String scriptPath, String modelH5Filename, int numClasses, double lr,
+			int height, int width, int channels) throws IOException, InterruptedException {
 		String pythonPath = VenvManager.getTF2env();
 		
 		ProcessBuilder pb = new ProcessBuilder(pythonPath, scriptPath,
-				modelH5Filename, String.valueOf(numClasses), String.valueOf(lr));
+				modelH5Filename, String.valueOf(numClasses), String.valueOf(lr),
+				String.valueOf(height), String.valueOf(width), String.valueOf(channels));
 		pb.redirectErrorStream(true);
 		Process process = pb.start();
 
