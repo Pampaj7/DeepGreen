@@ -135,4 +135,97 @@
     </pluginManagement>
   </build>
 
+  <profiles>
+    <profile>
+      <id>run-all-experiments</id>
+      <properties>
+        <sleep.time>5</sleep.time>
+        <sleep.comment.before>Take a break of ${sleep.time} seconds... </sleep.comment.before>
+        <sleep.comment.after>finished!</sleep.comment.after>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <!-- version taken from pluginManagement -->
+            <executions>
+              <execution>
+                <id>sleep0</id>
+                <phase>verify</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${sleep.executable}</executable>
+                  <arguments>
+                    <argument>${sleep.command}</argument>
+                    <argument>${sleep.args.before}</argument>
+                    <argument>${sleep.args}</argument>
+                    <argument>${sleep.args.after}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-resnet18-cifar100-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainCifar100Expt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep1</id>
+                <phase>verify</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${sleep.executable}</executable>
+                  <arguments>
+                    <argument>${sleep.command}</argument>
+                    <argument>${sleep.args}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-vgg16-cifar100-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainCifar100Expt</mainClass>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>sleep-on-windows</id>
+      <activation>
+        <os><family>windows</family></os>
+      </activation>
+      <properties>
+        <!-- Windows sleep command -->
+        <sleep.executable>powershell</sleep.executable>
+        <sleep.command>-Command</sleep.command>
+        <sleep.args.before>Write-Host -NoNewline "${sleep.comment.before}";</sleep.args.before>
+        <sleep.args>Start-Sleep -Seconds ${sleep.time};</sleep.args>
+        <sleep.args.after>Write-Host "${sleep.comment.after}"</sleep.args.after>
+      </properties>
+    </profile>
+    <profile>
+      <id>sleep-on-unix</id>
+      <activation>
+        <os><family>unix</family></os>
+      </activation>
+      <properties>
+        <!-- Linux/MacOS sleep command -->
+        <sleep.executable>sleep</sleep.executable>
+        <sleep.command>TODO</sleep.command>
+        <sleep.args.before>TODO</sleep.args.before>
+        <sleep.args>TODO</sleep.args>
+        <sleep.args.after>TODO</sleep.args.after>
+      </properties>
+    </profile>
+  </profiles>
+
 </project>
