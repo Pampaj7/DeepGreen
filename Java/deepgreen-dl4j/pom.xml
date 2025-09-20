@@ -138,11 +138,6 @@
   <profiles>
     <profile>
       <id>run-all-experiments</id>
-      <properties>
-        <sleep.time>5</sleep.time>
-        <sleep.comment.before>Take a break of ${sleep.time} seconds... </sleep.comment.before>
-        <sleep.comment.after>finished!</sleep.comment.after>
-      </properties>
       <build>
         <plugins>
           <plugin>
@@ -150,20 +145,6 @@
             <artifactId>exec-maven-plugin</artifactId>
             <!-- version taken from pluginManagement -->
             <executions>
-              <execution>
-                <id>sleep0</id>
-                <phase>verify</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${sleep.executable}</executable>
-                  <arguments>
-                    <argument>${sleep.command}</argument>
-                    <argument>${sleep.args.before}</argument>
-                    <argument>${sleep.args}</argument>
-                    <argument>${sleep.args.after}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
               <execution>
                 <id>run-resnet18-cifar100-expt</id>
                 <phase>verify</phase>
@@ -175,13 +156,41 @@
               <execution>
                 <id>sleep1</id>
                 <phase>verify</phase>
-                <goals><goal>exec</goal></goals>
+                <goals><goal>java</goal></goals>
                 <configuration>
-                  <executable>${sleep.executable}</executable>
-                  <arguments>
-                    <argument>${sleep.command}</argument>
-                    <argument>${sleep.args}</argument>
-                  </arguments>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-resnet18-fashion-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainFashionExpt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep2</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-resnet18-tiny-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainTinyExpt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep3</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
                 </configuration>
               </execution>
               <execution>
@@ -192,39 +201,42 @@
                   <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainCifar100Expt</mainClass>
                 </configuration>
               </execution>
+              <execution>
+                <id>sleep4</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-vgg16-fashion-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainFashionExpt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep5</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-vgg16-tiny-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainTinyExpt</mainClass>
+                </configuration>
+              </execution>
             </executions>
           </plugin>
         </plugins>
       </build>
-    </profile>
-
-    <profile>
-      <id>sleep-on-windows</id>
-      <activation>
-        <os><family>windows</family></os>
-      </activation>
-      <properties>
-        <!-- Windows sleep command -->
-        <sleep.executable>powershell</sleep.executable>
-        <sleep.command>-Command</sleep.command>
-        <sleep.args.before>Write-Host -NoNewline "${sleep.comment.before}";</sleep.args.before>
-        <sleep.args>Start-Sleep -Seconds ${sleep.time};</sleep.args>
-        <sleep.args.after>Write-Host "${sleep.comment.after}"</sleep.args.after>
-      </properties>
-    </profile>
-    <profile>
-      <id>sleep-on-unix</id>
-      <activation>
-        <os><family>unix</family></os>
-      </activation>
-      <properties>
-        <!-- Linux/MacOS sleep command -->
-        <sleep.executable>sleep</sleep.executable>
-        <sleep.command>TODO</sleep.command>
-        <sleep.args.before>TODO</sleep.args.before>
-        <sleep.args>TODO</sleep.args>
-        <sleep.args.after>TODO</sleep.args.after>
-      </properties>
     </profile>
   </profiles>
 
