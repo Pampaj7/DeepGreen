@@ -5,34 +5,19 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-import re
-import os
 
 # ========= CONFIG =========
-CSV_PATH = "/home/pampaj/DeepGreen/results/data/all_combined_data.csv"
-OUTPUT_PNG = "../plots/energy_stacked"     # base path (senza estensione ok)
-STACK_BY = "model"                         # "model" | "dataset" | "model_dataset"
-
-FILTERS = {
-    "fase": "all",        # es: "train" | "inference" | None
-    # "dataset": "CIFAR100",
-    # "model": "ResNet18",   # oppure "modello" se nel CSV in italiano
-}
-
-LANG_ORDER = None  # es: ["C++", "Java", "MATLAB", "Python", "R"] oppure None
-
-TITLE = "Energy Consumption by Language (stacked)"
+CSV_PATH = "/home/pampaj/DeepGreen/results/data/combined_data.csv"
+OUTPUT_PNG = "../plots/energy"
+TITLE = "Energy Consumption by Language"
 FIGSIZE = (11, 5.5)
 BAR_EDGEWIDTH = 0.6
 BAR_LINECOLOR = "white"
 ROTATION = 35
 
-# Se vuoi forzare una scala scientifica fissa, metti un numero (es. 1e-7)
-# Altrimenti lascia None per autoscale J/mJ/µJ/nJ
-FORCE_SCI_FACTOR = None   # es: 1e-7
+FORCE_SCI_FACTOR = None
 FORCE_SCI_LABEL  = "×1e−7 J"
 # ==========================
-
 
 def smart_unit_scale(values):
     if FORCE_SCI_FACTOR is not None:
@@ -47,139 +32,32 @@ def smart_unit_scale(values):
     else:
         return 1e9, "nJ"
 
-
-def pick_col(df, *candidates):
-    for c in candidates:
-        if c in df.columns:
-            return c
-    raise KeyError(f"Nel CSV mancano le colonne alternative: {candidates}")
-
-
-# ------- NORMALIZZAZIONI -------
-def normalize_model_name(s: str, short=False) -> str:
-    """Unisce vgg/vgg16 e resnet/resnet18."""
-    if not isinstance(s, str):
-        return "NA"
-    t = s.strip().lower()
-
-    if re.search(r"\bvgg([ -_]?16)?\b", t):
-        return "VGG" if short else "VGG16"
-
-    if re.search(r"\bresnet([ -_]?18)?\b", t):
-        return "ResNet" if short else "ResNet18"
-
-    # capitalizzazione gentile
-    return s.strip()
-
-
-def make_stack_key(df, how, col_model, col_dataset):
-    if how == "model":
-        return df[col_model].fillna("NA").astype(str)
-    elif how == "dataset":
-        return df[col_dataset].fillna("NA").astype(str)
-    elif how == "model_dataset":
-        m = df[col_model].fillna("NA").astype(str)
-        d = df[col_dataset].fillna("NA").astype(str)
-        return m + " · " + d
-    else:
-        raise ValueError("STACK_BY deve essere 'model', 'dataset' o 'model_dataset'")
-
-
-def color_palette(n):
-    base = plt.get_cmap("tab20").colors
-    reps = int(np.ceil(n / len(base)))
-    return (base * reps)[:n]
-
-
-def ensure_png_path(base_path: str, stack_by: str, phase_value) -> Path:
-    base = Path(base_path)
-    suffix = base.suffix.lower()
-    stem = base.stem if suffix else base.name
-    parent = base.parent if str(base.parent) not in ("", ".") else Path(".")
-    phase_tag = "all" if (phase_value is None or str(phase_value).strip() == "") else str(phase_value)
-    filename = f"{stem}__{stack_by}__{phase_tag}.png"
-    return parent / filename
-
-
-def main():
-    df = pd.read_csv(CSV_PATH)
-
-    # Mappatura nomi colonne (accetta IT/EN)
-    col_lang    = pick_col(df, "language", "linguaggio")
-    col_energy  = pick_col(df, "energy_consumed", "energia_consumata")
-    col_model   = pick_col(df, "model", "modello")
-    col_dataset = pick_col(df, "dataset", "data_set")
-    col_phase   = "fase" if "fase" in df.columns else ("phase" if "phase" in df.columns else None)
-
-    # Normalizza i nomi modello (accorpa vgg/vgg16 e resnet/resnet18)
-    # Metti short=True se vuoi etichette "VGG"/"ResNet" in legenda
-    df[col_model] = df[col_model].apply(lambda s: normalize_model_name(s, short=False))
-
-    # Applica filtri robusti
-    for k, v in FILTERS.items():
-        if v is None:
-            continue
-        # se la chiave esiste pari pari
-        if k in df.columns:
-            df = df[df[k] == v]
-            continue
-        # mappa chiavi comuni
-        if k in ("model", "modello"):
-            df = df[df[col_model] == v]
-        elif k == "dataset":
-            df = df[df[col_dataset] == v]
-        elif k in ("fase", "phase") and col_phase:
-            df = df[df[col_phase] == v]
-
-    if df.empty:
-        raise ValueError("Dopo i filtri, il dataframe è vuoto. Controlla i valori in FILTERS.")
-
-    # Chiave di stacking
-    df["stack_key"] = make_stack_key(df, STACK_BY, col_model, col_dataset)
-
-    # Aggregazione energia
+def plot_stacked(df, group_col, title, filename, palette):
     pivot = (
-        df.groupby([col_lang, "stack_key"], as_index=False)[col_energy]
+        df.groupby(["language", group_col], as_index=False)["energy_consumed"]
           .sum()
-          .pivot(index=col_lang, columns="stack_key", values=col_energy)
+          .pivot(index="language", columns=group_col, values="energy_consumed")
           .fillna(0.0)
     )
 
-    if pivot.empty:
-        raise ValueError("Nessun dato dopo il pivot: verifica colonne e filtri.")
-
-    # Ordine lingue
+    # 🔽 ordina sempre in ordine crescente
     totals = pivot.sum(axis=1)
-    if LANG_ORDER is None:
-        pivot = pivot.loc[totals.sort_values().index]
-        totals = totals.loc[pivot.index]
-    else:
-        order = [l for l in LANG_ORDER if l in pivot.index] + [l for l in pivot.index if l not in LANG_ORDER]
-        pivot = pivot.loc[order]
-        totals = totals.loc[pivot.index]
+    pivot = pivot.loc[totals.sort_values().index]
+    totals = totals.loc[pivot.index]
 
-    # Ordina le serie della legenda per contributo totale (decrescente)
     stack_totals = pivot.sum(axis=0).sort_values(ascending=False)
     pivot = pivot[stack_totals.index]
 
-    # Scala unità
     scale, unit = smart_unit_scale(pivot.values.flatten())
     pivot_s = pivot * scale
     totals_s = totals * scale
 
-    # Colori
-    keys = list(pivot_s.columns)
-    colors = color_palette(len(keys))
-
-    # Output path finale
-    phase_value = FILTERS.get("fase") if "fase" in FILTERS else (FILTERS.get("phase") if "phase" in FILTERS else None)
-    out_png = ensure_png_path(OUTPUT_PNG, STACK_BY, phase_value)
-    Path(out_png).parent.mkdir(parents=True, exist_ok=True)
-
-    # Plot
     plt.figure(figsize=FIGSIZE)
     bottoms = np.zeros(len(pivot_s), dtype=float)
     x = np.arange(len(pivot_s.index))
+
+    keys = list(pivot_s.columns)
+    colors = [palette[k] for k in keys]
 
     for k, c in zip(keys, colors):
         vals = pivot_s[k].values
@@ -187,7 +65,6 @@ def main():
                 edgecolor=BAR_LINECOLOR, linewidth=BAR_EDGEWIDTH, color=c)
         bottoms += vals
 
-    # Etichette totali sopra le colonne
     for xi, tv in zip(x, totals_s.values):
         if tv > 0:
             plt.text(xi, tv * 1.01, f"{tv:.2f}", ha="center", va="bottom", fontsize=9)
@@ -195,23 +72,87 @@ def main():
     plt.xticks(x, pivot_s.index, rotation=ROTATION, ha="right")
     plt.ylabel(f"Energy Consumed [{unit}]")
     plt.xlabel("Language")
-
-    subtitle = ""
-    if col_phase:
-        phase_val = FILTERS.get("fase") if FILTERS.get("fase") is not None else None
-        if phase_val is not None:
-            subtitle = f" – phase: {phase_val}"
-    plt.title(TITLE + subtitle)
-
-    legend_title = {"model": "Model", "dataset": "Dataset", "model_dataset": "Model · Dataset"}[STACK_BY]
-    plt.legend(title=legend_title, bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0.)
+    plt.title(title)
+    plt.legend(title=group_col, bbox_to_anchor=(1.02, 1), loc="upper left")
     plt.tight_layout()
-    plt.savefig(out_png, dpi=220)
+    plt.savefig(filename, dpi=220)
     plt.close()
+    print(f"✅ Salvato {filename}")
 
-    print(f"✅ Plot salvato in: {out_png}")
-    print(f"Stack by: {STACK_BY} | Unit: {unit} | Filtri: {FILTERS}")
+def plot_grouped(df, filename, datasets, palette_resnet, palette_vgg):
+    # 🔽 ordina sempre per totale crescente
+    totals = df.groupby("language")["energy_consumed"].sum()
+    languages = list(totals.sort_values().index)
+    models = ["ResNet18", "VGG16"]
 
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    x = np.arange(len(languages))
+    width = 0.35
+    scale, unit = smart_unit_scale(df["energy_consumed"].values)
+
+    for i, model in enumerate(models):
+        offset = (-width/2 if model == "ResNet18" else width/2)
+        bottoms = np.zeros(len(languages))
+        for j, dataset in enumerate(datasets):
+            subset = (
+                df[(df["modello"] == model) & (df["dataset"] == dataset)]
+                  .groupby("language")["energy_consumed"].sum()
+                  .reindex(languages, fill_value=0) * scale
+            )
+            color = palette_resnet[j] if model == "ResNet18" else palette_vgg[j]
+            ax.bar(x + offset, subset.values, width, bottom=bottoms,
+                   label=f"{model} · {dataset}",
+                   edgecolor=BAR_LINECOLOR, linewidth=BAR_EDGEWIDTH, color=color)
+            bottoms += subset.values
+
+    ax.set_xticks(x, languages, rotation=ROTATION, ha="right")
+    ax.set_ylabel(f"Energy Consumed [{unit}]")
+    ax.set_xlabel("Language")
+    ax.set_title(f"{TITLE} – grouped by Model and Dataset")
+    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
+    plt.tight_layout()
+    plt.savefig(filename, dpi=220)
+    plt.close()
+    print(f"✅ Salvato {filename}")
+
+def main():
+    df = pd.read_csv(CSV_PATH)
+    if "fase" not in df.columns:
+        raise ValueError("Manca la colonna 'fase' nel CSV")
+
+    for phase_value in ["train", "eval"]:
+        df_phase = df[df["fase"] == phase_value]
+        if df_phase.empty:
+            print(f"⚠️ Nessun dato per fase={phase_value}, salto…")
+            continue
+
+        datasets = sorted(df_phase["dataset"].unique())
+
+        # palette
+        palette_model = {
+            "ResNet18": plt.get_cmap("Blues")(0.6),
+            "VGG16": plt.get_cmap("Oranges")(0.6),
+        }
+        palette_dataset = {
+            d: plt.get_cmap("tab20")(i) for i, d in enumerate(datasets)
+        }
+        palette_model_dataset = {
+            f"{m} · {d}": (plt.get_cmap("Blues")(0.3 + 0.1*i) if m=="ResNet18"
+                           else plt.get_cmap("Oranges")(0.3 + 0.1*i))
+            for m in ["ResNet18","VGG16"] for i,d in enumerate(datasets)
+        }
+
+        out1 = Path(f"{OUTPUT_PNG}__model__{phase_value}.png")
+        out2 = Path(f"{OUTPUT_PNG}__dataset__{phase_value}.png")
+        out3 = Path(f"{OUTPUT_PNG}__grouped__{phase_value}.png")
+
+        plot_stacked(df_phase.copy(), "modello",
+                     f"{TITLE} – by Model (phase: {phase_value})", out1, palette_model)
+        plot_stacked(df_phase.copy(), "dataset",
+                     f"{TITLE} – by Dataset (phase: {phase_value})", out2, palette_dataset)
+        plot_grouped(df_phase.copy(), out3, datasets,
+                     [plt.get_cmap("Blues")(0.3+0.2*i) for i in range(len(datasets))],
+                     [plt.get_cmap("Oranges")(0.3+0.2*i) for i in range(len(datasets))])
 
 if __name__ == "__main__":
     main()
