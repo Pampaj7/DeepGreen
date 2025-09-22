@@ -138,6 +138,9 @@
   <profiles>
     <profile>
       <id>run-all-experiments</id>
+      <!-- DON'T USE run-all-experiments PROFILE -->
+      <!-- With exec-maven-plugin DL4J APIs doesn't free GPU memory between experiments -->
+      <!-- Resulting into more execution time and probably allocation failure -->
       <build>
         <plugins>
           <plugin>
