@@ -1,24 +1,84 @@
-import pandas as pd
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
+import pandas as pd
 
-# Directory contenente i CSV (sostituisci con il percorso reale)
-input_dir = "./"
-output_file = "all_combined_data.csv"
+# ========= CONFIG =========
+INPUT_DIR = "./"
+OUTPUT_FILE = "combined_data.csv"
+# ==========================
 
-# Lista per memorizzare i DataFrame
-dataframes = []
+def normalize_model(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    t = s.strip().lower()
+    if "vgg" in t:
+        return "VGG16"
+    if "resnet" in t:
+        return "ResNet18"
+    return s.strip()
 
-# Scorri tutti i file nella directory
-for filename in os.listdir(input_dir):
-    if filename.endswith(".csv"):
-        # Leggi il CSV
-        df = pd.read_csv(os.path.join(input_dir, filename))
-        # Aggiungi il DataFrame alla lista
-        dataframes.append(df)
+def normalize_dataset(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    t = s.strip().lower()
+    if "cifar" in t:
+        return "CIFAR100"
+    if "fashion" in t:
+        return "FashionMNIST"
+    if "tiny" in t:
+        return "TinyImageNet"
+    return s.strip()
 
-# Unisci tutti i DataFrame
-combined_df = pd.concat(dataframes, ignore_index=True)
+def normalize_phase(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    t = s.strip().lower()
+    return "eval" if t == "test" else t
 
-# Salva il risultato in un nuovo CSV
-combined_df.to_csv(output_file, index=False)
-print(f"Tutti i dati uniti salvati in {output_file}")
+def normalize_language(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    t = s.strip().lower()
+    if t in ("c++", "cpp", "c plus plus"):
+        return "C++"
+    if t in ("pytorch", "torch"):
+        return "PyTorch"
+    if t in ("tensorflow", "tf"):
+        return "TensorFlow"
+    if t == "jax":
+        return "JAX"
+    if t == "rust":
+        return "Rust"
+    if t == "r":
+        return "R"
+    return s.strip()
+
+def main():
+    csv_files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".csv") and f != OUTPUT_FILE]
+    if not csv_files:
+        raise FileNotFoundError("Nessun CSV trovato nella cartella corrente.")
+
+    all_dfs = []
+    for file in csv_files:
+        df = pd.read_csv(os.path.join(INPUT_DIR, file))
+
+        # normalizza colonne se presenti
+        if "modello" in df.columns:
+            df["modello"] = df["modello"].apply(normalize_model)
+        if "dataset" in df.columns:
+            df["dataset"] = df["dataset"].apply(normalize_dataset)
+        if "fase" in df.columns:
+            df["fase"] = df["fase"].apply(normalize_phase)
+        if "language" in df.columns:
+            df["language"] = df["language"].apply(normalize_language)
+
+        all_dfs.append(df)
+
+    final_df = pd.concat(all_dfs, ignore_index=True)
+    final_df.to_csv(OUTPUT_FILE, index=False)
+    print(f"✅ File combinato salvato come {OUTPUT_FILE} con {len(final_df)} righe")
+
+if __name__ == "__main__":
+    main()
