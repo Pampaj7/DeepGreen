@@ -22,16 +22,21 @@ function train_cifar100(datasetDir, emissionFileName, outMat, epochs, batchSize)
     
     % --------- DATA ---------
     trainDir = fullfile(datasetDir,'train');
-    valDir   = fullfile(datasetDir,'test');
-    assert(isfolder(trainDir)&&isfolder(valDir), 'Missing train/test folders in %s', datasetDir);
+    testDir  = fullfile(datasetDir,'test');
+    assert(isfolder(trainDir)&&isfolder(testDir), 'Missing train/test folders in %s', datasetDir);
     
     imdsTrain = imageDatastore(trainDir,'IncludeSubfolders',true,'LabelSource','foldernames');
-    imdsVal   = imageDatastore(valDir,  'IncludeSubfolders',true,'LabelSource','foldernames');
+    imdsTest  = imageDatastore(testDir, 'IncludeSubfolders',true,'LabelSource','foldernames');
     numClasses = numel(categories(imdsTrain.Labels));
     fprintf('Found %d classes in training set.\n', numClasses);
 
     augTrain = augmentedImageDatastore([32 32], imdsTrain);
-    augVal   = augmentedImageDatastore([32 32], imdsVal);
+    augTest   = augmentedImageDatastore([32 32], imdsTest);
+
+    % --------- LOSS ---------
+    % With trainNetwork function the used loss depends by the last layer:
+    % - if classificationLayer  then cross-entropy is used
+    % - if regressionLayer      then Mean Squared Error is used
     
     % --------- MODEL ---------
     % definito in matlab/models/model32.m
@@ -39,10 +44,12 @@ function train_cifar100(datasetDir, emissionFileName, outMat, epochs, batchSize)
     
     % --------- TRAIN CONF ---------
     opts = trainingOptions('adam', ...
-        'InitialLearnRate',1e-4, 'MiniBatchSize',batchSize, 'MaxEpochs',epochs, ...
-        'Shuffle','every-epoch', 'ValidationData',augVal, ...
-        'ValidationFrequency',max(1,floor(numel(imdsTrain.Files)/batchSize)), ...
-        'Verbose',true, 'Plots','none');
+        'InitialLearnRate',1e-4, ...
+        'MiniBatchSize',batchSize, ...
+        'MaxEpochs',epochs, ...
+        'Shuffle','every-epoch', ...
+        'Verbose',true, ...
+        'Plots','none');
     
     % --------- REMOVE EXISTING EMISSION FILES ---------
     trainEmissionFile = strcat(emissionFileName, '_train.csv');
@@ -55,6 +62,12 @@ function train_cifar100(datasetDir, emissionFileName, outMat, epochs, batchSize)
     py.tracker_control.Tracker.start_tracker(emissionOutputDir, trainEmissionFile);
     net = trainNetwork(augTrain, lgraph, opts);
     py.tracker_control.Tracker.stop_tracker();
+
+    % Predizione sul test set
+    YPred = classify(net, augTest);
+    YTest = imdsTest.Labels;
+    accuracy = mean(YPred == YTest) * 100;
+    disp("Test accuracy: " + accuracy + "%");
 
     % --------- SAVE MODEL ---------
     if ~isfolder(fileparts(outMat)), mkdir(fileparts(outMat)); end
