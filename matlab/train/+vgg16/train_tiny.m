@@ -15,7 +15,7 @@ function train_tiny(datasetDir, outMat, epochs, batchSize)
     % --------- default args ---------
     if nargin<1||isempty(datasetDir), datasetDir = 'data/tiny_imagenet_png'; end
     if nargin<2||isempty(outMat),     outMat     = 'matlab/checkpoints/vgg16_tiny_matlab.mat'; end
-    if nargin<3||isempty(epochs),     epochs     = 1; end
+    if nargin<3||isempty(epochs),     epochs     = 30; end
     if nargin<4||isempty(batchSize),  batchSize  = 128; end
     
     % --------- DATA ---------
@@ -43,7 +43,9 @@ function train_tiny(datasetDir, outMat, epochs, batchSize)
         'Verbose',true, 'Plots','none');
     
     fprintf('Starting training VGG16 on Tiny ImageNet (32x32) …\n');
+    py.tracker_control.Tracker.start_tracker('matlab/emissions','vgg16_tiny.csv');
     net = trainNetwork(augTrain, lgraph, opts);
+    py.tracker_control.Tracker.stop_tracker();
 
     % --------- SAVE ---------
     if ~isfolder(fileparts(outMat)), mkdir(fileparts(outMat)); end

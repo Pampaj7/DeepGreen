@@ -43,7 +43,9 @@ function train_tiny(datasetDir, outMat, epochs, batchSize)
         'Verbose',true, 'Plots','none');
     
     fprintf('Starting training ResNet18 on Tiny ImageNet (32x32) …\n');
+    py.tracker_control.Tracker.start_tracker('matlab/emissions','resnet18_tiny.csv');
     net = trainNetwork(augTrain, lgraph, opts);
+    py.tracker_control.Tracker.stop_tracker();
 
     % --------- SAVE ---------
     if ~isfolder(fileparts(outMat)), mkdir(fileparts(outMat)); end
