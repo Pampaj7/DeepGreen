@@ -4,9 +4,9 @@
 % 1) Locate yourself into main project folder (e.g. DeepGreen, i.e. where
 % .git is located)
 % 2) Before run, set the matlab folder (and subdirectories) to matlab's paths via:
-% $ addpath(genpath('matlab'));
+% >> addpath(genpath('matlab'));
 % 3) Run the function via (don't change location)
-% $ resnet18.train_tiny('data/tiny_imagenet_png','matlab/checkpoints/resnet18_tiny_matlab.mat',30,128);
+% >> resnet18.train_tiny('data/tiny_imagenet_png','matlab/checkpoints/resnet18_tiny_matlab.mat',30,128);
 % 
 % Alternatvely, run :
 % $ matlab -batch "; resnet18.train_tiny('data/tiny_imagenet_png','matlab/checkpoints/resnet18_tiny_matlab.mat',30,128); exit"
@@ -17,7 +17,9 @@ function train_tiny(datasetDir, outMat, epochs, batchSize)
     if nargin<2||isempty(outMat),     outMat     = 'matlab/checkpoints/resnet18_tiny_matlab.mat'; end
     if nargin<3||isempty(epochs),     epochs     = 30; end
     if nargin<4||isempty(batchSize),  batchSize  = 128; end
-    
+    emissionOutputDir = 'matlab/emissions';
+    emissionFileName = 'resnet18_tiny';
+
     % --------- DATA ---------
     trainDir = fullfile(datasetDir,'train');
     valDir   = fullfile(datasetDir,'val');
@@ -43,7 +45,8 @@ function train_tiny(datasetDir, outMat, epochs, batchSize)
         'Verbose',true, 'Plots','none');
     
     fprintf('Starting training ResNet18 on Tiny ImageNet (32x32) …\n');
-    py.tracker_control.Tracker.start_tracker('matlab/emissions','resnet18_tiny.csv');
+    trainEmissionFile = strcat(emissionFileName, '_train.csv');
+    py.tracker_control.Tracker.start_tracker(emissionOutputDir, trainEmissionFile);
     net = trainNetwork(augTrain, lgraph, opts);
     py.tracker_control.Tracker.stop_tracker();
 

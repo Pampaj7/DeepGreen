@@ -1,0 +1,17 @@
+%%%%%%%%% BEFORE TO RUN %%%%%%%%%
+%
+% 1) Set Python environment in MATLAB
+% On Linux:
+% >> pyenv('Version', 'full/path/to/python')
+% On Windows:
+% >> pyenv('ExecutionMode','OutOfProcess', 'Version', 'full/path/to/python')
+% Windows requires that the Python process be external to MATLAB,
+% otherwise it generates the warning "Unrecognized command line option: -json."
+%  which will prevent the tracker from starting.
+%
+% 2) Add the tracker folder (/matlab/tracker/) to PYTHONPATH:
+% >> insert(py.sys.path, int32(0), '/full/path/to/matlab/tracker/');
+%
+% 3) Check if the module is correctly linked:
+% >> mod = py.importlib.import_module('tracker_control');
+% If the module is imported without errors, the link has been established correctly.
