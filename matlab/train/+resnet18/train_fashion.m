@@ -37,20 +37,26 @@ function train_fashion(datasetDir, outMat, epochs, batchSize)
     % definito in matlab/models/model32.m
     lgraph = resnet18_model_32_blank(numClasses);
     
-    % --------- TRAIN ---------
+    % --------- TRAIN CONF ---------
     opts = trainingOptions('adam', ...
         'InitialLearnRate',1e-4, 'MiniBatchSize',batchSize, 'MaxEpochs',epochs, ...
         'Shuffle','every-epoch', 'ValidationData',augVal, ...
         'ValidationFrequency',max(1,floor(numel(imdsTrain.Files)/batchSize)), ...
         'Verbose',true, 'Plots','none');
     
-    fprintf('Starting training ResNet18 on FashionMNIST (32x32) …\n');
+    % --------- REMOVE EXISTING EMISSION FILES ---------
     trainEmissionFile = strcat(emissionFileName, '_train.csv');
+    if isfile(fullfile(emissionOutputDir, trainEmissionFile))
+        delete(fullfile(emissionOutputDir, trainEmissionFile));
+    end
+
+    % --------- TRAIN LOOP ---------
+    fprintf('Starting training ResNet18 on FashionMNIST (32x32) …\n');
     py.tracker_control.Tracker.start_tracker(emissionOutputDir, trainEmissionFile);
     net = trainNetwork(augTrain, lgraph, opts);
     py.tracker_control.Tracker.stop_tracker();
 
-    % --------- SAVE ---------
+    % --------- SAVE MODEL ---------
     if ~isfolder(fileparts(outMat)), mkdir(fileparts(outMat)); end
     save(outMat,'net','-v7.3');
     fprintf('Saved checkpoint to %s\n', outMat);
