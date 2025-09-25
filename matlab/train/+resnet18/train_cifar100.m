@@ -19,6 +19,7 @@ function train_cifar100(datasetDir, emissionFileName, outMat, epochs, batchSize)
     if nargin<4||isempty(epochs),           epochs              = 30; end
     if nargin<5||isempty(batchSize),        batchSize           = 128; end
     emissionOutputDir = 'matlab/emissions';
+    lr = 1e-4;
 
     % --------- DATA ---------
     trainDir = fullfile(datasetDir,'train');
@@ -44,9 +45,9 @@ function train_cifar100(datasetDir, emissionFileName, outMat, epochs, batchSize)
     
     % --------- TRAIN CONF ---------
     opts = trainingOptions('adam', ...
-        InitialLearnRate=1e-4, ...
+        InitialLearnRate=lr, ...
         MiniBatchSize=batchSize, ...
-        MaxEpochs=epochs, ...
+        MaxEpochs=1, ...
         Shuffle='every-epoch', ...
         Verbose=true, ...
         Plots='none');
@@ -61,22 +62,34 @@ function train_cifar100(datasetDir, emissionFileName, outMat, epochs, batchSize)
         delete(fullfile(emissionOutputDir, testEmissionFile));
     end
 
+    % --------- TRACKER ---------
+    tracker_control = py.importlib.import_module('tracker_control');
+
     % --------- TRAIN LOOP ---------
     fprintf('Starting training ResNet18 on CIFAR-100 (32x32) …\n');
-    py.tracker_control.Tracker.start_tracker(emissionOutputDir, trainEmissionFile);
-    net = trainNetwork(augTrain, lgraph, opts);
-    py.tracker_control.Tracker.stop_tracker();
+    for k = 1:epochs
+        fprintf('--- Epoch %d/%d ---\n',k,epochs)
 
-    % Predizione sul test set
-    py.tracker_control.Tracker.start_tracker(emissionOutputDir, testEmissionFile);
-    YPred = classify(net, augTest, ...
-        MiniBatchSize=batchSize, ...
-        ExecutionEnvironment='gpu');
-    py.tracker_control.Tracker.stop_tracker();
+        % Training
+        tracker_control.Tracker.start_tracker(emissionOutputDir, trainEmissionFile);
+        net = trainNetwork(augTrain, lgraph, opts);
+        tracker_control.Tracker.stop_tracker();
 
-    YTest = imdsTest.Labels;
-    accuracy = mean(YPred == YTest) * 100;
-    disp("Test accuracy: " + accuracy + "%");
+        % Testing
+        tracker_control.Tracker.start_tracker(emissionOutputDir, testEmissionFile);
+        YPred = classify(net, augTest, ...
+            MiniBatchSize=batchSize, ...
+            ExecutionEnvironment='gpu');
+        tracker_control.Tracker.stop_tracker();
+        
+        % Print details
+        accuracy = mean(YPred == imdsTest.Labels) * 100;
+        disp("Test accuracy: " + accuracy + "%");
+
+        % Convert net (DAGNetwork) to layer graph 
+        % Necessary for next trainNetwork epoch
+        lgraph = layerGraph(net);
+    end
     
     % --------- SAVE MODEL ---------
     if ~isfolder(fileparts(outMat)), mkdir(fileparts(outMat)); end
