@@ -4,7 +4,7 @@ function lgraph = vgg16_model_32_blank(numClasses)
     lgraph = layerGraph(layers);
     
     %               Input 32×32 (input layer name in VGG16: 'input')
-    inLayer = imageInputLayer([32 32 3], Name='input', Normalization='none');
+    inLayer = imageInputLayer([32 32 3], Name='input', Normalization='rescale-zero-one');
     lgraph  = replaceLayer(lgraph, 'input', inLayer);
     
     % Head: flatten + ... + fc + softmax + output
