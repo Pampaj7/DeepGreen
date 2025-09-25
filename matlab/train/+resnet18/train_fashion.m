@@ -6,20 +6,20 @@
 % 2) Before run, set the matlab folder (and subdirectories) to matlab's paths via:
 % >> addpath(genpath('matlab'));
 % 3) Run the function via (don't change location)
-% >> resnet18.train_fashion('data/fashion_mnist_png','resnet18_fashion','matlab/checkpoints/resnet18_fashion_matlab.mat',30,128);
+% >> resnet18.train_fashion('data/fashion_mnist_png','resnet18_fashion','matlab/checkpoints/resnet18_fashion_matlab.mat',[32 32],30,128,1e-4);
 % 
 % Alternatvely, run :
-% $ matlab -batch "; resnet18.train_fashion('data/fashion_mnist_png','resnet18_fashion','matlab/checkpoints/resnet18_fashion_matlab.mat',30,128); exit"
+% $ matlab -batch "; resnet18.train_fashion('data/fashion_mnist_png','resnet18_fashion','matlab/checkpoints/resnet18_fashion_matlab.mat',[32 32],30,128,1e-4); exit"
 %
-function train_fashion(datasetDir, emissionFileName, outMat, epochs, batchSize)
+function train_fashion(datasetDir, emissionFileName, outMat, img_size, epochs, batchSize, lr)
     % --------- default args ---------
     if nargin<1||isempty(datasetDir),       datasetDir          = 'data/fashion_mnist_png'; end
     if nargin<2||isempty(emissionFileName), emissionFileName    = 'resnet18_fashion'; end
     if nargin<3||isempty(outMat),           outMat              = 'matlab/checkpoints/resnet18_fashion_matlab.mat'; end
-    if nargin<4||isempty(epochs),           epochs              = 30; end
-    if nargin<5||isempty(batchSize),        batchSize           = 128; end
-    emissionOutputDir = 'matlab/emissions';
-    lr = 1e-4;
+    if nargin<4||isempty(img_size),         img_size            = [32 32]; end
+    if nargin<5||isempty(epochs),           epochs              = 30; end
+    if nargin<6||isempty(batchSize),        batchSize           = 128; end
+    if nargin<7||isempty(lr),               lr                  = 1e-4; end
 
     % --------- DATA ---------
     trainDir = fullfile(datasetDir,'train');
@@ -31,8 +31,8 @@ function train_fashion(datasetDir, emissionFileName, outMat, epochs, batchSize)
     numClasses = numel(categories(imdsTrain.Labels));
     fprintf('Found %d classes in training set.\n', numClasses);
 
-    augTrain = augmentedImageDatastore([32 32], imdsTrain,'ColorPreprocessing','gray2rgb');
-    augTest  = augmentedImageDatastore([32 32], imdsTest, 'ColorPreprocessing','gray2rgb');
+    augTrain = augmentedImageDatastore(img_size, imdsTrain,'ColorPreprocessing','gray2rgb');
+    augTest  = augmentedImageDatastore(img_size, imdsTest, 'ColorPreprocessing','gray2rgb');
 
     % --------- LOSS ---------
     % With trainNetwork function the used loss depends by the last layer:
@@ -51,6 +51,10 @@ function train_fashion(datasetDir, emissionFileName, outMat, epochs, batchSize)
         Shuffle='every-epoch', ...
         Verbose=true, ...
         Plots='none');
+
+    % --------- TRACKER ---------
+    tracker_control = py.importlib.import_module('tracker_control');
+    emissionOutputDir = 'matlab/emissions';
     
     % --------- REMOVE EXISTING EMISSION FILES ---------
     trainEmissionFile = strcat(emissionFileName, '_train.csv');
@@ -61,9 +65,6 @@ function train_fashion(datasetDir, emissionFileName, outMat, epochs, batchSize)
     if isfile(fullfile(emissionOutputDir, testEmissionFile))
         delete(fullfile(emissionOutputDir, testEmissionFile));
     end
-
-    % --------- TRACKER ---------
-    tracker_control = py.importlib.import_module('tracker_control');
 
     % --------- TRAIN LOOP ---------
     fprintf('Starting training ResNet18 on FashionMNIST (32x32) …\n');
