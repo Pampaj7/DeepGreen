@@ -31,8 +31,29 @@ function train_fashion(datasetDir, emissionFileName, outMat, img_size, epochs, b
     numClasses = numel(categories(imdsTrain.Labels));
     fprintf('Found %d classes in training set.\n', numClasses);
 
+    %%% DEBUG ONLY %%%
+    % % Check size and extremes of imageDatastore's images
+    % img = readimage(imdsTrain,1);
+    % disp([min(img(:)) max(img(:))]);
+    % disp(size(img));
+
+    % Resize and convert to RGB (if necessary)
+    % Some images of Tiny ImageNet are grayscale: convertion to RGB is needed
     augTrain = augmentedImageDatastore(img_size, imdsTrain,'ColorPreprocessing','gray2rgb');
     augTest  = augmentedImageDatastore(img_size, imdsTest, 'ColorPreprocessing','gray2rgb');
+
+    % Normalize from [0-255] to [0-1]
+    normalizeFcn = @(data) setfield(data,'input', ...
+        cellfun(@(img) single(img)./255, data.input, 'UniformOutput',false) );
+    augTrain = transform(augTrain,normalizeFcn);
+    augTest  = transform(augTest, normalizeFcn);
+
+    %%% DEBUG ONLY %%%
+    % % Check size and extremes of augmentedImageDatastore's image
+    % miniBatch = read(augTrain);
+    % img = miniBatch{1,'input'}{1};
+    % disp([min(img(:)) max(img(:))]);
+    % disp(size(img));
 
     % --------- LOSS ---------
     % With trainNetwork function the used loss depends by the last layer:
@@ -75,6 +96,11 @@ function train_fashion(datasetDir, emissionFileName, outMat, img_size, epochs, b
         tracker_control.Tracker.start_tracker(emissionOutputDir, trainEmissionFile);
         net = trainNetwork(augTrain, lgraph, opts);
         tracker_control.Tracker.stop_tracker();
+
+        %%% DEBUG ONLY %%%
+        % % Check outnet (VGG16) images extremes
+        % act = activations(net,img,'input');
+        % disp([min(act(:)) max(act(:))]);
 
         % Testing
         tracker_control.Tracker.start_tracker(emissionOutputDir, testEmissionFile);

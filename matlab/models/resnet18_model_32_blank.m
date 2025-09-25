@@ -3,7 +3,7 @@ function lgraph = resnet18_model_32_blank(numClasses)
     lgraph = resnet18(Weights='none');
     
     % Input 32×32 (input layer name in ResNet18: 'data')
-    inLayer = imageInputLayer([32 32 3], Name='data', Normalization='rescale-zero-one');
+    inLayer = imageInputLayer([32 32 3], Name='data', Normalization='none');
     lgraph  = replaceLayer(lgraph, 'data', inLayer);
     
     % Head: FC + classification

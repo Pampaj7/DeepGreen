@@ -31,8 +31,15 @@ function train_fashion(datasetDir, emissionFileName, outMat, img_size, epochs, b
     numClasses = numel(categories(imdsTrain.Labels));
     fprintf('Found %d classes in training set.\n', numClasses);
 
+    % Resize and convert to RGB
     augTrain = augmentedImageDatastore(img_size, imdsTrain,'ColorPreprocessing','gray2rgb');
     augTest  = augmentedImageDatastore(img_size, imdsTest, 'ColorPreprocessing','gray2rgb');
+
+    % Normalize from [0-255] to [0-1]
+    normalizeFcn = @(data) setfield(data,'input', ...
+        cellfun(@(img) single(img)./255, data.input, 'UniformOutput',false) );
+    augTrain = transform(augTrain,normalizeFcn);
+    augTest  = transform(augTest, normalizeFcn);
 
     % --------- LOSS ---------
     % With trainNetwork function the used loss depends by the last layer:
