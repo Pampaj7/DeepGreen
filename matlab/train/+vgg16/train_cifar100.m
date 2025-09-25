@@ -31,8 +31,15 @@ function train_cifar100(datasetDir, emissionFileName, outMat, img_size, epochs, 
     numClasses = numel(categories(imdsTrain.Labels));
     fprintf('Found %d classes in training set.\n', numClasses);
 
+    % Resize
     augTrain = augmentedImageDatastore(img_size, imdsTrain);
     augTest   = augmentedImageDatastore(img_size, imdsTest);
+
+    % Normalize from [0-255] to [0-1]
+    normalizeFcn = @(data) setfield(data,'input', ...
+        cellfun(@(img) single(img)./255, data.input, 'UniformOutput',false) );
+    augTrain = transform(augTrain,normalizeFcn);
+    augTest  = transform(augTest, normalizeFcn);
 
     % --------- LOSS ---------
     % With trainNetwork function the used loss depends by the last layer:
