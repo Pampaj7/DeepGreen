@@ -30,10 +30,3 @@
 % >> vgg16.train_cifar100('data/cifar100_png','vgg16_cifar100','matlab/checkpoints/vgg16_cifar100_matlab.mat',[32 32],30,128,1e-4);
 % >> vgg16.train_fashion('data/fashion_mnist_png','vgg16_fashion','matlab/checkpoints/vgg16_fashion_matlab.mat',[32 32],30,128,1e-4);
 % >> vgg16.train_tiny('data/tiny_imagenet_png','vgg16_tiny','matlab/checkpoints/vgg16_tiny_matlab.mat',[32 32],30,128,1e-4);
-
-
-
-matlab -batch "setup_env('C:\Users\marco_u3rv1hf\AppData\Local\Programs\Python\Python39\python', 'C:\Users\marco_u3rv1hf\Desktop\Unifi\Borse_di_ricerca\00_AImetrics_Verdecchia\Progetto\DeepGreen'); resnet18.train_cifar100; exit"
-C:\Users\marco_u3rv1hf\AppData\Local\Programs\Python\Python39\python
-C:\Users\marco_u3rv1hf\Desktop\Unifi\Borse_di_ricerca\00_AImetrics_Verdecchia\Progetto\DeepGreen\matlab\tracker
-C:\Users\marco_u3rv1hf\Desktop\Unifi\Borse_di_ricerca\00_AImetrics_Verdecchia\Progetto\DeepGreen
