@@ -26,18 +26,18 @@ function train_cifar100(datasetDir, emissionFileName, outMat, img_size, epochs, 
     testDir  = fullfile(datasetDir,'test');
     assert(isfolder(trainDir)&&isfolder(testDir), 'Missing train/test folders in %s', datasetDir);
     
-    imdsTrain = imageDatastore(trainDir,'IncludeSubfolders',true,'LabelSource','foldernames');
-    imdsTest  = imageDatastore(testDir, 'IncludeSubfolders',true,'LabelSource','foldernames');
+    imdsTrain = imageDatastore(trainDir,IncludeSubfolders=true,LabelSource='foldernames');
+    imdsTest  = imageDatastore(testDir, IncludeSubfolders=true,LabelSource='foldernames');
     numClasses = numel(categories(imdsTrain.Labels));
     fprintf('Found %d classes in training set.\n', numClasses);
 
     % Resize
     augTrain = augmentedImageDatastore(img_size, imdsTrain);
-    augTest   = augmentedImageDatastore(img_size, imdsTest);
+    augTest  = augmentedImageDatastore(img_size, imdsTest);
 
     % Normalize from [0-255] to [0-1]
     normalizeFcn = @(data) setfield(data,'input', ...
-        cellfun(@(img) single(img)./255, data.input, 'UniformOutput',false) );
+        cellfun(@(img) single(img)./255, data.input, UniformOutput=false) );
     augTrain = transform(augTrain,normalizeFcn);
     augTest  = transform(augTest, normalizeFcn);
 
