@@ -1,17 +1,39 @@
-%%%%%%%%% BEFORE TO RUN %%%%%%%%%
+%%%%%%%%% HOW TO RUN %%%%%%%%%
 %
-% 1) Set Python environment in MATLAB
-% On Linux:
-% >> pyenv('Version', 'full/path/to/python')
-% On Windows:
-% >> pyenv('ExecutionMode','OutOfProcess', 'Version', 'full/path/to/python')
-% Windows requires that the Python process be external to MATLAB,
-% otherwise it generates the warning "Unrecognized command line option: -json."
-%  which will prevent the tracker from starting.
+% You can run scripts on the terminal (without open MATLAB) with:
 %
-% 2) Add the tracker folder (/matlab/tracker/) to PYTHONPATH:
-% >> insert(py.sys.path, int32(0), '/full/path/to/matlab/tracker/');
+% $ matlab -batch "setup_env('path/to/python', 'path/to/project'); script_name; exit"
 %
-% 3) Check if the module is correctly linked:
-% >> mod = py.importlib.import_module('tracker_control');
-% If the module is imported without errors, the link has been established correctly.
+% where:
+% - "path/to/python"  is the full path to Python executable.
+% - "path/to/project" is the full path to the main project folder (e.g. DeepGreen, i.e. where .git is located).
+% - "script_name"     is one of the possible scripts among:
+%                     * resnet18.train_cifar100
+%                     * resnet18.train_fashion
+%                     * resnet18.train_tiny
+%                     * vgg16.train_cifar100
+%                     * vgg16.train_fashion
+%                     * vgg16.train_tiny
+%
+%
+% Alternatively, you can run scripts on matlab by:
+%
+% 1) Setup MATLAB environment to run scripts correctly:
+%
+% >> setup_env('path/to/python', 'path/to/project');
+%
+% 2) Then, call one of the following scripts, with or without parameters:
+%
+% >> resnet18.train_cifar100('data/cifar100_png','resnet18_cifar100','matlab/checkpoints/resnet18_cifar100_matlab.mat',[32 32],30,128,1e-4);
+% >> resnet18.train_fashion('data/fashion_mnist_png','resnet18_fashion','matlab/checkpoints/resnet18_fashion_matlab.mat',[32 32],30,128,1e-4);
+% >> resnet18.train_tiny('data/tiny_imagenet_png','resnet18_tiny','matlab/checkpoints/resnet18_tiny_matlab.mat',[32 32],30,128,1e-4);
+% >> vgg16.train_cifar100('data/cifar100_png','vgg16_cifar100','matlab/checkpoints/vgg16_cifar100_matlab.mat',[32 32],30,128,1e-4);
+% >> vgg16.train_fashion('data/fashion_mnist_png','vgg16_fashion','matlab/checkpoints/vgg16_fashion_matlab.mat',[32 32],30,128,1e-4);
+% >> vgg16.train_tiny('data/tiny_imagenet_png','vgg16_tiny','matlab/checkpoints/vgg16_tiny_matlab.mat',[32 32],30,128,1e-4);
+
+
+
+matlab -batch "setup_env('C:\Users\marco_u3rv1hf\AppData\Local\Programs\Python\Python39\python', 'C:\Users\marco_u3rv1hf\Desktop\Unifi\Borse_di_ricerca\00_AImetrics_Verdecchia\Progetto\DeepGreen'); resnet18.train_cifar100; exit"
+C:\Users\marco_u3rv1hf\AppData\Local\Programs\Python\Python39\python
+C:\Users\marco_u3rv1hf\Desktop\Unifi\Borse_di_ricerca\00_AImetrics_Verdecchia\Progetto\DeepGreen\matlab\tracker
+C:\Users\marco_u3rv1hf\Desktop\Unifi\Borse_di_ricerca\00_AImetrics_Verdecchia\Progetto\DeepGreen
