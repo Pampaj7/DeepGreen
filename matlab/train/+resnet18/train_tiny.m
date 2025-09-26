@@ -1,15 +1,6 @@
 % ResNet18 — Tiny ImageNet — input 32×32 — pesi azzerati (He), BN reset
 %
-% Instructions to run:
-% 1) Locate yourself into main project folder (e.g. DeepGreen, i.e. where
-% .git is located)
-% 2) Before run, set the matlab folder (and subdirectories) to matlab's paths via:
-% >> addpath(genpath('matlab'));
-% 3) Run the function via (don't change location)
-% >> resnet18.train_tiny('data/tiny_imagenet_png','resnet18_tiny','matlab/checkpoints/resnet18_tiny_matlab.mat',[32 32],30,128,1e-4);
-% 
-% Alternatvely, run :
-% $ matlab -batch "; resnet18.train_tiny('data/tiny_imagenet_png','resnet18_tiny','matlab/checkpoints/resnet18_tiny_matlab.mat',[32 32],30,128,1e-4); exit"
+% Instructions to run at "settings_for_matlab.txt".
 %
 function train_tiny(datasetDir, emissionFileName, outMat, img_size, epochs, batchSize, lr)
     % --------- default args ---------
