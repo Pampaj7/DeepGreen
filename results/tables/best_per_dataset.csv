@@ -1,0 +1,4 @@
+dataset,best_energy_language,min_energy,best_duration_language,min_duration
+CIFAR100,Rust,3.530997228617102e-05,Rust,0.2639446009416133
+FashionMNIST,Rust,3.704348914517077e-05,Rust,0.3275078709702939
+TinyImageNet,C++,4.195390540066839e-05,Rust,0.799962854012847

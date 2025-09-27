@@ -79,7 +79,7 @@ def plot_stacked(df, group_col, title, filename, palette):
     plt.close()
     print(f"✅ Salvato {filename}")
 
-def plot_grouped(df, filename, datasets, palette_resnet, palette_vgg):
+def plot_grouped(df, filename, datasets, palette_resnet, palette_vgg, phase_value):
     # 🔽 ordina sempre per totale crescente
     totals = df.groupby("language")["energy_consumed"].sum()
     languages = list(totals.sort_values().index)
@@ -108,7 +108,7 @@ def plot_grouped(df, filename, datasets, palette_resnet, palette_vgg):
     ax.set_xticks(x, languages, rotation=ROTATION, ha="right")
     ax.set_ylabel(f"Energy Consumed [{unit}]")
     ax.set_xlabel("Language")
-    ax.set_title(f"{TITLE} – grouped by Model and Dataset")
+    ax.set_title(f"{TITLE} – grouped by Model and Dataset (phase: {phase_value})")
     ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
     plt.tight_layout()
     plt.savefig(filename, dpi=220)
@@ -136,11 +136,6 @@ def main():
         palette_dataset = {
             d: plt.get_cmap("tab20")(i) for i, d in enumerate(datasets)
         }
-        palette_model_dataset = {
-            f"{m} · {d}": (plt.get_cmap("Blues")(0.3 + 0.1*i) if m=="ResNet18"
-                           else plt.get_cmap("Oranges")(0.3 + 0.1*i))
-            for m in ["ResNet18","VGG16"] for i,d in enumerate(datasets)
-        }
 
         out1 = Path(f"{OUTPUT_PNG}__model__{phase_value}.png")
         out2 = Path(f"{OUTPUT_PNG}__dataset__{phase_value}.png")
@@ -152,7 +147,8 @@ def main():
                      f"{TITLE} – by Dataset (phase: {phase_value})", out2, palette_dataset)
         plot_grouped(df_phase.copy(), out3, datasets,
                      [plt.get_cmap("Blues")(0.3+0.2*i) for i in range(len(datasets))],
-                     [plt.get_cmap("Oranges")(0.3+0.2*i) for i in range(len(datasets))])
+                     [plt.get_cmap("Oranges")(0.3+0.2*i) for i in range(len(datasets))],
+                     phase_value)
 
 if __name__ == "__main__":
     main()
