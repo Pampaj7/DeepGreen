@@ -617,6 +617,7 @@ dependencies = [
  "image",
  "once_cell",
  "rand",
+ "rayon",
  "tch",
  "walkdir",
 ]

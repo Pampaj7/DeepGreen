@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use rand::seq::SliceRandom;
 use tch::{Tensor, vision::image, Device, Kind, Result};
 use tch::vision::image::resize;
+use rayon::iter::IntoParallelRefIterator;  // questo mancava
 
 /// Normalizzazione standard di ImageNet
 fn imagenet_norm(device: Device) -> (Tensor, Tensor) {
@@ -61,20 +62,24 @@ impl TinyImageNet {
         // Carica immagine da file → float [H,W,C]
         let mut img = image::load(path)?.to_kind(Kind::Float) / 255.0;
 
-        // HWC → CHW
+        // Se ha più di 3 canali, taglia ai primi 3 (RGB)
+        if img.size()[2] > 3 {
+            img = img.narrow(2, 0, 3);
+        }
+
+        // [H,W,C] → [C,H,W]
         img = img.permute(&[2, 0, 1]);
 
         // Resize opzionale
-        let img_cpu = if let Some(size) = self.resize_to {
-            resize(&img, size, size)?
-        } else {
-            img
-        };
+        if let Some(size) = self.resize_to {
+            img = resize(&img, size, size)?;
+        }
 
         // Normalizzazione e device
-        let img = (img_cpu.to_device(self.device) - &self.mean) / &self.std;
+        let img = (img.to_device(self.device) - &self.mean) / &self.std;
         Ok((img, label))
     }
+
 
     /// Itera in batch
     pub fn iter_batches(

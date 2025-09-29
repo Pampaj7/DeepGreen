@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use rand::seq::SliceRandom;
+use rayon::prelude::*; // parallelismo CPU
 use tch::{Tensor, vision::image, Device, Kind, Result};
 use tch::vision::image::resize;
 
@@ -51,44 +52,46 @@ impl Cifar100 {
         self.files.shuffle(rng);
     }
 
-    fn load_item(&self, idx: usize) -> Result<(Tensor, i64)> {
-        let (ref path, label) = self.files[idx];
-        let mut img = image::load(path)?.to_kind(Kind::Float) / 255.0;
-
-        if img.size() == [32, 32, 3] {
-            img = img.permute(&[2, 0, 1]); // HWC -> CHW
-        }
-
-        if let Some(size) = self.resize_to {
-            // resize va fatto su CPU, poi riportato al device target
-            img = resize(&img.to(Device::Cpu), size, size)?.to(self.device);
-        }
-
-        let img = (img.to_device(self.device) - &self.mean) / &self.std;
-        Ok((img, label))
-    }
-
     pub fn iter_batches(
         &self,
         batch_size: usize,
     ) -> impl Iterator<Item = Result<(Tensor, Tensor)>> + '_ {
         self.files.chunks(batch_size).map(move |chunk| {
-            let mut images = Vec::with_capacity(chunk.len());
-            let mut labels = Vec::with_capacity(chunk.len());
+            // Carichiamo le immagini in parallelo su CPU → qui NON creiamo Tensor
+            let samples: Result<Vec<(Vec<u8>, i64)>> = chunk
+                .par_iter()
+                .map(|(path, label)| {
+                    let img_buf = std::fs::read(path)?; // raw bytes
+                    Ok((img_buf, *label))
+                })
+                .collect();
 
-            for (path, label) in chunk {
-                // usa indice diretto anziché position()
-                let idx = self.files.iter().position(|x| &x.0 == path).unwrap();
-                let (img, _) = self.load_item(idx)?;
+            let samples = samples?;
+
+            let mut images = Vec::with_capacity(samples.len());
+            let mut labels = Vec::with_capacity(samples.len());
+
+            for (img_buf, label) in samples {
+                // Decodifica PNG → Tensor CPU
+                let mut img = image::load_from_memory(&img_buf)?.to_kind(Kind::Float) / 255.0;
+
+                if img.size() == [32, 32, 3] {
+                    img = img.permute(&[2, 0, 1]); // HWC -> CHW
+                }
+
+                if let Some(size) = self.resize_to {
+                    img = resize(&img.to(Device::Cpu), size, size)?;
+                }
+
                 images.push(img.unsqueeze(0));
-                labels.push(*label);
+                labels.push(label);
             }
 
-            let x = Tensor::cat(&images, 0);
-            let y = Tensor::from_slice(&labels).to_device(self.device);
+            // Cat e normalizzazione su GPU
+            let mut x = Tensor::cat(&images, 0).to_device(self.device);
+            x = (x - &self.mean) / &self.std;
 
-            // Debug opzionale → commenta se non serve
-            // println!("Batch loaded: x.shape={:?}, x.device={:?}", x.size(), x.device());
+            let y = Tensor::from_slice(&labels).to_device(self.device);
 
             Ok((x, y))
         })

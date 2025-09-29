@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use tch::{nn, nn::OptimizerConfig, Device};
 use tch::nn::ModuleT;
 use rand::thread_rng;
-
+use std::time::Instant;
 
 fn main() {
     std::env::set_var("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128");
@@ -20,7 +20,7 @@ fn main() {
     let mut train_data = TinyImageNet::new(
         "/home/pampaj/DeepGreen/data/tiny_imagenet_png/train",
         device,
-        Some(32), // resize a 32×32 dentro al loader
+        Some(32),
     ).unwrap();
 
     let test_data = TinyImageNet::new(
@@ -41,7 +41,7 @@ fn main() {
 
     let mut opt = nn::Adam::default().build(&vs, 1e-4).unwrap();
     let batch_size = 128;
-    let epochs = 1;
+    let epochs = 30;
 
     for epoch in 1..=epochs {
         train_data.shuffle(&mut rng);
@@ -53,8 +53,19 @@ fn main() {
         let mut total_loss = 0.0;
         let mut steps = 0;
 
-        for batch in train_data.iter_batches(batch_size) {
+        let start_epoch = Instant::now();
+
+        for (i, batch) in train_data.iter_batches(batch_size).enumerate() {
             let (x, y) = batch.unwrap();
+
+            if i == 0 {
+                println!(
+                    "DEBUG → First batch shape: x={:?}, y={:?}",
+                    x.size(),
+                    y.size()
+                );
+            }
+
             let output = net.forward_t(&x, true);
             let loss = output.cross_entropy_for_logits(&y);
 
@@ -63,13 +74,24 @@ fn main() {
             total_loss += loss.double_value(&[]);
             steps += 1;
 
-            drop(output);
-            drop(loss);
+            if i % 50 == 0 {
+                println!(
+                    "Step {i}, batch loss = {:.4}",
+                    loss.double_value(&[])
+                );
+            }
         }
 
+        let dur = start_epoch.elapsed().as_secs_f32();
         println!(
-            "Epoch {epoch}, avg train loss: {:.4}",
-            total_loss / steps as f64
+            "Epoch {epoch}, avg train loss: {:.4} ({} steps in {:.2}s)",
+            if steps > 0 {
+                total_loss / steps as f64
+            } else {
+                f64::NAN
+            },
+            steps,
+            dur
         );
 
         stop_tracker();
@@ -87,14 +109,11 @@ fn main() {
                 let output = net.forward_t(&x, false);
 
                 let predicted = output.argmax(-1, false).int64_value(&[]);
-
                 *pred_class_hist.entry(predicted).or_insert(0) += 1;
 
                 if predicted == y.int64_value(&[]) {
                     correct += 1;
                 }
-
-                drop(output);
             }
         });
 

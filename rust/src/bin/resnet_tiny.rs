@@ -39,7 +39,7 @@ fn main() {
 
     let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
     let batch_size = 128;
-    let epochs = 1;
+    let epochs = 30;
 
     for epoch in 1..=epochs {
         train_data.shuffle(&mut rng);
