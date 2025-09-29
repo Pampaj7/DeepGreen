@@ -1,156 +1,116 @@
-use rust::datasets::cifar100::load_cifar100;
-use rust::models::vgg::vgg16;
-use rust::emissions::{init_tracker_daemon, shutdown_tracker_daemon, start_tracker, stop_tracker};
-use tch::{nn, nn::OptimizerConfig, nn::ModuleT, Device, Kind, Tensor, Cuda};
+use rust::datasets::cifar100::Cifar100;
+use rust::models::vgg::vgg16; // supponendo tu abbia un modulo vgg16
+use tch::{nn, nn::OptimizerConfig, Device, Kind};
+use tch::nn::ModuleT;
 use std::collections::HashMap;
-use rand::seq::SliceRandom;
+use rand::thread_rng;
+use rust::emissions::{init_tracker_daemon, shutdown_tracker_daemon, start_tracker, stop_tracker};
+use std::time::Instant;
 
 fn main() {
     init_tracker_daemon();
     let device = Device::cuda_if_available();
     println!("Using device: {:?}", device);
 
-    // --- Load datasets
-    let mut train_data = load_cifar100(
+    // --- Dataset stile PyTorch
+    let mut train_data = Cifar100::new(
         "/home/pampaj/DeepGreen/data/cifar100_png/train",
         device,
         None,
     )
     .unwrap();
-    let mut test_data = load_cifar100(
+    let test_data = Cifar100::new(
         "/home/pampaj/DeepGreen/data/cifar100_png/test",
         device,
         None,
     )
     .unwrap();
 
-    // Debug: dataset size
-    println!(
-        "DEBUG → Train size: {}, Test size: {}",
-        train_data.len(),
-        test_data.len()
-    );
+    println!("Train dataset size: {}", train_data.len());
+    println!("Test dataset size: {}", test_data.len());
 
-    // Normalizzazione [0,1]
-    for (img, _) in train_data.iter_mut() {
-        *img = img.f_div_scalar(255.0).unwrap();
-    }
-    for (img, _) in test_data.iter_mut() {
-        *img = img.f_div_scalar(255.0).unwrap();
-    }
-
-    let mut rng = rand::thread_rng();
-
-    // --- Model
+    // --- Modello
     let vs = nn::VarStore::new(device);
     let root = vs.root();
     let net = vgg16(&root, 100);
-
-    // Adam con weight decay e learning rate più basso
-    let mut opt = nn::Adam {
-        wd: 5e-4,
-        ..Default::default()
-    }
-    .build(&vs, 1e-4)
-    .unwrap();
+    let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
 
     let batch_size = 128;
-    let epochs = 30; // puoi aumentare a 30 per esperimenti seri
+    let epochs = 30;
 
     for epoch in 1..=epochs {
-        // --- Training
+        // shuffle dataset ogni epoch
+        let mut rng = thread_rng();
         train_data.shuffle(&mut rng);
 
+        // === Training
         let train_file = format!("vgg_cifar100_train_epoch{:02}.csv", epoch);
         start_tracker("emissions", &train_file);
 
         let mut total_loss = 0.0;
-        let mut batches = 0;
+        let mut steps = 0;
 
-        println!(
-            "DEBUG → Epoch {epoch}: total train samples {}, batch_size {}",
-            train_data.len(),
-            batch_size
-        );
-
-        for batch in train_data.chunks(batch_size) {
-            batches += 1;
-            let images: Vec<_> = batch.iter().map(|(img, _)| img.unsqueeze(0)).collect();
-            let labels: Vec<_> = batch.iter().map(|(_, label)| *label).collect();
-
-            let input = Tensor::cat(&images, 0).to_device(device);
-            let target = Tensor::from_slice(&labels)
-                .to_kind(Kind::Int64)
-                .to_device(device);
-
-            let output = net.forward_t(&input, true);
-            let loss = output.cross_entropy_for_logits(&target);
-
+        for batch in train_data.iter_batches(batch_size) {
+            let (x, y) = batch.unwrap();
+            let output = net.forward_t(&x, true);
+            let loss = output.cross_entropy_for_logits(&y);
             opt.backward_step(&loss);
 
             total_loss += loss.double_value(&[]);
+            steps += 1;
         }
 
-        println!("DEBUG → Epoch {epoch} processed {} batches", batches);
-
-        let avg_loss = total_loss / batches as f64;
-        println!("Epoch {epoch}, avg train loss: {:.4}", avg_loss);
-
-        // Sincronizza GPU prima di fermare tracker
-        if device.is_cuda() {
-            Cuda::synchronize(0);
-        }
+        println!(
+            "Epoch {epoch}, avg train loss: {:.4}",
+            total_loss / steps as f64
+        );
         stop_tracker();
 
-        // --- Evaluation
+                // === Eval item-per-item
         let eval_file = format!("vgg_cifar100_eval_epoch{:02}.csv", epoch);
         start_tracker("emissions", &eval_file);
 
         let mut correct = 0;
         let mut pred_class_hist = HashMap::new();
-        let mut eval_batches = 0;
 
-        for batch in test_data.chunks(batch_size) {
-            eval_batches += 1;
-            let images: Vec<_> = batch.iter().map(|(img, _)| img.unsqueeze(0)).collect();
-            let labels: Vec<_> = batch.iter().map(|(_, label)| *label).collect();
+        let t0 = Instant::now();
+        tch::no_grad(|| {
+            for (i, batch) in test_data.iter_batches(1).enumerate() {
+                let (img, label) = batch.unwrap();
 
-            let input = Tensor::cat(&images, 0).to_device(device);
-            let target = Tensor::from_slice(&labels)
-                .to_kind(Kind::Int64)
-                .to_device(device);
+                // img.shape = [1, 3, 32, 32], togliamo la dimensione batch
+                let output = net.forward_t(&img, false);
+                let predicted = output
+                    .argmax(-1, false)
+                    .to(Device::Cpu)
+                    .int64_value(&[]);
 
-            let output = net.forward_t(&input, false);
-            let predicted = output.argmax(-1, false);
+                *pred_class_hist.entry(predicted).or_insert(0) += 1;
 
-            correct += predicted
-                .eq_tensor(&target)
-                .to_kind(Kind::Int64)
-                .sum(Kind::Int64)
-                .int64_value(&[]);
+                if predicted == label.int64_value(&[]) {
+                    correct += 1;
+                }
 
-            for val in predicted.iter::<i64>().unwrap() {
-                *pred_class_hist.entry(val).or_insert(0) += 1;
+                drop(output);
             }
-        }
+        });
 
-        println!("DEBUG → Epoch {epoch} processed {} eval batches", eval_batches);
 
-        let accuracy = correct as f64 / test_data.len() as f64 * 100.0;
-        println!("Epoch {epoch}, test accuracy: {:.2}%", accuracy);
+        let eval_time = t0.elapsed();
+        println!("Epoch {epoch}, eval duration: {:?}", eval_time);
+
+        let acc = correct as f64 / test_data.len() as f64 * 100.0;
+        println!("Epoch {epoch}, test accuracy: {:.2}%", acc);
 
         if pred_class_hist.len() <= 3 {
-            println!(
-                "⚠️ WARNING: Predicted classes are very few → possible class collapse: {:?}",
-                pred_class_hist
-            );
+            println!("⚠️ WARNING: possible class collapse: {:?}", pred_class_hist);
         }
 
-        // Sincronizza GPU prima di fermare tracker
-        if device.is_cuda() {
-            Cuda::synchronize(0);
-        }
         stop_tracker();
+
+
+        // aggiungiamo sleep per permettere a CodeCarbon di scrivere i dati
+
     }
 
     shutdown_tracker_daemon();

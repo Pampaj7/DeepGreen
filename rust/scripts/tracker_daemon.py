@@ -6,7 +6,6 @@ from tracker_control import start_tracker, stop_tracker
 
 # Zittisce CodeCarbon completamente
 logging.getLogger("codecarbon").setLevel(logging.ERROR)
-
 logging.getLogger().setLevel(logging.ERROR)
 
 print("[Daemon] Ready to receive commands", flush=True)
@@ -24,15 +23,22 @@ while True:
             _, out_dir, out_file = line.split(" ", 2)
             full_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", out_dir))
             os.makedirs(full_dir, exist_ok=True)
-            start_tracker(full_dir, out_file)
+
+            print(f"[Daemon] START → dir={full_dir}, file={out_file}", flush=True)
+
+            # 🔑 passa measure_power_secs=1 allo start
+            start_tracker(full_dir, out_file, measure_power_secs=1)
+
         except Exception as e:
             print(f"[Daemon] ERROR during START: {e}", flush=True)
 
     elif line == "STOP":
         try:
+            print("[Daemon] STOP", flush=True)
             stop_tracker()
         except Exception as e:
             print(f"[Daemon] ERROR during STOP: {e}", flush=True)
 
     elif line == "EXIT":
+        print("[Daemon] EXIT", flush=True)
         break
