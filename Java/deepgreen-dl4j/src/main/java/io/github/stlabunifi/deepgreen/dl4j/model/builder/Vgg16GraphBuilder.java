@@ -21,7 +21,7 @@ import org.deeplearning4j.nn.conf.WorkspaceMode;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.conf.layers.FeedForwardLayer;
 
-import io.github.stlabunifi.deepgreen.dl4j.model.ModelInspector;
+//import io.github.stlabunifi.deepgreen.dl4j.model.ModelInspector;
 
 public class Vgg16GraphBuilder {
 
@@ -88,9 +88,10 @@ public class Vgg16GraphBuilder {
 		vgg16WithLossAndWeights.init();
 */
 
-		ModelInspector.printWeightInitializer(vgg16WithCrossEntropyLoss);
-		ModelInspector.printGraphSummary(vgg16WithCrossEntropyLoss);
-		ModelInspector.printGraphDetails(vgg16WithCrossEntropyLoss);
+		// DEBUG ONLY
+//		ModelInspector.printWeightInitializer(vgg16WithCrossEntropyLoss);
+//		ModelInspector.printGraphSummary(vgg16WithCrossEntropyLoss);
+//		ModelInspector.printGraphDetails(vgg16WithCrossEntropyLoss);
 		
 		return vgg16WithCrossEntropyLoss;
 	}

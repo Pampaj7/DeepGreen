@@ -28,7 +28,7 @@ import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.learning.config.Adam;
 
-import io.github.stlabunifi.deepgreen.dl4j.model.ModelInspector;
+//import io.github.stlabunifi.deepgreen.dl4j.model.ModelInspector;
 
 public class ResNet18GraphBuilder {
 
@@ -51,9 +51,10 @@ public class ResNet18GraphBuilder {
 		ComputationGraph model = new ComputationGraph(conf);
 		model.init();
 		
-		ModelInspector.printWeightInitializer(model);
-		ModelInspector.printGraphSummary(model);
-		ModelInspector.printGraphDetails(model);
+		// DEBUG ONLY
+//		ModelInspector.printWeightInitializer(model);
+//		ModelInspector.printGraphSummary(model);
+//		ModelInspector.printGraphDetails(model);
 		return model;
 	}
 
