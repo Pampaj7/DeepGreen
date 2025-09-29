@@ -15,11 +15,13 @@ import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonTrackerHandler;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.deeplearning4j.util.ModelSerializer;
 
 public class Vgg16TrainFashionExpt {
 
 	public final static String emission_output_dir = "emissions";
-	public final static String emission_filename = "vgg16_fashion";
+	public final static String checkpoint_output_dir = "checkpoints";
+	public final static String filename = "vgg16_fashion";
 
 	public final static int rngSeed = 123; 		// random number seed for reproducibility
 	public final static int batchSize = 128; 	// batch size for each epoch
@@ -38,18 +40,21 @@ public class Vgg16TrainFashionExpt {
 		try {
 			String moduleBaseDir = System.getProperty("module.basedir");
 			Path emissionOutputDir;
+			Path checkpointOutputDir;
 			if (moduleBaseDir != null && !moduleBaseDir.isBlank()) {
 				emissionOutputDir = Paths.get(moduleBaseDir, emission_output_dir);
+				checkpointOutputDir = Paths.get(moduleBaseDir, checkpoint_output_dir);
 			} else {
 				emissionOutputDir = Paths.get(emission_output_dir).toAbsolutePath();
+				checkpointOutputDir = Paths.get(checkpoint_output_dir).toAbsolutePath();
 			}
 			
 			// Remove existing emission files
-			String train_emission_filename = emission_filename + "_train.csv";
+			String train_emission_filename = filename + "_train.csv";
 			Path trainEmissionFilePath = emissionOutputDir.resolve(train_emission_filename);
 			if (Files.exists(trainEmissionFilePath) && !Files.isDirectory(trainEmissionFilePath))
 				Files.delete(trainEmissionFilePath);
-			String test_emission_filename = emission_filename +  "_test.csv";
+			String test_emission_filename = filename +  "_test.csv";
 			Path testEmissionFilePath = emissionOutputDir.resolve(test_emission_filename);
 			if (Files.exists(testEmissionFilePath) && !Files.isDirectory(testEmissionFilePath))
 				Files.delete(testEmissionFilePath);
@@ -98,6 +103,12 @@ public class Vgg16TrainFashionExpt {
 				
 				System.out.println(eval.stats());
 			}
+			
+			// Save the model
+			String model_filename = filename + ".zip";
+			Path modelFilePath = checkpointOutputDir.resolve(model_filename);
+			ModelSerializer.writeModel(vgg16, modelFilePath.toFile(), true);
+			System.out.println("Model saved");
 			
 		} catch (Exception e) {
 			e.printStackTrace();
