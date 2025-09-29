@@ -1,71 +1,99 @@
-use std::collections::HashSet;
 use std::fs;
+use std::path::PathBuf;
+use rand::seq::SliceRandom;
 use tch::{Tensor, vision::image, Device, Kind, Result};
 use tch::vision::image::resize;
 
-pub fn load_tiny_imagenet(dir: &str, device: Device) -> Result<Vec<(Tensor, i64)>> {
-    let mut data = vec![];
-
-    // Normalization constants (standard ImageNet)
-    let mean = Tensor::f_from_slice(&[0.485, 0.456, 0.406])?
+/// Normalizzazione standard di ImageNet
+fn imagenet_norm(device: Device) -> (Tensor, Tensor) {
+    let mean = Tensor::from_slice(&[0.485, 0.456, 0.406])
         .to_kind(Kind::Float)
         .view([3, 1, 1])
         .to_device(device);
-    let std = Tensor::f_from_slice(&[0.229, 0.224, 0.225])?
+    let std = Tensor::from_slice(&[0.229, 0.224, 0.225])
         .to_kind(Kind::Float)
         .view([3, 1, 1])
         .to_device(device);
+    (mean, std)
+}
 
-    // Leggi le cartelle delle classi e ordinale in modo deterministico
-    let mut class_folders: Vec<_> = fs::read_dir(dir)?
-        .map(|e| e.unwrap().path())
-        .collect();
-    class_folders.sort_by_key(|path| path.file_name().unwrap().to_os_string());
+/// Struct per TinyImageNet
+pub struct TinyImageNet {
+    files: Vec<(PathBuf, i64)>,
+    device: Device,
+    mean: Tensor,
+    std: Tensor,
+    resize_to: Option<i64>,
+}
 
-    for (class_id, class_path) in class_folders.into_iter().enumerate() {
-        println!("Reading class_id: {} from {:?}", class_id, class_path.file_name());
+impl TinyImageNet {
+    /// Costruttore: carica path immagini e setta normalizzazione
+    pub fn new(dir: &str, device: Device, resize_to: Option<i64>) -> Result<Self> {
+        let (mean, std) = imagenet_norm(device);
 
-        let mut images: Vec<_> = fs::read_dir(&class_path)?
-            .map(|e| e.unwrap().path())
-            .collect();
-        images.sort();
+        let mut class_folders: Vec<_> = fs::read_dir(dir)?.map(|e| e.unwrap().path()).collect();
+        class_folders.sort_by_key(|p| p.file_name().unwrap().to_os_string());
 
-        if images.is_empty() {
-            println!("⚠️ Warning: no images found in {:?}", class_path);
-        }
-
-        for img_path in images {
-            let mut img = image::load(&img_path)?
-                .to_device(device)
-                .to_kind(Kind::Float) / 255.0;
-
-            // Trasponi da [H, W, C] a [C, H, W] se necessario
-            if img.size() == [64, 64, 3] {
-                img = img.permute(&[2, 0, 1]);
-            } else if img.size() == [3, 64, 64] {
-                // Già nel formato corretto
-            } else {
-                println!("⚠️ Unexpected image size: {:?} for {:?}", img.size(), img_path);
-                continue;
+        let mut files = vec![];
+        for (class_id, class_path) in class_folders.into_iter().enumerate() {
+            let mut images: Vec<_> = fs::read_dir(&class_path)?.map(|e| e.unwrap().path()).collect();
+            images.sort();
+            for img in images {
+                if img.extension().and_then(|s| s.to_str()) == Some("png") {
+                    files.push((img, class_id as i64));
+                }
             }
-
-            // Resize to 32x32 (on CPU for compatibility)
-            let img_cpu = img.to_device(Device::Cpu);
-            let img_resized = resize(&img_cpu, 32, 32)?.to_device(device);
-
-            let img = (img_resized - &mean) / &std;
-            data.push((img, class_id as i64));
         }
+
+        Ok(Self { files, device, mean, std, resize_to })
     }
 
-    // Verifica che ci siano esattamente 200 classi
-    let unique_class_ids: HashSet<i64> = data.iter().map(|(_, cid)| *cid).collect();
-    assert_eq!(
-        unique_class_ids.len(),
-        200,
-        "Expected 200 unique class IDs, found {}",
-        unique_class_ids.len()
-    );
+    pub fn len(&self) -> usize {
+        self.files.len()
+    }
 
-    Ok(data)
+    pub fn shuffle<R: rand::Rng>(&mut self, rng: &mut R) {
+        self.files.shuffle(rng);
+    }
+
+    /// Carica una singola immagine da path
+    fn load_item_by_path(&self, path: &PathBuf, label: i64) -> Result<(Tensor, i64)> {
+        // Carica immagine da file → float [H,W,C]
+        let mut img = image::load(path)?.to_kind(Kind::Float) / 255.0;
+
+        // HWC → CHW
+        img = img.permute(&[2, 0, 1]);
+
+        // Resize opzionale
+        let img_cpu = if let Some(size) = self.resize_to {
+            resize(&img, size, size)?
+        } else {
+            img
+        };
+
+        // Normalizzazione e device
+        let img = (img_cpu.to_device(self.device) - &self.mean) / &self.std;
+        Ok((img, label))
+    }
+
+    /// Itera in batch
+    pub fn iter_batches(
+        &self,
+        batch_size: usize,
+    ) -> impl Iterator<Item = Result<(Tensor, Tensor)>> + '_ {
+        self.files.chunks(batch_size).map(move |chunk| {
+            let mut images = Vec::with_capacity(chunk.len());
+            let mut labels = Vec::with_capacity(chunk.len());
+
+            for (path, label) in chunk {
+                let (img, _) = self.load_item_by_path(path, *label)?;
+                images.push(img.unsqueeze(0));
+                labels.push(*label);
+            }
+
+            let x = Tensor::cat(&images, 0);
+            let y = Tensor::from_slice(&labels).to_device(self.device);
+            Ok((x, y))
+        })
+    }
 }

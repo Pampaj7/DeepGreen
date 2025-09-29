@@ -12,8 +12,19 @@ fn main() {
     println!("Using device: {:?}", device);
 
     // --- Dataset stile PyTorch
-    let mut train_data = Cifar100::new("/home/pampaj/DeepGreen/data/cifar100_png/train", device, None).unwrap();
-    let test_data = Cifar100::new("/home/pampaj/DeepGreen/data/cifar100_png/test", device, None).unwrap();
+    let mut train_data = Cifar100::new(
+        "/home/pampaj/DeepGreen/data/cifar100_png/train",
+        device,
+        None,
+    ).unwrap();
+    let test_data = Cifar100::new(
+        "/home/pampaj/DeepGreen/data/cifar100_png/test",
+        device,
+        None,
+    ).unwrap();
+
+    println!("Train dataset size: {}", train_data.len());
+    println!("Test dataset size: {}", test_data.len());
 
     // --- Modello
     let vs = nn::VarStore::new(device);
@@ -22,7 +33,7 @@ fn main() {
     let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
 
     let batch_size = 128;
-    let epochs = 30;
+    let epochs = 1;
 
     for epoch in 1..=epochs {
         let mut rng = thread_rng();
@@ -30,7 +41,7 @@ fn main() {
 
         // === Training
         let train_file = format!("resnet_cifar100_train_epoch{:02}.csv", epoch);
-        start_tracker("train", &train_file);
+        start_tracker("emissions", &train_file);
 
         let mut total_loss = 0.0;
         let mut steps = 0;
@@ -41,32 +52,45 @@ fn main() {
             let loss = output.cross_entropy_for_logits(&y);
             opt.backward_step(&loss);
 
-            total_loss += f64::from(&loss);
+            total_loss += loss.double_value(&[]);
             steps += 1;
+
+            drop(output);
+            drop(loss);
         }
 
-        println!("Epoch {epoch}, avg train loss: {:.4}", total_loss / steps as f64);
+        println!(
+            "Epoch {epoch}, avg train loss: {:.4}",
+            total_loss / steps as f64
+        );
         stop_tracker();
 
-        // === Eval
+        // === Eval (item-per-item)
         let eval_file = format!("resnet_cifar100_eval_epoch{:02}.csv", epoch);
-        start_tracker("eval", &eval_file);
+        start_tracker("emissions", &eval_file);
 
         let mut correct = 0;
         let mut pred_class_hist = HashMap::new();
 
-        for batch in test_data.iter_batches(batch_size) {
-            let (x, y) = batch.unwrap();
-            let output = net.forward_t(&x, false);
-            let preds = output.argmax(-1, false);
+        tch::no_grad(|| {
+            for (i, batch) in test_data.iter_batches(1).enumerate() {
+                let (x, y) = batch.unwrap(); // x.shape = [1, 3, 32, 32]
+                let output = net.forward_t(&x, false);
 
-            let eq = preds.eq1(&y).to_kind(Kind::Int64);
-            correct += i64::from(eq.sum(Kind::Int64));
+                let predicted = output
+                    .argmax(-1, false)
+                    .to(Device::Cpu)
+                    .int64_value(&[]);
 
-            for p in preds.into_iter::<i64>().unwrap() {
-                *pred_class_hist.entry(p).or_insert(0) += 1;
+                *pred_class_hist.entry(predicted).or_insert(0) += 1;
+
+                if predicted == y.int64_value(&[]) {
+                    correct += 1;
+                }
+
+                drop(output);
             }
-        }
+        });
 
         let acc = correct as f64 / test_data.len() as f64 * 100.0;
         println!("Epoch {epoch}, test accuracy: {:.2}%", acc);

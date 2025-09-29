@@ -8,7 +8,7 @@ echo "===> ResNet18 CIFAR100"
 #cargo run --release --bin resnet_cifar100
 
 echo "===> VGG16 CIFAR100"
-cargo run --release --bin vgg_cifar100
+#cargo run --release --bin vgg_cifar100
 
 # Fashion-MNIST
 echo "===> ResNet18 Fashion-MNIST"
@@ -22,6 +22,6 @@ echo "===> ResNet18 TinyImageNet"
 #cargo run --release --bin resnet_tiny
 
 echo "===> VGG16 TinyImageNet"
-#cargo run --release --bin vgg_tiny
+cargo run --release --bin vgg_tiny
 
 echo "🏁 Tutti i training Rust completati con successo."
