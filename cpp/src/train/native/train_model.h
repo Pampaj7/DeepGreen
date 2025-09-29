@@ -3,7 +3,7 @@
 #include <iostream>
 #include <torch/torch.h>
 
-#include "dataset/InMemoryImageFolder.h"
+#include "dataset/LazyImageFolder.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "dataset_transforms.h"
@@ -37,7 +37,7 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, classesJson);
 
     std::cout << "Preparing " << Dataset::getDatasetName() << " for training...";
-    InMemoryImageFolder<Dataset> train_set{kDataRootFullPath, kClassesFullPath, true};
+    LazyImageFolder<Dataset> train_set{kDataRootFullPath, kClassesFullPath, true};
     auto train_set_transformed =
         train_set
             .map(composedTransform)
@@ -46,7 +46,7 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     std::cout << " Done." << std::endl;
 
     std::cout << "Preparing " << Dataset::getDatasetName() << " for testing...";
-    InMemoryImageFolder<Dataset> test_set{kDataRootFullPath, kClassesFullPath, false};
+    LazyImageFolder<Dataset> test_set{kDataRootFullPath, kClassesFullPath, false};
     auto test_set_transformed =
         test_set
             .map(composedTransform)
@@ -88,9 +88,9 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     // Remove existing emission file
     const std::string outputDir = Utils::join_paths(PROJECT_SOURCE_DIR, "emissions");
     const std::string trainOutputFile = outputFileName + "_train.csv";
-    Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
+    //Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
     const std::string testOutputFile = outputFileName + "_test.csv";
-    Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
+    //Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
 
     // tracker
     PythonTracker::initializeTracker();
