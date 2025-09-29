@@ -1,0 +1,13 @@
+The MATLAB part of the project relies on:
+- MATLAB		                v.9.14.0.2891782 (R2023a Update 8)
+- Python:			            v.3.10.12
+- CUDA Toolkit:		            v.11.8.86
+    and then set:
+        export CUDA_HOME=path/to/cuda-11.8
+        export PATH=$PATH:$CUDA_HOME/bin
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64
+
+And other  libraires installed through MATLAB:
+- Deep Learning Toolbox         v.14.6
+- Parallel Computing Toolbox    v.7.8
+- GPU Coder                     v.2.5
