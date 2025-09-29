@@ -3,7 +3,7 @@
 #include <iostream>
 #include <torch/torch.h>
 
-#include "dataset/ImageFolder.h"
+#include "dataset/InMemoryImageFolder.h"
 #include "cnn_function.h"
 #include "cnn_setup.h"
 #include "dataset_transforms.h"
@@ -37,7 +37,7 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     std::string kClassesFullPath = Utils::join_paths(kDataRootFullPath, classesJson);
 
     std::cout << "Preparing " << Dataset::getDatasetName() << " for training...";
-    ImageFolder<Dataset> train_set{kDataRootFullPath, kClassesFullPath, true};
+    InMemoryImageFolder<Dataset> train_set{kDataRootFullPath, kClassesFullPath, true};
     auto train_set_transformed =
         train_set
             .map(composedTransform)
@@ -46,7 +46,7 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     std::cout << " Done." << std::endl;
 
     std::cout << "Preparing " << Dataset::getDatasetName() << " for testing...";
-    ImageFolder<Dataset> test_set{kDataRootFullPath, kClassesFullPath, false};
+    InMemoryImageFolder<Dataset> test_set{kDataRootFullPath, kClassesFullPath, false};
     auto test_set_transformed =
         test_set
             .map(composedTransform)

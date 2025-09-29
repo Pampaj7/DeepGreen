@@ -1,5 +1,5 @@
-#ifndef IMAGEFOLDER_H
-#define IMAGEFOLDER_H
+#ifndef INMEMORYIMAGEFOLDER_H
+#define INMEMORYIMAGEFOLDER_H
 #include <torch/torch.h>
 
 #include <cassert>
@@ -12,9 +12,9 @@
 
 
 template <typename Dataset>
-class ImageFolder final : public torch::data::datasets::Dataset<ImageFolder<Dataset>> {
+class InMemoryImageFolder final : public torch::data::datasets::Dataset<InMemoryImageFolder<Dataset>> {
 public:
-    explicit ImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train = false);
+    explicit InMemoryImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train = false);
 
     torch::data::Example<> get(const size_t index) override
     {
@@ -37,7 +37,7 @@ private:
 
 
 template <typename Dataset>
-ImageFolder<Dataset>::ImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train)
+InMemoryImageFolder<Dataset>::InMemoryImageFolder(const std::string& dataset_path, const std::string& classes_json_path, bool train)
 : train_(train)
 {
     auto class_to_index  = Dataset::loadClassesToIndexMap(
@@ -69,9 +69,8 @@ ImageFolder<Dataset>::ImageFolder(const std::string& dataset_path, const std::st
 
             cv::Mat img = cv::imread(img_str_path,
                 Dataset::isGrayscale() ? cv::IMREAD_GRAYSCALE : cv::IMREAD_COLOR); //TODO: opencv 4.12.0 usa cv::IMREAD_COLOR_BGR
-            if (img.empty()) {
+            if (img.empty())
                 throw std::runtime_error("Failed to load image: " + img_path.path().string());
-            }
             if (!Dataset::isGrayscale())
                 cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
 
@@ -97,4 +96,4 @@ ImageFolder<Dataset>::ImageFolder(const std::string& dataset_path, const std::st
 }
 
 
-#endif //IMAGEFOLDER_H
+#endif //INMEMORYIMAGEFOLDER_H
