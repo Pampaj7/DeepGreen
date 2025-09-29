@@ -88,9 +88,9 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     // Remove existing emission file
     const std::string outputDir = Utils::join_paths(PROJECT_SOURCE_DIR, "emissions");
     const std::string trainOutputFile = outputFileName + "_train.csv";
-    //Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
+    Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
     const std::string testOutputFile = outputFileName + "_test.csv";
-    //Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
+    Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
 
     // tracker
     PythonTracker::initializeTracker();
