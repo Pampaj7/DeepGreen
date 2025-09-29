@@ -9,6 +9,7 @@ import org.datavec.api.split.FileSplit;
 import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
+import org.nd4j.linalg.dataset.AsyncDataSetIterator;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 
 public class PNGDataloader {
@@ -28,8 +29,9 @@ public class PNGDataloader {
 
 		// Create DataSetIterator
 		DataSetIterator dataIter = new RecordReaderDataSetIterator(recordReader, batchSize, 1, numClasses);
-
-		return dataIter;
+		DataSetIterator asyncIter = new AsyncDataSetIterator(dataIter, 2); // same as num_workers=2 in PyTorch
+		
+		return asyncIter;
 	}
 
 }
