@@ -13,6 +13,7 @@ The Java part of the project relies on:
         export CUDA_HOME=path/to/cuda-11.6
         export PATH=$PATH:$CUDA_HOME/bin
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64
+- cuDNN:            v.8.3
 
 And other external libraires installed through Maven:
 - Deeplearning4j    v.1.0.0-M2.1
