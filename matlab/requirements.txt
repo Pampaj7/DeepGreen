@@ -6,6 +6,7 @@ The MATLAB part of the project relies on:
         export CUDA_HOME=path/to/cuda-11.8
         export PATH=$PATH:$CUDA_HOME/bin
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64
+- cuDNN:                        v.8.6
 
 And other  libraires installed through MATLAB:
 - Deep Learning Toolbox         v.14.6
