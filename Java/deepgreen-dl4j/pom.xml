@@ -1,0 +1,246 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.stlab-unifi</groupId>
+  <artifactId>deepgreen-dl4j</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  
+  <name>DeepGreen with Deeplearning4j</name>
+  <description>Java applications that contains everything you need to start a new experiment to train models with DL4J.</description>
+
+  <properties>
+    <!-- PROJECT PROPERTIES -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    
+    <!-- VERSIONS FOR DEPENDENCIES -->
+    <dl4j.version>1.0.0-M2.1</dl4j.version>
+    <logback.version>1.2.3</logback.version> <!-- max version compatible with deeplearning4j -->
+    
+    <!-- VERSIONS FOR DEFAULT MAVEN PLUGINS -->
+    <maven.antrun.version>3.1.0</maven.antrun.version>
+    <maven.assembly.version>3.7.1</maven.assembly.version>
+    <maven.dependency.version>3.7.0</maven.dependency.version>
+    <maven.release.version>3.0.1</maven.release.version>
+    <maven.clean.version>3.2.0</maven.clean.version>
+    <maven.install.version>3.1.2</maven.install.version>
+    <maven.deploy.version>3.1.2</maven.deploy.version>
+    <maven.site.version>3.12.1</maven.site.version>
+    
+    <!-- VERSIONS FOR OTHER PLUGINS -->
+    <exec.version>3.5.1</exec.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.deeplearning4j</groupId>
+        <artifactId>deeplearning4j-core</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.nd4j</groupId>
+        <artifactId>nd4j-cuda-11.6-platform</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.deeplearning4j</groupId>
+        <artifactId>deeplearning4j-zoo</artifactId>
+        <version>${dl4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.deeplearning4j</groupId>
+      <artifactId>deeplearning4j-core</artifactId>
+      <!-- version taken from dependencyManagement -->
+    </dependency>
+    <dependency>
+      <groupId>org.nd4j</groupId>
+      <artifactId>nd4j-cuda-11.6-platform</artifactId>
+      <!-- version taken from dependencyManagement -->
+    </dependency>
+    <dependency>
+      <groupId>org.deeplearning4j</groupId>
+      <artifactId>deeplearning4j-zoo</artifactId>
+      <!-- version taken from dependencyManagement -->
+    </dependency>
+    
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <!-- version taken from dependencyManagement -->
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- DEFAULT MAVEN PLUGINS -->
+        <plugin>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>${maven.antrun.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>${maven.assembly.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven.dependency.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>${maven.release.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${maven.clean.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${maven.install.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${maven.deploy.version}</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${maven.site.version}</version>
+        </plugin>
+
+        <!-- OTHER PLUGINS -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>${exec.version}</version>
+          <configuration>
+            <systemProperties>
+              <systemProperty>
+                <key>module.basedir</key>
+                <value>${project.basedir}</value>
+              </systemProperty>
+            </systemProperties>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>run-all-experiments</id>
+      <!-- DON'T USE run-all-experiments PROFILE -->
+      <!-- With exec-maven-plugin DL4J APIs doesn't free GPU memory between experiments -->
+      <!-- Resulting into more execution time and probably allocation failure -->
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <!-- version taken from pluginManagement -->
+            <executions>
+              <execution>
+                <id>run-resnet18-cifar100-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainCifar100Expt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep1</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-resnet18-fashion-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainFashionExpt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep2</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-resnet18-tiny-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainTinyExpt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep3</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-vgg16-cifar100-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainCifar100Expt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep4</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-vgg16-fashion-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainFashionExpt</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sleep5</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.TimeToSleep</mainClass>
+                </configuration>
+              </execution>
+              <execution>
+                <id>run-vgg16-tiny-expt</id>
+                <phase>verify</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainTinyExpt</mainClass>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>

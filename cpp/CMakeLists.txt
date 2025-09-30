@@ -134,7 +134,7 @@ add_executable(resnet18_fashion
         src/train/native/train_model.h
         src/model/resnet18.cpp
         src/model/resnet18.h
-        src/dataset/ImageFolder.h
+        src/dataset/LazyImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
         src/cnn_setup.cpp
@@ -152,7 +152,7 @@ add_executable(resnet18_cifar100
         src/train/native/train_model.h
         src/model/resnet18.cpp
         src/model/resnet18.h
-        src/dataset/ImageFolder.h
+        src/dataset/LazyImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
         src/cnn_setup.cpp
@@ -170,7 +170,7 @@ add_executable(resnet18_tiny
         src/train/native/train_model.h
         src/model/resnet18.cpp
         src/model/resnet18.h
-        src/dataset/ImageFolder.h
+        src/dataset/LazyImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
         src/cnn_setup.cpp
@@ -188,7 +188,7 @@ add_executable(vgg16_fashion
         src/train/native/train_model.h
         src/model/vgg16.cpp
         src/model/vgg16.h
-        src/dataset/ImageFolder.h
+        src/dataset/LazyImageFolder.h
         src/dataset/FashionMNIST.h
         src/cnn_function.h
         src/cnn_setup.cpp
@@ -206,7 +206,7 @@ add_executable(vgg16_cifar100
         src/train/native/train_model.h
         src/model/vgg16.cpp
         src/model/vgg16.h
-        src/dataset/ImageFolder.h
+        src/dataset/LazyImageFolder.h
         src/dataset/CIFAR100.h
         src/cnn_function.h
         src/cnn_setup.cpp
@@ -224,7 +224,7 @@ add_executable(vgg16_tiny
         src/train/native/train_model.h
         src/model/vgg16.cpp
         src/model/vgg16.h
-        src/dataset/ImageFolder.h
+        src/dataset/LazyImageFolder.h
         src/dataset/TinyImageNet200.h
         src/cnn_function.h
         src/cnn_setup.cpp
@@ -242,7 +242,7 @@ add_executable(vgg16_tiny
 #        src/train/imported/resnet18/train_fashion.cpp
 #        src/train/imported/resnet18/train_resnet18.h
 #        src/train/imported/train_model.h
-#        src/dataset/ImageFolder.h
+#        src/dataset/InMemoryImageFolder.h
 #        src/dataset/FashionMNIST.h
 #        src/cnn_function.h
 #        src/cnn_setup.cpp
@@ -258,7 +258,7 @@ add_executable(vgg16_tiny
 #        src/train/imported/resnet18/train_cifar100.cpp
 #        src/train/imported/resnet18/train_resnet18.h
 #        src/train/imported/train_model.h
-#        src/dataset/ImageFolder.h
+#        src/dataset/LazyImageFolder.h
 #        src/dataset/CIFAR100.h
 #        src/cnn_function.h
 #        src/cnn_setup.cpp
@@ -274,7 +274,7 @@ add_executable(vgg16_tiny
 #        src/train/imported/resnet18/train_tiny.cpp
 #        src/train/imported/resnet18/train_resnet18.h
 #        src/train/imported/train_model.h
-#        src/dataset/ImageFolder.h
+#        src/dataset/LazyImageFolder.h
 #        src/dataset/TinyImageNet200.h
 #        src/cnn_function.h
 #        src/cnn_setup.cpp
@@ -290,7 +290,7 @@ add_executable(vgg16_tiny
 #        src/train/imported/vgg16/train_fashion.cpp
 #        src/train/imported/vgg16/train_vgg16.h
 #        src/train/imported/train_model.h
-#        src/dataset/ImageFolder.h
+#        src/dataset/LazyImageFolder.h
 #        src/dataset/FashionMNIST.h
 #        src/cnn_function.h
 #        src/cnn_setup.cpp
@@ -306,7 +306,7 @@ add_executable(vgg16_tiny
 #        src/train/imported/vgg16/train_cifar100.cpp
 #        src/train/imported/vgg16/train_vgg16.h
 #        src/train/imported/train_model.h
-#        src/dataset/ImageFolder.h
+#        src/dataset/LazyImageFolder.h
 #        src/dataset/CIFAR100.h
 #        src/cnn_function.h
 #        src/cnn_setup.cpp
@@ -322,7 +322,7 @@ add_executable(vgg16_tiny
 #        src/train/imported/vgg16/train_tiny.cpp
 #        src/train/imported/vgg16/train_vgg16.h
 #        src/train/imported/train_model.h
-#        src/dataset/ImageFolder.h
+#        src/dataset/LazyImageFolder.h
 #        src/dataset/TinyImageNet200.h
 #        src/cnn_function.h
 #        src/cnn_setup.cpp

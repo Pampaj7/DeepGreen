@@ -1,0 +1,20 @@
+The C++ part of the project relies on:
+- CMake		        v.3.30.8
+    and then set:
+        export $PATH:path/to/cmake-3.30.8-linux-x86_64/bin
+- GCC		        v.11.4.0
+- Python:			v.3.10.12
+- CUDA Toolkit:		v.12.8.61
+    and then set:
+        export CUDA_HOME=path/to/cuda-12.8
+        export PATH=$PATH:$CUDA_HOME/bin
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64
+
+And other external libraires installed through CMakeLists:
+- LibTorch          v.2.7.0+cu128
+- JSON reader:		v.3.12.0	    (https://github.com/nlohmann/json)
+
+And some libraries manually installed:
+- OpenCV:			v.4.11.0
+    and then modify in CMakeLists.txt:
+        set(OpenCV_DIR "/path/to/opencv-4.11.0/build")
