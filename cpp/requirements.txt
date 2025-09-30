@@ -9,6 +9,7 @@ The C++ part of the project relies on:
         export CUDA_HOME=path/to/cuda-12.8
         export PATH=$PATH:$CUDA_HOME/bin
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64
+- cuDNN:            v.9.10.2
 
 And other external libraires installed through CMakeLists:
 - LibTorch          v.2.7.0+cu128
