@@ -95,7 +95,7 @@ def heatmap(df, phase):
     pivot = df.groupby(["language","dataset"])["energy_consumed"].sum().unstack(fill_value=0)
     pivot = pivot.loc[pivot.sum(axis=1).sort_values().index]
     plt.figure(figsize=(10,6))
-    sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlOrRd")
+    sns.heatmap(pivot, annot=True, fmt=".4f", cmap="YlOrRd")  # 4 decimali
     plt.title(f"Energy Heatmap (Language × Dataset, phase: {phase})")
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/heatmap_{phase}.png", dpi=220)
