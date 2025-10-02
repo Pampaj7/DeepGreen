@@ -1,0 +1,66 @@
+# Replication package - C++ environment
+# Tested on: Ubuntu 22.04.5 LTS
+# ====== Prerequisites ======
+- C++ Compiler:  GCC v.11.4.0
+- Python:            v.3.10.12
+- Git:               v2.34.1
+
+
+# ====== Dependencies and versions used in the project ======
+- CMake             v.3.30.8
+- CUDA Toolkit		  v.12.8.61
+- cuDNN             v.9.10.2
+- LibTorch          v.2.7.0+cu128
+- nlohmann/json		  v.3.12.0
+- OpenCV            v.4.11.0
+
+# ====== Installation instructions ======
+1. Install CMake
+  a. Run on the terminal:
+    $ sudo apt update && apt install cmake
+  b. Check if installed:
+    $ cmake --version
+
+2. Install OpenCV
+  a. Download source code:
+    $ git clone https://github.com/opencv/opencv.git
+  b. Create its build folder and move in:
+    $ cd opencv
+    $ mkdir build && cd build
+  c. Compile with cmake:
+    $ cmake ../opencv
+    $ cmake --build .
+  d. Modify the OpenCV_DIR value in the project file /cpp/CMakeLists.txt, 
+     from "set(OpenCV_DIR "/home/marcopaglio/tools/opencv-4.11.0/build")" 
+     to "set(OpenCV_DIR "/path/to/opencv/build") 
+     where '/path/to/opencv/build' is the full path of the previous build folder
+
+3. Install CUDA Toolkit
+  a. Download the CUDA Toolkit from 'https://developer.nvidia.com/cuda-downloads', choosing the runfile(local), e.g.:
+    $ wget https://developer.download.nvidia.com/compute/cuda/12.8.0/local_installers/cuda_12.8.0_570.86.10_linux.run
+  b. Make it as executable:
+    $ sudo sh cuda_12.8.0_570.86.10_linux.run
+  c. Execute the runfile (substitute '/path/to/cuda-12.8' with the path where you want to install it):
+    $ ./cuda_12.8.0_570.86.10_linux.run --silent --toolkit --toolkitpath=/path/to/cuda-12.8
+  d. Add CUDA environment variable to bashrc:
+     export CUDA_HOME=/path/to/cuda-12.8
+     export PATH=$CUDA_HOME/bin:$PATH
+     export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+4. Compile the CMakeLists.txt
+  a. Create the cpp build folder and move in:
+    $ cd cpp && mkdir -p build
+    $ cd build
+  b. Compile the whole project:
+    $ cmake --build . --config Release
+
+5. Run experiments
+  a. Make sure you are in the build folder and run one of the following commands:
+    $ ./resnet18_fashion
+    $ ./resnet18_cifar100
+    $ ./resnet18_tiny
+    $ ./vgg16_fashion
+    $ ./vgg16_cifar100
+    $ ./vgg16_tiny
+  b. Alternatively, you can build and run all the experiments via:
+    $ cmake --build . --target run_all --config Release
