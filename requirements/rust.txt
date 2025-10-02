@@ -1,0 +1,30 @@
+# Replication package - Rust environment
+# Tested on: rustc 1.87.0 (2025-05-09), cargo 1.87.0 (2025-05-06)
+
+# ====== Dependencies (from Cargo.toml) ======
+[dependencies]
+tch = "0.14.0"
+image = "0.24"
+walkdir = "2.3"
+rand = "0.8"
+once_cell = "1.18"
+rayon = "1.10"
+
+# ====== Installation instructions ======
+# 1. Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup default stable
+
+# 2. Verify versions
+rustc --version
+cargo --version
+
+# 3. Navigate to the rust project
+cd rust/
+
+# 4. Build all binaries (6 bin files in src/bin)
+cargo build --release
+
+# 5. Run experiments (example)
+cargo run --release --bin resnet_cifar100
+cargo run --release --bin vgg_cifar100

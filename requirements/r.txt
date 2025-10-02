@@ -1,0 +1,27 @@
+# Replication package - R environment
+# Tested on: R version 4.1.2 (2021-11-01), Ubuntu 22.04.5 LTS
+
+# ====== Core packages ======
+R==4.1.2
+torch==0.15.1
+torchvision==0.7.0
+
+# ====== Utility packages ======
+ggplot2==3.5.1
+dplyr==1.1.4
+tidyr==1.3.1
+stringr==1.5.1
+magrittr==2.0.3
+
+# ====== Installation instructions ======
+# Run the following commands inside R:
+
+# 1. Install CRAN packages
+install.packages(c("torch", "torchvision", "ggplot2", "dplyr", "tidyr", "stringr", "magrittr"))
+
+# 2. Verify torch installation
+library(torch)
+torch_version()
+
+# 3. Run the provided R scripts (example)
+# source("R/train/resnet18/train_cifar100.r")

@@ -1,0 +1,43 @@
+name: jax_fixed
+channels:
+  - defaults
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - _libgcc_mutex=0.1
+  - _openmp_mutex=5.1
+  - bzip2=1.0.8
+  - ca-certificates=2025.7.15
+  - expat=2.7.1
+  - ld_impl_linux-64=2.40
+  - libffi=3.4.4
+  - libgcc-ng=11.2.0
+  - libgomp=11.2.0
+  - libstdcxx-ng=11.2.0
+  - libuuid=1.41.5
+  - libxcb=1.17.0
+  - ncurses=6.5
+  - openssl=3.0.17
+  - pip=25.2
+  - pthread-stubs=0.3
+  - python=3.10.18
+  - readline=8.3
+  - setuptools=78.1.1
+  - sqlite=3.50.2
+  - tk=8.6.15
+  - tzdata=2025b
+  - wheel=0.45.1
+  - xorg-libx11=1.8.12
+  - xorg-libxau=1.0.12
+  - xorg-libxdmcp=1.1.5
+  - xorg-xorgproto=2024.1
+  - xz=5.6.4
+  - zlib=1.2.13
+  - pip:
+      - jax==0.4.22
+      - jaxlib==0.4.22+cuda12.cudnn89
+      - ml-dtypes==0.5.3
+      - numpy==1.26.4
+      - opt-einsum==3.4.0
+      - scipy==1.15.3
+prefix: /home/pampaj/miniconda3/envs/jax_fixed
