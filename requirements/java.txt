@@ -1,0 +1,43 @@
+# Replication package - Java environment
+# Tested on: Ubuntu 22.04.5 LTS
+
+# ====== Prerequisites and versions used in the project ======
+- Java:              v.21.0.2
+- Python:            v.3.10.12
+
+# ====== Dependencies and versions used in the project ======
+- Maven		          v.3.9.10
+- CUDA Toolkit:		  v.11.6.0
+- cuDNN:            v.8.3
+- Deeplearning4j    v.1.0.0-M2.1
+- Logback           v.1.2.3
+
+# ====== Installation instructions ======
+1. Install Maven
+  a. Run on the terminal:
+    $ sudo apt update && sudo apt install maven
+  b. Check if installed:
+    $ mvn --version
+
+2. Install CUDA Toolkit
+  a. Download the CUDA Toolkit from 'https://developer.nvidia.com/cuda-downloads', choosing the runfile(local), e.g.:
+    $ wget https://developer.download.nvidia.com/compute/cuda/11.6.0/local_installers/cuda_11.6.0_510.39.01_linux.run
+  b. Make it as executable:
+    $ sudo sh cuda_11.6.0_510.39.01_linux.run
+  c. Execute the runfile (substitute '/path/to/cuda-12.8' with the path where you want to install it):
+    $ ./cuda_11.6.0_510.39.01_linux.run --silent --toolkit --toolkitpath=/path/to/cuda-11.6
+  d. Add CUDA environment variable to bashrc:
+     export CUDA_HOME=/path/to/cuda-11.6
+     export PATH=$CUDA_HOME/bin:$PATH
+     export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+3. Run experiments via Maven
+  a. Move in the java folder:
+    $ cd Java/deepgreen-dl4j
+  b. Run one of the following commands:
+    $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainCifar100Expt
+    $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainFashionExpt
+    $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.resnet18.ResNet18TrainTinyExpt
+    $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainCifar100Expt
+    $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainFashionExpt
+    $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainTinyExpt
