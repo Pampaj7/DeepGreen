@@ -1,0 +1,51 @@
+# Replication package - MATLAB environment
+# Tested on: Ubuntu 22.04.5 LTS
+
+# ====== Prerequisites and versions used in the project ======
+- MATLAB:                      v.9.14.0.2891782 (R2023a Update 8)
+- Python:                      v.3.10.12
+
+# ====== MATLAB packages and versions used in the project ======
+- Deep Learning Toolbox         v.14.6
+- Parallel Computing Toolbox    v.7.8
+- GPU Coder                     v.2.5
+
+# ====== Dependencies and versions used in the project ======
+- CUDA Toolkit		              v.11.8.86
+- cuDNN                         v.8.6
+
+# ====== Installation instructions ======
+1. Install MATLAB packages via GUI
+  a. Open MATLAB > Adds-ons > Get add-ons
+  b. Use the search bar to find each required MATLAB package > Install
+
+2. Run experiments on the terminal (without open MATLAB)
+  a. Locate yourself into the matlab project folder:
+    $ cd path/to/project/matlab
+  b. Execute on the command line:
+    $ matlab -batch "setup_env('path/to/python', 'path/to/project'); script_name; exit" -sd 'path/to/project/matlab'
+     where:
+     - "path/to/python"         is the full path to Python executable.
+     - "path/to/project"        is the full path to the main project folder (e.g. DeepGreen, i.e. where .git is located).
+     - "path/to/project/matlab" is equals to "path/to/project" with "/matlab" at the end of the path.
+     - "script_name"            is one of the possible scripts among:
+                                   * resnet18.train_cifar100
+                                   * resnet18.train_fashion
+                                   * resnet18.train_tiny
+                                   * vgg16.train_cifar100
+                                   * vgg16.train_fashion
+                                   * vgg16.train_tiny
+
+3. Run experiments on MATLAB
+  a. Open MATLAB
+  b. Locate yourself into the matlab project folder:
+    >> cd path/to/project/matlab
+  c. Setup MATLAB environment to run scripts correctly:
+    >> setup_env('path/to/python', 'path/to/project');
+  d. Call one of the following scripts, with or without parameters:
+    >> resnet18.train_cifar100('data/cifar100_png','resnet18_cifar100','matlab/checkpoints/resnet18_cifar100_matlab.mat',[32 32],30,128,1e-4);
+    >> resnet18.train_fashion('data/fashion_mnist_png','resnet18_fashion','matlab/checkpoints/resnet18_fashion_matlab.mat',[32 32],30,128,1e-4);
+    >> resnet18.train_tiny('data/tiny_imagenet_png','resnet18_tiny','matlab/checkpoints/resnet18_tiny_matlab.mat',[32 32],30,128,1e-4);
+    >> vgg16.train_cifar100('data/cifar100_png','vgg16_cifar100','matlab/checkpoints/vgg16_cifar100_matlab.mat',[32 32],30,128,1e-4);
+    >> vgg16.train_fashion('data/fashion_mnist_png','vgg16_fashion','matlab/checkpoints/vgg16_fashion_matlab.mat',[32 32],30,128,1e-4);
+    >> vgg16.train_tiny('data/tiny_imagenet_png','vgg16_tiny','matlab/checkpoints/vgg16_tiny_matlab.mat',[32 32],30,128,1e-4);
