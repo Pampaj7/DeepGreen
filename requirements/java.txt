@@ -31,6 +31,15 @@
      export PATH=$CUDA_HOME/bin:$PATH
      export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 
+NOTE: The version 11.6 of CUDA Toolkit is not official released for Ubuntu 22.04. So the following steps are used as an alternative:
+  a. Download the deb(local) file:
+    $ wget https://developer.download.nvidia.com/compute/cuda/11.6.0/local_installers/cuda-repo-ubuntu2004-11-6-local_11.6.0-510.39.01-1_amd64.deb
+  b. Extract packages:
+    $ sudo dpkg -i cuda-repo-ubuntu2004-11-6-local_11.6.0-510.39.01-1_amd64.deb
+  c. Install the specific packages to use with Ubuntu 22.04:
+    $ sudo dpkg -i $(ls *.deb | grep -v libcufile)
+  d. Same as previous d step
+
 3. Run experiments via Maven
   a. Move in the java folder:
     $ cd Java/deepgreen-dl4j
@@ -41,3 +50,4 @@
     $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainCifar100Expt
     $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainFashionExpt
     $ mvn install exec:java -Dexec.mainClass=io.github.stlabunifi.deepgreen.dl4j.expt.vgg16.Vgg16TrainTinyExpt
+
