@@ -24,6 +24,15 @@ Experiments were executed on a dedicated **NVIDIA L40S GPU server**, with energy
 
 ---
 
+## :flashlight: Highlights
+- **Machine-code compiled languages (Rust, C++)** are consistently more energy-efficient during training.  
+- **Mature Python frameworks (PyTorch, JAX)** achieve competitive efficiency despite interpretation overhead.  
+- **High-level languages (TensorFlow, Java, R)** incur substantial overheads if they are unable to exploit the available hardware resources.
+- **Inference vs training efficiency diverge**: C++ and PyTorch dominate inference, Rust dominates training.  
+- **Faster $\neq$ Greener**: execution time is not a reliable proxy for energy usage.  
+
+---
+
 ## :open_file_folder: Repository Structure
 ```text
 Java/deepgreen-dl4j/    # Java implementations (Deeplearning4j)
@@ -67,15 +76,6 @@ This replication package includes:
 3. Environment specifications for each ecosystem.  
 4. Raw energy logs and aggregated CSV data.  
 5. Plotting scripts to reproduce all figures and tables from the paper.  
-
----
-
-## :flashlight: Highlights
-- **Machine-code compiled languages (Rust, C++)** are consistently more energy-efficient during training.  
-- **Mature Python frameworks (PyTorch, JAX)** achieve competitive efficiency despite interpretation overhead.  
-- **High-level languages (TensorFlow, Java, R)** incur substantial overheads if they are unable to exploit the available hardware resources.
-- **Inference vs training efficiency diverge**: C++ and PyTorch dominate inference, Rust dominates training.  
-- **Faster $\neq$ Greener**: execution time is not a reliable proxy for energy usage.  
 
 ---
 
