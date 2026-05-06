@@ -79,20 +79,5 @@ This replication package includes:
 
 ---
 
-## :open_book: Citation
-If you use this package, please cite:
-
-```bibtex
-@article{pampaloni2025deepgreen,
-  title   = {Deep Green AI: Energy Efficiency of Deep Learning across Programming Languages and Frameworks},
-  author  = {Pampaloni, Leonardo and Pagliocca, Marco and Vicario, Enrico and Verdecchia, Roberto},
-  journal = {Preprint},
-  year    = {2025},
-  doi     = {10.5281/zenodo.xxxxxxx}
-}
-```
-
----
-
 ## :scroll: License
 This project is released under the [MIT License](./LICENSE).
