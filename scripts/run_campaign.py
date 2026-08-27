@@ -26,6 +26,9 @@ index and seed, so the same schedule can be driven externally.
 from __future__ import annotations
 
 import argparse
+import atexit
+import errno
+import fcntl
 import itertools
 import json
 import os
@@ -248,6 +251,46 @@ def external_command(job: Job) -> str:
     )
 
 
+def _acquire_exclusive_lock() -> None:
+    """Refuse to start while another campaign is running.
+
+    Nothing prevented two drivers from executing at once, and when it happened
+    they wrote to the same run directories: counters.csv gained a second run's
+    epochs appended to the first, so a "30-epoch" run held 60. Worse, the
+    directories that ended up with a plausible 30 were measured while a second
+    training job shared the accelerator, which contaminates the energy without
+    leaving any trace in the file.
+
+    Machine-mode energy measurement assumes the machine is doing one thing.
+    That assumption now has a lock behind it rather than a convention.
+    """
+    lock_path = REPO_ROOT / "results" / "campaign_v2" / ".campaign.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(lock_path, "w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        if exc.errno not in (errno.EACCES, errno.EAGAIN):
+            raise
+        try:
+            holder = lock_path.read_text().strip()
+        except OSError:
+            holder = "unknown"
+        print(
+            f"error: another campaign holds {lock_path} (pid {holder}).\n"
+            "Two drivers writing the same run directories corrupts both, and\n"
+            "sharing the accelerator invalidates the energy of whatever else is\n"
+            "measuring. Stop it first, or pass --dry-run to inspect the plan.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    handle.write(f"{os.getpid()}\n")
+    handle.flush()
+    # Held for the process lifetime; released when it exits, however it exits.
+    atexit.register(handle.close)
+    globals()["_CAMPAIGN_LOCK"] = handle
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -262,6 +305,9 @@ def main() -> int:
     ap.add_argument("--cooldown", type=int, default=COOLDOWN_S)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+
+    if not (args.print_plan or args.dry_run):
+        _acquire_exclusive_lock()
 
     if args.repetitions < 3:
         print(
