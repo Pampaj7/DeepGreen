@@ -1,0 +1,8 @@
+ecosystem,n_runs,median_block_s,coverage_pct,untracked_that_is_instrument_pct
+Cpp/LibTorch,30,5.17,61.7,101.1
+Java/DL4J,30,23.82,93.3,98.8
+Python/JAX,30,3.24,44.0,97.3
+Python/PyTorch,30,7.79,78.0,99.4
+Python/TensorFlow,30,4.25,56.7,99.7
+R/torch,30,37.34,99.8,14.6
+Rust/tch,17,7.42,77.9,100.0

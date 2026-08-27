@@ -28,7 +28,7 @@ run 11_instrument_comparison.py   # consolidates per-block records; both instrum
 run 09_campaign_v2.py             # between-run statistics, quality normalisation
 run 14_v2_statistics.py           # run-level tests, effect sizes, energy vs time
 run 15_convergence.py             # training collapses and conditional accuracy
-run 16_coverage_sensitivity.py    # does the ranking survive the untracked gaps?
+run 16_coverage_sensitivity.py    # whose energy is the time between phases?
 
 echo "=== manuscript artefacts (paper/) ==="
 run 12_paper_numbers.py           # -> paper/generated/{numbers,tab_*}.tex

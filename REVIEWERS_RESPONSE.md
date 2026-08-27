@@ -446,22 +446,47 @@ movement and dispatch weigh more than they would at production scale; and the
 whole calculation is a scaling of *relative* differences, which is only as sound
 as the boundary they were measured at — the point the reviewer was making.
 
-### Related: measurement coverage, which we found while fixing this
+### Related: measurement coverage, and a wrong turn we took
 
 Asking what boundary a number belongs to led us to check what fraction of each
 run lies inside a measured block at all. It is not uniform: tracked time is 44%
-of wall time for JAX and 99.7% for R. More than half of a JAX run happens
-outside any measured block, so a per-phase comparison flatters it.
+of wall time for JAX and 99.8% for R. More than half of a JAX run happens
+outside any measured block.
 
-We bound the consequence rather than assume it away. Gap power cannot be
-negative and cannot exceed the lowest power observed in any *measured* block of
-the same stack. Charging the gaps at that upper bound leaves the ecosystem order
-**identical in 4 of 6 blocks** (ρ ≥ 0.96 in the other two, a single adjacent
-swap) while compressing the spread from 7.7–20.6× to 5.6–8.6×.
+Our first reading was that the low-coverage stacks do a lot of work between
+phases and are flattered by a per-phase comparison, and we built a bounded
+sensitivity analysis around charging that time back. **That reading was wrong.**
+The gap preceding each block is almost exactly the amount by which CodeCarbon's
+reported window exceeds the counter-bracketed phase — the two correlate at
+r = 0.98 over all 11,623 blocks, their medians differ by 0.23 s, and the window
+excess accounts for 96% of all untracked time. Coverage tracks nothing about the
+ecosystems except the median length of their blocks: JAX has 3.2-second blocks
+and 44% coverage, R has 37-second blocks and 99.8%.
 
-So the ordering is robust and the effect size is not, and the manuscript now
-reports the first as a conclusion and the second as a range.
+The untracked time is the instrument holding its window open. It would not exist
+in an uninstrumented run, and charging it to the ecosystems would charge them for
+the cost of being measured. Per-phase energy is the right quantity and the
+spreads stand as reported.
+
+What it does bear on is anyone planning a campaign of this shape: under
+whole-machine tracking that overhead is real energy drawn from the wall and
+attributed to nobody, and its share grows as blocks get shorter — exactly where
+the instrument is already least reliable.
 `results/analysis/16_coverage_sensitivity.py`.
+
+### A second correction, to our own model of the instrument
+
+We first fitted CodeCarbon's reported duration as `max(phase, 3.99 s)` and
+reported R² = 0.993. That model is wrong in the middle of the range. The excess
+is bimodal — either about 3.28 s or about 13 ms, with nothing in between and the
+transition near 11 seconds — so the reported duration is *the phase plus a
+constant* below the threshold, not a floor. The two-regime model gives
+R² = 0.998 at a mean absolute error of 0.42 s against 1.14 s for the floor.
+
+We report this because the failure mode is the paper's own argument turned on
+us: R² = 0.993 on a heavily skewed predictor looked conclusive while being
+carried entirely by the blocks where both models agree. The consequence for
+power is unchanged.
 
 ### Comment 12 — Descriptive answers, no mechanism
 

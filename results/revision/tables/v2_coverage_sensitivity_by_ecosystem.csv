@@ -1,8 +1,0 @@
-ecosystem,n_runs,untracked_s_per_run,gap_power_bound_w,max_inflation,coverage_pct
-Cpp/LibTorch,30,213.08,156.01,1.53,61.75
-Java/DL4J,30,117.44,232.77,1.06,93.33
-Python/JAX,30,222.97,141.03,1.84,44.01
-Python/PyTorch,30,139.98,197.89,1.18,77.96
-Python/TensorFlow,30,190.38,160.18,1.55,56.66
-R/torch,30,6.06,167.41,1.0,99.75
-Rust/tch,17,144.72,166.94,1.39,77.85
