@@ -50,3 +50,6 @@ paper/*.synctex.gz
 # The rejection letter: a private editorial communication that names a
 # co-author's address. Kept locally, not published with the repository.
 paper/reviewer.tex
+# Author photographs are not distributed with the source; build.sh generates
+# placeholders so the layout can be checked without them.
+paper/bio/
