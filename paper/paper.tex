@@ -174,7 +174,7 @@ This paper investigates \emph{how the choice of language--framework ecosystem af
 We compare two convolutional architectures (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems --- Python with PyTorch, TensorFlow and JAX; C++ with LibTorch; Java with Deeplearning4j; R with \texttt{torch}; and Rust with \texttt{tch} --- on three datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet). Three methodological commitments distinguish the design. First, a written experiment specification states what ``the same experiment'' means across stacks, and 56 automated checks enforce it against the source, so a divergence fails loudly instead of quietly changing a number. Second, energy is read from hardware counters --- NVML \texttt{nvmlDeviceGetTotalEnergyConsumption} for the accelerator and the RAPL package-energy counters for the CPU --- with CodeCarbon running over the same window as a second, independent instrument. Third, each configuration is executed as \vRepetitions{} independent interleaved runs with distinct seeds, making the run rather than the epoch the unit of analysis, and every stack records per-epoch accuracy so that energy can be normalised by the quality actually achieved.
 
 \textbf{Results.}
-The design yields \vRuns{} runs and \vBlocks{} doubly instrumented measurement blocks. Between-run repeatability is high: the median coefficient of variation of training energy is \vCVTrainMedian\,\%. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block, while final accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST --- the differences are energetic, not qualitative. The two instruments agree on energy to \vCCmeasDisagreementPct\,\% over the whole campaign --- \vAgreeLongPct\,\% for blocks longer than \SI{30}{\second}, degrading to \vAgreeShortPct\,\% below one second, where the block is shorter than the sampling interval --- so the difficulty with software estimation is narrower and stranger than inaccuracy: the duration CodeCarbon reports beside each energy figure is not the duration the energy was accumulated over, but $\max(\text{phase},\ \vWindowFloorS\,\text{s})$, a relation that explains $R^2 = \vWindowModelRsq$ of its variance. Any power or energy--time analysis built on that field therefore understates power by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases while being exact above ten seconds --- a bias that falls precisely on the fastest ecosystems and the inference phase.
+The design yields \vRuns{} runs and \vBlocks{} doubly instrumented measurement blocks. Between-run repeatability is high: the median coefficient of variation of training energy is \vCVTrainMedian\,\%. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block, while final accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST --- the differences are energetic, not qualitative. Measurement coverage, however, is itself unequal: tracked time is \vCoverageMin\,\% to \vCoverageMax\,\% of a run's wall time depending on the stack, and charging the untracked remainder at its upper bound leaves the ecosystem order unchanged in \vRankStableBlocks{} of \vRankStableTotal{} blocks while compressing the spread to \vSpreadJobMin$\times$--\vSpreadJobMax$\times$. We therefore report which ecosystem is cheaper with confidence, and by how much only as a range. The two instruments agree on energy to \vCCmeasDisagreementPct\,\% over the whole campaign --- \vAgreeLongPct\,\% for blocks longer than \SI{30}{\second}, degrading to \vAgreeShortPct\,\% below one second, where the block is shorter than the sampling interval --- so the difficulty with software estimation is narrower and stranger than inaccuracy: the duration CodeCarbon reports beside each energy figure is not the duration the energy was accumulated over, but $\max(\text{phase},\ \vWindowFloorS\,\text{s})$, a relation that explains $R^2 = \vWindowModelRsq$ of its variance. Any power or energy--time analysis built on that field therefore understates power by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases while being exact above ten seconds --- a bias that falls precisely on the fastest ecosystems and the inference phase.
 
 Replication also exposed a failure a single-run design cannot see: VGG-16
 converges to exactly chance accuracy in \vCollapsedVgg{} of \vCollapsedVggRuns{}
@@ -217,7 +217,7 @@ A cross-ecosystem energy comparison, however, rests on two premises that are rar
 
 We therefore treat the apparatus as part of the contribution rather than as a preliminary. Three commitments follow. \emph{(i)} A written experiment specification states what ``the same experiment'' means across stacks --- model, optimisation, data pipeline, backend, measurement and replication --- and 56 automated checks enforce it against the source code, so that a divergence fails a check instead of quietly changing a number. \emph{(ii)} Energy is read from hardware counters, NVML's accumulated-energy register for the accelerator and the RAPL package-energy counters for the CPU, with CodeCarbon running over the same window as a second, independent instrument; every block therefore carries two readings that can be held against each other. \emph{(iii)} Each configuration is executed as \vRepetitions{} independent, interleaved runs with distinct seeds, so that the run rather than the epoch is the unit of analysis, and every ecosystem records per-epoch test accuracy, so that energy can be normalised by the quality actually reached rather than assumed equal.
 
-Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report are genuine. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. The ecosystem effect is real, it is large, and it is energetic rather than qualitative.
+Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report are genuine. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. The ecosystem effect is real, it is large, and it is energetic rather than qualitative --- though not as large as a per-phase comparison alone suggests, for a reason we return to in Section~\ref{sec:instrument}: the stacks differ in how much of their wall time falls inside a measured block at all, and charging the remainder compresses the spread to \vSpreadJobMin$\times$--\vSpreadJobMax$\times$ without reordering it.
 
 Replication earned its cost in a way we did not anticipate. VGG-16 fails to
 train at all in \vCollapsedVgg{} of \vCollapsedVggRuns{} runs --- converging to
@@ -920,7 +920,10 @@ per configuration, training energy differs across ecosystems by
 \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture
 and dataset, with \vSpreadTrainBest{} cheapest in every block. Between-run
 variability is small (median CV \vCVTrainMedian\,\%), so these differences are
-well resolved. Final accuracy converges to within \vAccSpreadFashion{}
+well resolved. The factors are per-phase and are an upper bound: charging the
+energy that falls between measured phases compresses them to
+\vSpreadJobMin$\times$--\vSpreadJobMax$\times$ without changing the order
+(Section~\ref{sec:instrument}). Final accuracy converges to within \vAccSpreadFashion{}
 percentage points on Fashion-MNIST, so the differences are energetic rather than
 qualitative --- the stacks are doing the same work at very different cost.
 \end{tcolorbox}
@@ -1073,18 +1076,48 @@ measurements. On a machine with more installed RAM the same model contributes a
 larger share, which means the reported energy of an identical workload depends
 on how much memory the host happens to have.
 
-\textbf{What the boundary leaves out.} Energy is attributed only to the phases
-each stack brackets, so work a stack does \emph{between} phases --- rebuilding a
-loader, synchronising, reshuffling on the host --- consumes real energy and is
-charged to nobody. If that fraction differed sharply between ecosystems it would
-flatter whichever stack does more of its work outside its own phase boundaries.
-It does differ, and we report it: measured from the first block of a run to the
-last, tracked time is \vCoverageMin\,\% to \vCoverageMax\,\% of the span, with
-\vCoverageWorstEco{} lowest. The comparison is therefore of per-epoch phase
-energy and not of end-to-end job energy, and the two differ by up to a fifth for
-some stacks. We prefer the phase boundary because it is the quantity a
-practitioner can act on, but a study reporting job-level energy would rank these
-ecosystems somewhat differently, and should say which it measured.
+\textbf{What the boundary leaves out, and how much it matters.}
+Energy is attributed only to the phases each stack brackets. Whatever a stack
+does \emph{between} them --- rebuilding a loader, compiling a graph,
+synchronising, reshuffling on the host --- consumes real energy and appears in no
+measurement. That would be unimportant if the fraction were similar across
+stacks. It is not. Measured over each run's wall time, tracked time ranges from
+\vCoverageMin\,\% (\vCoverageWorstEco) to \vCoverageMax\,\%
+(\vCoverageBestEco). More than half of a \vCoverageWorstEco{} run happens
+outside any measured block.
+
+This flatters the stacks that leave the most time untracked, and by a large
+factor, so the comparison cannot simply be reported and qualified. We bound it
+instead. Job-level energy is the tracked energy plus the untracked time
+multiplied by whatever power the gaps draw, and that power is bracketed on both
+sides without any unmeasured assumption: it cannot be negative, and it cannot
+exceed the lowest power observed in any \emph{measured} block of the same stack,
+because a gap does strictly less work than the least busy block. Charging the
+gaps at that upper bound inflates a run's energy by at most
+\vInflationMax$\times$ --- for \vCoverageWorstEco, and by nothing at all for
+\vCoverageBestEco.
+
+The ranking survives; the effect size does not.
+Table~\ref{tab:coverage} reports the ecosystem order at each end of that range.
+It is \emph{identical} in \vRankStableBlocks{} of \vRankStableTotal{} blocks and
+differs by a single adjacent transposition in the other two, with rank
+correlation no lower than \vRankStableRhoMin. Since the order is the same at both
+ends of the admissible range, it is the same everywhere in between, and does not
+depend on a quantity we did not measure. The \emph{magnitude}, however, is
+boundary-dependent: the training spread of
+\vSpreadTrainMin$\times$--\vSpreadTrainMax$\times$ per phase becomes
+\vSpreadJobMin$\times$--\vSpreadJobMax$\times$ once the gaps are charged at their
+upper bound. The true figure lies between the two and nearer the per-phase end,
+since gaps draw less than the least busy block. We therefore report which
+ecosystem is cheaper with confidence and \emph{by how much} only as a range.
+
+\begin{table}[t]
+\centering
+\caption{Ecosystem order under the two bounds on gap power, per block, and the
+spread each implies. The order is what survives; the factor is not.}
+\label{tab:coverage}
+\resizebox{\columnwidth}{!}{\input{generated/tab_coverage.tex}}
+\end{table}
 
 \textbf{Does the instrument change the answer?} We recomputed the ecosystem
 ranking of each block under both instruments. They agree in \vRankIdentical{} of
@@ -1120,7 +1153,9 @@ In this section, we interpret the results in light of their broader implications
 \textbf{The ecosystem effect is large, and it is not about the kernels.}
 Under a common measurement boundary, the same architecture trained on the same
 data for the same number of epochs costs between \vSpreadTrainMin$\times$ and
-\vSpreadTrainMax$\times$ more energy on one ecosystem than another. Three of the
+\vSpreadTrainMax$\times$ more energy on one ecosystem than another per measured
+phase, or \vSpreadJobMin$\times$ to \vSpreadJobMax$\times$ once the time between
+phases is charged at its upper bound. The ordering is the same either way. Three of the
 stacks in that comparison execute a byte-identical TorchScript module, so
 whatever separates them is not kernel quality: it is the binding, the data
 pipeline, and how much host-side work each stack does per unit of accelerator
@@ -1183,9 +1218,10 @@ Our findings carry different implications for different communities:
  energy, and in this workload the same choice serves both phases, so the
  ``one stack for training, another for serving'' complexity is not obviously
  warranted. Efficiency must nonetheless be weighed against maintainability,
- hiring, library availability and time to delivery; a \vSpreadTrainMax$\times$
- energy gap is not a mandate when the cheaper stack has a tenth of the
- ecosystem around it.
+ hiring, library availability and time to delivery; an energy gap of this size is not a
+ mandate when the cheaper stack has a tenth of the ecosystem around it, and the
+ gap a practitioner will actually see is nearer the job-level figure than the
+ per-phase one.
 
  \item \textbf{Framework designers:} efficiency stems from the ecosystem as a
  whole, and the largest recoverable gaps we observe are in host-side work
@@ -1610,8 +1646,10 @@ Three findings stand out.
 First, ecosystem selection substantially shifts operational efficiency: at a
 common chip-level boundary, training the same model on the same data costs
 between \vSpreadTrainMin$\times$ and \vSpreadTrainMax$\times$ more energy on one
-ecosystem than another, with between-run variability of order
-\vCVTrainMedian\,\%. Because three of the ecosystems compared execute a
+ecosystem than another per measured phase, and between \vSpreadJobMin$\times$
+and \vSpreadJobMax$\times$ once the time between phases is charged, with
+between-run variability of order \vCVTrainMedian\,\%. The order is the same under
+both boundaries; the factor is not, which is why we give it as a range. Because three of the ecosystems compared execute a
 byte-identical TorchScript module, this gap is not kernel quality: it is
 binding overhead, data movement and host-side dispatch --- which is to say it is
 addressable by the people who maintain these stacks.

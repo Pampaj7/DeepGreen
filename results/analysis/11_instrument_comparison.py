@@ -153,14 +153,21 @@ def measurement_coverage(df: pd.DataFrame) -> pd.DataFrame:
     comparison in favour of whichever stack does more of its work outside its
     own phase boundaries, so it has to be reported rather than assumed small.
 
-    Coverage is the tracked time as a fraction of the span from the first block
-    to the last, which excludes one-time start-up and shutdown and isolates the
-    per-epoch gaps.
+    Coverage is the tracked time as a fraction of the elapsed wall time from the
+    start of a run's first block to the end of its last, which excludes one-time
+    start-up and shutdown and isolates the per-epoch gaps.
+
+    CodeCarbon stamps each record at the moment the block *stops*, so the
+    interval between the first and last stamps omits the first block entirely.
+    Adding it back matters: without it this function reported coverage above
+    100%, which is how the omission was noticed.
     """
     rows = []
     for keys, g in df.groupby(["ecosystem", "model", "dataset", "repetition"]):
-        ts = pd.to_datetime(g.timestamp, format="mixed", utc=True)
-        span = (ts.max() - ts.min()).total_seconds()
+        g = g.assign(_ts=pd.to_datetime(g.timestamp, format="mixed", utc=True))
+        g = g.sort_values("_ts")
+        first_block = float(g.duration_hw_s.iloc[0])
+        span = (g._ts.max() - g._ts.min()).total_seconds() + first_block
         tracked = float(g.duration_hw_s.sum())
         if span <= 0:
             continue

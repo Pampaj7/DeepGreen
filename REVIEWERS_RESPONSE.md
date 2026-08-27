@@ -414,21 +414,54 @@ meter is specified in `repetition_protocol.md` §6 and is still outstanding.
   Spearman between normalised energy and normalised time is 0.98 (training) and
   1.00 (inference), so the composite averages two near-collinear quantities.
 
-Recommendation carried into the manuscript: drop the composite, report the
-Pareto frontier.
+**Done in the manuscript.** The composite index and both of its tables are
+gone. In their place the manuscript reports an energy-versus-**accuracy**
+frontier (Figure "Energy spent against accuracy reached"), which is the
+trade-off a practitioner actually faces and which the submitted design could not
+draw, because no ecosystem recorded its accuracy.
+
+The replicated campaign strengthens the reviewer's point rather than softening
+it. On counter-bracketed durations, energy and time now correlate at ρ ≈ 0.98,
+so a composite of normalised energy and normalised time averages two quantities
+that are very nearly the same measurement. Whatever such an index ranks, it is
+not two dimensions.
 
 ### Comment 11 — Industrial extrapolation (also Reviewer 3, major comment 6)
 
-**FIXED in analysis, MANUSCRIPT for placement.** `07_carbon_and_scale.py` makes
-the boundary mismatch explicit: the manuscript multiplies an assumed per-GPU
-board power by a ratio derived from CPU+GPU+RAM energy, which are different
-boundaries. The ratio that may legitimately be applied to a per-GPU power budget
-is the GPU-only one. The three candidate ratios are 7.28× (as measured), 8.83×
-(harmonised) and 9.30× (GPU only).
+**FIXED, by taking the ratio at the same boundary as the thing it multiplies.**
+The reviewer is exactly right: the submitted version multiplied an assumed
+*per-GPU board power* by a ratio derived from CPU + GPU + RAM energy. Those are
+different boundaries, and the product is not a quantity.
 
-We agree the section should move to an appendix, be restricted to
-ResNet-18/VGG-16 at 32×32 on a single L40S, be stated in GPU energy only, and be
-given as a range. The monetary figures are withdrawn.
+Rather than delete the section, we made it dimensionally honest. The scenario
+assumes a per-accelerator power budget, so the multiplier is now computed from
+**accelerator energy alone** — the NVML counter, CPU package term excluded.
+The boundary choice is not cosmetic: it moves the ecosystem spread from 20.4× to
+18.4×.
+
+The section is retained with the arithmetic stated as arithmetic, and with two
+caveats that come from our own data rather than from convention: the multipliers
+were measured on a single-accelerator desktop at 32×32, a regime where data
+movement and dispatch weigh more than they would at production scale; and the
+whole calculation is a scaling of *relative* differences, which is only as sound
+as the boundary they were measured at — the point the reviewer was making.
+
+### Related: measurement coverage, which we found while fixing this
+
+Asking what boundary a number belongs to led us to check what fraction of each
+run lies inside a measured block at all. It is not uniform: tracked time is 44%
+of wall time for JAX and 99.7% for R. More than half of a JAX run happens
+outside any measured block, so a per-phase comparison flatters it.
+
+We bound the consequence rather than assume it away. Gap power cannot be
+negative and cannot exceed the lowest power observed in any *measured* block of
+the same stack. Charging the gaps at that upper bound leaves the ecosystem order
+**identical in 4 of 6 blocks** (ρ ≥ 0.96 in the other two, a single adjacent
+swap) while compressing the spread from 7.7–20.6× to 5.6–8.6×.
+
+So the ordering is robust and the effect size is not, and the manuscript now
+reports the first as a conclusion and the second as a range.
+`results/analysis/16_coverage_sensitivity.py`.
 
 ### Comment 12 — Descriptive answers, no mechanism
 
