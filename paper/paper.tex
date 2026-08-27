@@ -1398,7 +1398,7 @@ Two learning rates across eight stacks &
 no \\
 \addlinespace
 Divergent loader parallelism &
-0 to 96 threads; \(\rho=-0.73\) against duration, \(11.6\times\) spread &
+\vAuditLoaderThreadsMin{} to \vAuditLoaderThreadsMax{} threads; \(\rho=\vAuditLoaderRho\) against epoch duration (\(p=\vAuditLoaderP\)) over a \(\vAuditDurationSpread\times\) spread &
 no \\
 \addlinespace
 Divergent input shape &
@@ -1493,9 +1493,11 @@ MATLAB/DLT        & adam & 1e-4 & augmentedImageDatastore & 1 & $[0,1]$ \\
 
 Two stacks train at ten times the stated learning rate. Loader parallelism
 ranges from none to every hardware thread on the machine, and across the
-campaign it correlates with epoch duration at $\rho = -0.73$, spanning
-\(11.6\times\) --- which is to say that a column no one would think to report
-tracks the published ranking better than the programming language does. One
+campaign it correlates with epoch duration at $\rho = \vAuditLoaderRho$
+($p = \vAuditLoaderP$) over a \(\vAuditDurationSpread\times\) spread in duration
+and \(\vAuditEnergySpread\times\) in energy --- which is to say that a column no
+one would think to report tracks the published ranking better than the
+programming language does. One
 stack normalises its inputs when no other does, so it is not even computing the
 same function. None of this is visible in an energy figure, and all of it is
 verifiable in about a page of code.

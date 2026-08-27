@@ -430,6 +430,22 @@ def audited_campaign_facts() -> None:
     b = pd.read_csv(path)
     versions = sorted(b.codecarbon.astype(str).unique())
     macro("vAuditCCVersions", " and ".join(versions))
+    par = TABLES / "impl_parallelism_vs_ranking.csv"
+    if par.exists():
+        from scipy import stats as _st
+        d = pd.read_csv(par)
+        rho, pv = _st.spearmanr(d.loader_threads, d.mean_duration_s)
+        macro("vAuditLoaderRho", num(rho, 2))
+        macro("vAuditLoaderP", num(pv, 3))
+        macro("vAuditLoaderThreadsMin", int(d.loader_threads.min()))
+        macro("vAuditLoaderThreadsMax", int(d.loader_threads.max()))
+        macro("vAuditDurationSpread",
+              num(d.mean_duration_s.max() / d.mean_duration_s.min(), 1))
+        macro("vAuditEnergySpread",
+              num(d.mean_energy_J.max() / d.mean_energy_J.min(), 1))
+        macro("vAuditLearningRates",
+              len(d.learning_rate.unique()))
+
     machine = b[b.tracking_mode == "machine"]
     for v in versions:
         # Averaged over machine-mode stacks only: the one process-mode stack
