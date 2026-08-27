@@ -69,6 +69,22 @@ Two consequences:
    whichever outcome that seed produced, and nothing in the energy data
    distinguishes the two cases.
 
+**A failed recipe and a broken pipeline are indistinguishable in an energy
+table**, and separating them turned up a defect of our own. Both give chance
+accuracy at full energy cost. The per-epoch traces separate them completely: in
+a genuine collapse the training loss does not move either (all 12 change by
+≤ 0.0 %, since a network stuck on one class has nothing left to fit), whereas a
+pipeline defect shows training loss falling normally while test loss *rises*.
+
+Four further runs met the chance-accuracy criterion with training loss falling
+by 86–87 %. One Rust binary carried a private copy of the input transform,
+applied on the training path only, which resized the tensor its loader had
+already produced with a function that returns `uint8` — every value in [0,1]
+truncated to zero, so it trained on black images and was evaluated on real ones.
+Counted as collapses those four would have read as "VGG-16 sometimes fails to
+train". They are a defect; it is fixed, a conformance check now forbids
+per-binary transforms, and those runs were re-executed.
+
 Reproduce with `results/analysis/15_convergence.py`.
 
 ### The instrument finding

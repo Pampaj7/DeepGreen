@@ -494,6 +494,20 @@ def convergence_facts() -> None:
     macro("vCondBlockName", f"{MODEL[worst.model]} on {DATASET[worst.dataset]}")
     macro("vCondSpreadMax", num(cond.converged_spread_pp.max(), 1))
 
+    sig_path = TABLES / "v2_convergence_signature.csv"
+    if sig_path.exists():
+        sig = pd.read_csv(sig_path)
+        coll = sig[sig.diagnosis.str.startswith("optimisation")]
+        pipe = sig[sig.diagnosis.str.startswith("pipeline")]
+        macro("vSigCollapseN", len(coll))
+        macro("vSigPipelineN", len(pipe))
+        if len(coll):
+            macro("vSigCollapseLossDropMax",
+                  num(coll.train_loss_drop_pct.abs().max(), 1))
+        if len(pipe):
+            macro("vSigPipelineLossDropMin",
+                  num(pipe.train_loss_drop_pct.min(), 0))
+
     ht = pd.read_csv(TABLES / "v2_convergence_homogeneity.csv")
     macro("vCollapseRateMin", num(ht.collapse_pct.min(), 0))
     macro("vCollapseRateMax", num(ht.collapse_pct.max(), 0))

@@ -893,6 +893,27 @@ they plausibly do, since each framework initialises weights with its own scheme
 and its own generator, but resolving it needs more repetitions than an energy
 study can usually afford.
 
+\textbf{A failed recipe and a broken pipeline look identical in an energy
+table.} Both produce chance accuracy at full energy cost, and neither is visible
+in a Joule figure. The per-epoch traces separate them completely. In a genuine
+collapse the training loss does not move either --- across all \vSigCollapseN{}
+of them it changes by at most \vSigCollapseLossDropMax\,\%, because a network
+that has settled on one class has nothing left to fit. A pipeline defect looks
+the opposite: the training loss falls normally while test loss \emph{rises} and
+accuracy stays at chance, which says that training and evaluation are not seeing
+the same inputs.
+
+We report this because the discriminator found a defect of our own that the
+collapse count alone would have absorbed. \vSigPipelineN{} further runs met the
+chance-accuracy criterion with training loss falling by more than
+\vSigPipelineLossDropMin\,\%: one Rust binary carried a private copy of the input
+transform, applied on the training path only, which resized the tensor its
+loader had already produced using a function that returns \code{uint8}. Every
+value in $[0,1]$ truncated to zero, so it trained on black images and was
+evaluated on real ones. Filed as a collapse it would have read as ``VGG-16
+sometimes fails to train''; filed correctly it is a defect, and it is fixed. The
+\vCollapsedVgg{} collapses reported above are the ones that survive this test.
+
 Two consequences matter here.
 
 \textbf{It is the strongest evidence that the specification worked.} On

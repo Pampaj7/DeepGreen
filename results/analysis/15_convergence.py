@@ -62,6 +62,69 @@ def load() -> pd.DataFrame:
     return q
 
 
+def collapse_signature() -> pd.DataFrame:
+    """Distinguish a failed recipe from a broken pipeline.
+
+    Both produce chance test accuracy, and in an energy table they are
+    indistinguishable. The per-epoch traces separate them cleanly:
+
+      * optimisation collapse -- the network settles on one class. Training loss
+        stalls too, because there is nothing to fit. This is a property of the
+        recipe and happens to every stack that draws an unlucky initialisation.
+
+      * pipeline defect -- the network fits the training data perfectly while
+        test accuracy sits at chance and test loss *rises*. Train and test are
+        not seeing the same inputs.
+
+    The second is how we found that one Rust binary resized the tensor its
+    loader had already produced, with a function returning uint8, so every value
+    in [0,1] truncated to zero: it trained on black images and was evaluated on
+    real ones. Training loss fell from 1.13 to 0.15 while accuracy stayed at
+    chance for thirty epochs. Nothing in the energy data showed it, and the
+    collapse-rate table alone would have filed it under "VGG-16 sometimes fails
+    to train".
+    """
+    campaign = REPO_ROOT / "results" / "campaign_v2"
+    rows = []
+    for run_dir in sorted(p for p in campaign.glob("*") if p.is_dir()):
+        mpath = run_dir / "metrics.csv"
+        if not mpath.exists():
+            continue
+        try:
+            m = pd.read_csv(mpath)
+        except pd.errors.EmptyDataError:
+            continue
+        if m.empty or "test_acc" not in m or "train_loss" not in m:
+            continue
+        m = m.sort_values("epoch")
+        dataset = str(m.dataset.iat[0])
+        chance = CHANCE_PCT.get(dataset)
+        if chance is None:
+            continue
+        final_acc = float(m.test_acc.iat[-1])
+        if final_acc > chance * COLLAPSE_FACTOR:
+            continue
+        first, last = float(m.train_loss.iat[0]), float(m.train_loss.iat[-1])
+        loss_drop = (first - last) / first if first else 0.0
+        test_first = float(m.test_loss.iat[0]) if "test_loss" in m else float("nan")
+        test_last = float(m.test_loss.iat[-1]) if "test_loss" in m else float("nan")
+        rows.append({
+            "run": run_dir.name,
+            "ecosystem": str(m.ecosystem.iat[0]), "model": str(m.model.iat[0]),
+            "dataset": dataset,
+            "final_test_acc_pct": round(final_acc, 2),
+            "train_loss_drop_pct": round(100 * loss_drop, 1),
+            "test_loss_first": round(test_first, 2),
+            "test_loss_last": round(test_last, 2),
+            # Fitting the training set while failing the test set is not an
+            # optimisation failure.
+            "diagnosis": ("pipeline defect: fits train, fails test"
+                          if loss_drop > 0.5 and test_last >= test_first
+                          else "optimisation collapse"),
+        })
+    return pd.DataFrame(rows)
+
+
 def by_model(q: pd.DataFrame) -> pd.DataFrame:
     t = (q.groupby(["model", "dataset"])
          .agg(n_runs=("collapsed", "size"), n_collapsed=("collapsed", "sum"))
@@ -159,6 +222,21 @@ def main() -> None:
     print(be.to_string(index=False))
     save_table(be, "v2_convergence_by_ecosystem",
                "VGG-16 collapses per ecosystem; the effect is not stack-specific")
+
+    sig = collapse_signature()
+    if len(sig):
+        print("\n--- failed recipe, or broken pipeline? ---")
+        print(sig[["run", "final_test_acc_pct", "train_loss_drop_pct",
+                   "test_loss_first", "test_loss_last", "diagnosis"]]
+              .to_string(index=False))
+        save_table(sig, "v2_convergence_signature",
+                   "Chance-accuracy runs separated by their per-epoch traces")
+        broken = sig[sig.diagnosis.str.startswith("pipeline")]
+        if len(broken):
+            print(f"\n  !! {len(broken)} run(s) show a pipeline defect, "
+                  f"not an optimisation failure:")
+            for r in broken.run:
+                print(f"     {r}")
 
     ht = homogeneity_test(q)
     print("\n--- is the collapse rate the same in every ecosystem? ---")
