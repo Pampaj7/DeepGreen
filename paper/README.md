@@ -1,40 +1,64 @@
 # Manuscript
 
-`main.tex` plus `sections/`. Every number in the text comes from the analysis
-pipeline and can be regenerated:
+`paper.tex` is the revised manuscript, in the Elsevier `cas-dc` class it was
+originally submitted in. It builds against `bibliography.bib` and needs the
+`cas-dc` class files, as before.
+
+## Nothing in the text is a typed number
+
+Every quantity the manuscript quotes is generated from the analysis pipeline and
+read in at build time. This is deliberate, and it is a direct response to how
+the unit error in the submitted version happened: a number no author types is a
+number no author can mislabel.
 
 ```bash
-./results/analysis/run_all.sh          # tables and figures -> results/revision/
-python3 scripts/check_consistency.py   # the 56 conformance checks
+./results/analysis/run_all.sh            # the whole pipeline
+python3 results/analysis/12_paper_numbers.py   # -> paper/generated/
+python3 results/analysis/13_paper_figures.py   # -> paper/figures/
 ```
+
+`generated/numbers.tex` holds one `\newcommand` per quoted value;
+`generated/tab_*.tex` hold the result tables. `paper.tex` reads both. If a value
+changes in the data it changes in the manuscript on the next build, and if a
+value disappears the build fails rather than printing a stale figure.
 
 ## Where each claim comes from
 
-| Claim in the paper | Produced by |
+| Claim | Produced by |
 |---|---|
-| Unit audit, 2,880 blocks, 4.02 kWh / 1.33 kg | `01_data_audit.py` |
-| Instrument table, host shares, 231 W constant | `01_data_audit.py`, `audit_measurement_boundary.md` |
-| GPU power 83–197 W against a 350 W limit | `01_data_audit.py`, `audit_gpu_load.md` |
-| Spreads under three energy definitions | `02_main_tables.py`, `table_headline_spreads.md` |
-| Spearman ρ and discordant pairs | `04_energy_vs_time.py`, `rq3_rank_inversions.md` |
-| LibTorch control group, 98–100% | `03_statistics.py`, `stats_libtorch_control.md` |
-| Protocol divergence table, loader ρ = −0.73 | `10_implementation_audit.py` |
-| Defect catalogue | `impl_structural_findings.md` |
-| Cross-stack accuracy table | one-epoch runs under the shared contract |
+| Design: runs, blocks, configurations | `11_instrument_comparison.py` |
+| Between-run intervals, repeatability | `09_campaign_v2.py` |
+| Energy tables and spreads | `09_campaign_v2.py`, `12_paper_numbers.py` |
+| Accuracy, accuracy per kJ, energy to target | `09_campaign_v2.py` |
+| Two-instrument agreement, RAM share | `11_instrument_comparison.py` |
+| The reported-window floor and its effect on power | `11_instrument_comparison.py` |
+| Measurement coverage per ecosystem | `11_instrument_comparison.py` |
+| Kruskal-Wallis, Holm, Cliff's delta, LibTorch control | `14_v2_statistics.py` |
+| Energy against measured time, phase consistency | `14_v2_statistics.py` |
+| Training collapses and conditional accuracy | `15_convergence.py` |
+| Defect catalogue | the audit of the earlier campaign, `01`–`10` |
+| Conformance: 56 checks | `scripts/check_consistency.py` |
 
-Numbers measured on the replication machine (RTX 3090) rather than by the
-pipeline — the Rust synchronisation figures, the TensorFlow training-mode
-accuracies, the cross-stack convergence table — are noted as such in the text.
+## Figures
 
-## Building
+| Figure | What it shows |
+|---|---|
+| `fig_window_floor.png` | The estimator's reported duration is `max(phase, ~4 s)`, and what that does to power |
+| `fig_energy_ci.png` | Training energy per ecosystem and block, with between-run intervals |
+| `fig_energy_accuracy.png` | Energy spent against accuracy reached; collapsed runs marked |
+| `fig_instrument.png` | Where the two instruments agree, and the part no counter can confirm |
+| `fig_repeatability.png` | Between-run coefficient of variation, by ecosystem and phase |
+| `fig_convergence.png` | What the collapsed VGG-16 runs were hiding |
 
-```bash
-cd paper && pdflatex main && pdflatex main
-```
+## History
 
-## What is deliberately not here
+An intermediate draft under `main.tex` and `sections/` framed this work as a
+standalone instrument-and-implementation audit, written before the replicated
+campaign had run. Its material is now part of `paper.tex` — the defect catalogue
+as Section "A catalogue of defect classes", the specification as part of the
+methodology — and the draft was removed rather than left alongside the
+manuscript it was folded into. It remains in the git history.
 
-A corrected ranking of the ecosystems. The infrastructure is in place and all
-seven stacks are verified on the accelerator, but the replicated campaign has not
-been executed; see the threats section. A ranking produced before the defects are
-fixed would inherit them.
+`reviewer.tex` holds the editorial correspondence. It is kept locally and
+excluded from the repository: it is a private communication and names a
+co-author's address.

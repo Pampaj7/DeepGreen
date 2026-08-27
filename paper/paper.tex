@@ -31,6 +31,8 @@
 % transcribed by hand: the previous version of this paper reported CodeCarbon
 % kilowatt-hours under a Joule label, and the surest way not to repeat that is
 % for no author to type a number.
+\newcommand{\code}[1]{\texttt{\small #1}}
+
 \input{generated/numbers.tex}
 
 \usepackage{xcolor}
@@ -1235,6 +1237,196 @@ is a scaling of \emph{relative} differences: had we reported the modelled
 component of a software estimator's output as if it were measured, the same
 arithmetic would have produced a confident number from a quantity that depends
 on how much memory the host happens to have.
+
+\section{A catalogue of defect classes}
+\label{sec:catalogue}
+
+Building this study meant first auditing an earlier campaign of the same design
+and then repairing every stack against the specification. Table~\ref{tab:catalogue}
+collects what that turned up. We report the defects as \emph{classes} rather
+than as a list of bugs in one project, because each is a plausible mistake in
+any study of this shape, several are language or tool \emph{defaults} rather
+than oversights, and most are invisible in the resulting measurements.
+
+The last column is the one that matters. It asks whether a reader given only the
+released data --- the tables, the CSVs, the plots --- could detect the problem.
+
+\begin{table*}[t]
+\centering
+\caption{Defect classes, with the measured effect of each. ``Visible'' asks
+whether a reader given only the released measurements could detect the problem.
+Entries marked $\ast$ were introduced by us while repairing the study and caught
+by the checks or the accuracy metric, not by review.}
+\label{tab:catalogue}
+\small
+\begin{tabularx}{\linewidth}{p{4.4cm}Xc}
+\toprule
+\textbf{Class} & \textbf{Measured effect} & \textbf{Visible} \\
+\midrule
+\multicolumn{3}{l}{\emph{Instrument}} \\
+\addlinespace
+Unit mislabelling &
+Energy reported in \si{\kilo\watt\hour} under a \si{\joule} label; a factor of \(3.6\times10^{6}\) &
+yes \\
+\addlinespace
+Reported duration is a floor &
+\(\max(\text{phase},\ \vWindowFloorS\,\text{s})\); power understated \vPowerUnderstatedSubSecond$\times$ below one second, exact above ten &
+no \\
+\addlinespace
+Modelled term inside a measured total &
+RAM energy from installed capacity, \vCCramSharePct\,\% of the reported total; scales with the host, not the workload &
+no \\
+\addlinespace
+Mixed instrument versions &
+\SI{231}{\watt} against \SI{107}{\watt} of modelled host power; up to \SI{70}{\percent} of reported energy &
+no \\
+\addlinespace
+Mixed tracking mode &
+One stack at \SI{31}{\percent} host share against \(\sim\)\SI{50}{\percent} &
+no \\
+\addlinespace
+Interpreter resolved from \code{PATH} &
+The instrument's version becomes a property of the shell &
+no \\
+\addlinespace
+Unsynchronised tracker &
+Inference recorded as \SI{0}{\joule}; training understated \SI{24}{\percent} &
+no \\
+\addlinespace
+Host not idle &
+Whole-machine tracking charges unrelated downloads to the workload &
+no \\
+\midrule
+\multicolumn{3}{l}{\emph{Implementation}} \\
+\addlinespace
+Divergent hyperparameters &
+Two learning rates across eight stacks &
+no \\
+\addlinespace
+Divergent loader parallelism &
+0 to 96 threads; \(\rho=-0.73\) against duration, \(11.6\times\) spread &
+no \\
+\addlinespace
+Divergent input shape &
+One stack at \(0.26\times\) another's \code{conv1} input volume; \(0.07\times\) the energy &
+no \\
+\addlinespace
+Divergent evaluation batching &
+Batch 1 against 128; \(1.5\)--\(1.95\times\) inference energy &
+no \\
+\addlinespace
+Evaluation in training mode &
+Test accuracy \SI{21}{\percent} against \SI{86}{\percent}; a different computation measured &
+no$^\dagger$ \\
+\addlinespace
+Resize discards a dtype conversion$^\ast$ &
+Image scaled to \([0,1]\), then resized by a function returning \code{uint8}; the scaling is silently thrown away &
+no$^\ddagger$ \\
+\addlinespace
+Channel order assumed, not checked$^\ast$ &
+\code{[C,H,W]} treated as \code{[H,W,C]}: the width cropped to three pixels and the result transposed &
+no$^\ddagger$ \\
+\addlinespace
+Ambiguous dataset layout &
+A class name containing \code{/} yields three different datasets &
+no \\
+\midrule
+\multicolumn{3}{l}{\emph{Placement}} \\
+\addlinespace
+Silent CPU fallback &
+Whole workload on the CPU after a CUDA wheel mismatch; one warning line &
+no \\
+\addlinespace
+Linker drops the CUDA dependency &
+Same source, same LibTorch: \code{Cpu} against \code{Cuda(0)} &
+no \\
+\midrule
+\multicolumn{3}{l}{\emph{Analysis}} \\
+\addlinespace
+Collapsed runs counted as measurements &
+\vCollapsedVgg{} runs at chance accuracy averaged in with runs that trained; \vCondBlockRaw{} against \vCondBlockConverged{} points of apparent cross-stack spread &
+no$^\dagger$ \\
+\addlinespace
+Partial runs averaged as measurements$^\ast$ &
+A crashed run's fragment, \SI{16}{\joule} against a neighbour's \SI{300}{\kilo\joule}, produced ecosystem spreads of \(2\times10^{4}\) &
+no \\
+\addlinespace
+Epochs treated as replications &
+Effective sample size 1 per configuration; intervals far too narrow &
+no \\
+\bottomrule
+\end{tabularx}
+
+\vspace{2pt}
+\raggedright\footnotesize
+$^\dagger$ invisible because no stack wrote its accuracy to disk; visible the
+moment one does.\\
+$^\ddagger$ invisible in energy data; here it happened to abort the run, but the
+channel-order defect would have trained quietly on a three-pixel sliver had the
+dtype defect not stopped it first.
+\end{table*}
+
+One row of that table deserves to be made concrete, because it is the class most
+likely to affect any study of this shape and the least likely to be noticed.
+Table~\ref{tab:protocol} reports the training protocol \emph{as implemented},
+read from the source of an earlier campaign whose manuscript stated a single
+common learning rate.
+
+\begin{table*}[t]
+\centering
+\caption{Training protocol as implemented in an earlier campaign of this design,
+read from source rather than from the manuscript. The manuscript stated one
+learning rate and one input scaling; the code contains two of each. Divergences
+in bold. Specification S2 and S3 now fix every column, and the conformance
+checks verify them against the source.}
+\label{tab:protocol}
+\small
+\begin{tabularx}{\linewidth}{llrXrl}
+\toprule
+\textbf{Ecosystem} & \textbf{Optimiser} & \textbf{LR} & \textbf{Loader mechanism} & \textbf{Threads} & \textbf{Input scaling} \\
+\midrule
+Python/PyTorch    & Adam & 1e-4 & DataLoader workers & 2 & $[0,1]$ \\
+Python/TensorFlow & Adam & \textbf{1e-3} & Keras generator & 1 & $[0,1]$ \\
+Python/JAX        & Adam & 1e-4 & Keras generator & 1 & $[0,1]$ \\
+C++/LibTorch      & Adam & 1e-4 & DataLoader workers & 2 & $[0,1]$ \\
+Java/DL4J         & Adam & 1e-4 & AsyncDataSetIterator & 2 & $[0,1]$ \\
+R/torch           & Adam & 1e-4 & dataloader workers & \textbf{0} & $[0,1]$ \\
+Rust/tch          & Adam & \textbf{1e-3} & rayon, all cores & \textbf{96} & \textbf{mean/std} \\
+MATLAB/DLT        & adam & 1e-4 & augmentedImageDatastore & 1 & $[0,1]$ \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Two stacks train at ten times the stated learning rate. Loader parallelism
+ranges from none to every hardware thread on the machine, and across the
+campaign it correlates with epoch duration at $\rho = -0.73$, spanning
+\(11.6\times\) --- which is to say that a column no one would think to report
+tracks the published ranking better than the programming language does. One
+stack normalises its inputs when no other does, so it is not even computing the
+same function. None of this is visible in an energy figure, and all of it is
+verifiable in about a page of code.
+
+Three observations follow.
+
+\textbf{Only one of these is visible from the released data} --- and it is the
+one that changes no conclusion, since a constant factor leaves every ranking
+intact. Everything that does change a conclusion requires reading the code, or a
+second instrument, or a quality metric the study has to have thought to record.
+
+\textbf{Several are defaults rather than oversights.} The linker's
+\code{--as-needed} behaviour, an estimator's fallback power constants, a
+framework resolving CUDA wheels that do not match its build, a resize function
+that returns \code{uint8} because the images it was written for were
+\code{uint8}. None is a lapse in care. A study can be executed carefully and
+land on all of them.
+
+\textbf{Some of them are ours.} Four entries were introduced while repairing the
+study, and each was caught by a mechanism rather than by attention: the
+conformance checks, the accuracy metric, or the second instrument. We report
+them because the alternative --- a paper claiming its authors made no mistakes
+--- would undercut the argument it is making. The argument is that enforcement
+beats discipline, and the evidence for it is that our own discipline was not
+sufficient either.
 
 \section{Threats to Validity}
 \label{sec:threats}
