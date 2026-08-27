@@ -11,15 +11,34 @@ the submission was authored:
 
 | Missing | Referenced as |
 |---|---|
-| `bibliography.bib` | `\bibliography{bibliography}` |
 | the `cas-dc` class and `cas-common.sty` | `\documentclass[a4paper,fleqn]{cas-dc}` |
 | author photographs | `\bio{bio/leo.jpg}` and three more |
 
-**No new citation keys were introduced by the revision.** The rewrite uses 48
+**No new citation keys were introduced by the revision.** The rewrite cites 48
 keys, all of which were already cited in the submitted version; three keys fell
-out with removed text. So an existing `bibliography.bib` resolves the manuscript
-unchanged. `citekeys.txt` lists every key the current text cites, for checking
-that against a `.bib` before submitting.
+out with removed text. `citekeys.txt` lists them.
+
+### `bibliography.bib` was reconstructed
+
+The `.bib` was not in this repository either. Rather than leave the manuscript
+unbuildable, every one of the 48 entries was looked up — against Consensus,
+alphaXiv, Scholar Gateway, dblp and the publishers' own records — and written
+with a DOI or arXiv identifier wherever the source exposes one. **Nothing was
+written from memory.**
+
+If you still have the original `.bib`, prefer it: it is the authors' own and
+will match whatever formatting the journal expects. Use this one as a
+cross-check, or as the build input if the original is lost.
+
+**Two entries need your confirmation.** They are marked `VERIFY` in the file:
+
+| Key | What was found | Why it is uncertain |
+|---|---|---|
+| `patterson2025optimizer` | Almog, *An Analysis of Optimizer Choice on Energy Efficiency and Performance in Neural Network Training*, arXiv:2509.13516 | The paper matches the citing sentence exactly — 360 runs, eight optimizers, CodeCarbon — but the key says "patterson" and the sole author is Almog |
+| `llmgreen2024` | Luccioni, Jernite & Strubell, *Power Hungry Processing: Watts Driving the Cost of AI Deployment?*, FAccT 2024 | Best-known 2024 large-scale LLM energy evaluation, but the key is generic and recovers no title |
+
+Every other entry was matched to a record where the title, the venue and the
+claim made in the citing sentence all agree.
 
 ## Nothing in the text is a typed number
 
