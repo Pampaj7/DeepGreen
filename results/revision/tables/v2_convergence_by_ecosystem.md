@@ -14,9 +14,11 @@
 | Python/PyTorch    | fashionmnist |        5 |             0 |
 | Python/TensorFlow | fashionmnist |        5 |             0 |
 | R/torch           | fashionmnist |        5 |             0 |
+| Rust/tch          | fashionmnist |        5 |             0 |
 | C++/LibTorch      | tinyimagenet |        5 |             2 |
 | Java/DL4J         | tinyimagenet |        5 |             2 |
 | Python/JAX        | tinyimagenet |        5 |             0 |
 | Python/PyTorch    | tinyimagenet |        5 |             1 |
 | Python/TensorFlow | tinyimagenet |        5 |             2 |
 | R/torch           | tinyimagenet |        5 |             0 |
+| Rust/tch          | tinyimagenet |        5 |             0 |

@@ -53,3 +53,6 @@ paper/reviewer.tex
 # Author photographs are not distributed with the source; build.sh generates
 # placeholders so the layout can be checked without them.
 paper/bio/
+# cas-dc icon assets ship with Elsevier's template bundle, not with the class;
+# build.sh generates stand-ins.
+paper/thumbnails/

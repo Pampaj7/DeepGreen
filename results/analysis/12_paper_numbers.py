@@ -508,6 +508,18 @@ def convergence_facts() -> None:
             macro("vSigPipelineLossDropMin",
                   num(pipe.train_loss_drop_pct.min(), 0))
 
+    # The pipeline defect the discriminator found has been fixed and its runs
+    # re-executed, so it is no longer in the campaign. The manuscript still
+    # reports it, and a claim about a defect should be as traceable as a claim
+    # about a result, so the discarded evidence is preserved as a record.
+    rec = REPO_ROOT / "results" / "revision" / "record" / "vgg_fashion_pipeline_defect.csv"
+    if rec.exists():
+        r = pd.read_csv(rec, comment="#")
+        macro("vDefectRuns", len(r))
+        macro("vDefectLossDropMin", num(r.train_loss_drop_pct.min(), 0))
+        macro("vDefectLossDropMax", num(r.train_loss_drop_pct.max(), 0))
+        macro("vDefectAccMax", num(r.final_test_acc_pct.max(), 1))
+
     ht = pd.read_csv(TABLES / "v2_convergence_homogeneity.csv")
     macro("vCollapseRateMin", num(ht.collapse_pct.min(), 0))
     macro("vCollapseRateMax", num(ht.collapse_pct.max(), 0))

@@ -904,15 +904,23 @@ accuracy stays at chance, which says that training and evaluation are not seeing
 the same inputs.
 
 We report this because the discriminator found a defect of our own that the
-collapse count alone would have absorbed. \vSigPipelineN{} further runs met the
-chance-accuracy criterion with training loss falling by more than
-\vSigPipelineLossDropMin\,\%: one Rust binary carried a private copy of the input
-transform, applied on the training path only, which resized the tensor its
-loader had already produced using a function that returns \code{uint8}. Every
-value in $[0,1]$ truncated to zero, so it trained on black images and was
-evaluated on real ones. Filed as a collapse it would have read as ``VGG-16
-sometimes fails to train''; filed correctly it is a defect, and it is fixed. The
-\vCollapsedVgg{} collapses reported above are the ones that survive this test.
+collapse count alone would have absorbed. \vDefectRuns{} runs met the
+chance-accuracy criterion --- at most \vDefectAccMax\,\% --- with training loss
+falling by \vDefectLossDropMin--\vDefectLossDropMax\,\%: one Rust binary carried
+a private copy of the input transform, applied on the training path only, which
+resized the tensor its loader had already produced using a function that returns
+\code{uint8}. Every value in $[0,1]$ truncated to zero, so it trained on black
+images and was evaluated on real ones. Filed as collapses they would have read
+as ``VGG-16 sometimes fails to train''.
+
+They were a defect, it is fixed, and the configuration was re-executed: those
+runs now reach the same accuracy as every other stack, and the discriminator
+finds \vSigPipelineN{} pipeline defects in the campaign as it stands. The
+\vSigCollapseN{} collapses reported above are the ones that survive the test.
+Since the evidence for a defect should be as traceable as the evidence for a
+result, and the discarded runs no longer exist in the campaign, their signature
+is preserved as a record in the replication package rather than quoted from
+memory.
 
 Two consequences matter here.
 

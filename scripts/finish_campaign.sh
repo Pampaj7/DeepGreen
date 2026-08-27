@@ -17,10 +17,13 @@ cd "$(dirname "$0")/.."
 SCRATCH="${DEEPGREEN_SCRATCH:-/tmp/claude-1000/-home-pampaj-Desktop/d86a4516-a091-47a0-8271-eade8d18981b/scratchpad}"
 export PATH="$HOME/.cargo/bin:$PATH"
 export DEEPGREEN_LIBTORCH="${DEEPGREEN_LIBTORCH:-$SCRATCH/libtorch27cu/libtorch}"
-PY=./.venv-deepgreen/bin/python
+PY="$PWD/.venv-deepgreen/bin/python"
 
 if [[ "${1:-}" != "--analysis-only" ]]; then
-  if pgrep -f "run_campaign.py" >/dev/null; then
+  # Match the interpreter running the driver, not any shell whose command line
+  # merely mentions it -- a waiter built around `pgrep -f run_campaign.py`
+  # matched itself and would have waited forever.
+  if pgrep -af "python.* scripts/run_campaign\.py" | grep -qv "finish_campaign"; then
     echo "A campaign is still running. Refusing to rebuild underneath it." >&2
     exit 1
   fi

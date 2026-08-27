@@ -2,9 +2,10 @@
 
 | ecosystem         |   n_collapsed |   n_runs |   collapse_pct |   overall_pct |   permutation_p |
 |:------------------|--------------:|---------:|---------------:|--------------:|----------------:|
-| C++/LibTorch      |             2 |       10 |             20 |            20 |          0.0966 |
-| Java/DL4J         |             5 |       10 |             50 |            20 |          0.0966 |
-| Python/JAX        |             0 |       10 |              0 |            20 |          0.0966 |
-| Python/PyTorch    |             1 |       10 |             10 |            20 |          0.0966 |
-| Python/TensorFlow |             4 |       10 |             40 |            20 |          0.0966 |
-| R/torch           |             0 |       10 |              0 |            20 |          0.0966 |
+| C++/LibTorch      |             2 |       10 |             20 |          18.5 |          0.1213 |
+| Java/DL4J         |             5 |       10 |             50 |          18.5 |          0.1213 |
+| Python/JAX        |             0 |       10 |              0 |          18.5 |          0.1213 |
+| Python/PyTorch    |             1 |       10 |             10 |          18.5 |          0.1213 |
+| Python/TensorFlow |             4 |       10 |             40 |          18.5 |          0.1213 |
+| R/torch           |             0 |       10 |              0 |          18.5 |          0.1213 |
+| Rust/tch          |             0 |        5 |              0 |          18.5 |          0.1213 |

@@ -76,3 +76,9 @@
 | R/torch           | vgg16    | tinyimagenet | Training  |        5 |       19652.1   |   19606.6   |   19699.7   |  59.892 |    0.305 |
 | Rust/tch          | resnet18 | cifar100     | Inference |        5 |         113.453 |     111.934 |     115.033 |   2.032 |    1.791 |
 | Rust/tch          | resnet18 | cifar100     | Training  |        5 |        1293.89  |    1284.2   |    1301.6   |  11.179 |    0.864 |
+| Rust/tch          | resnet18 | tinyimagenet | Inference |        5 |         391.142 |     390.229 |     392.399 |   1.477 |    0.377 |
+| Rust/tch          | resnet18 | tinyimagenet | Training  |        5 |        5028.4   |    5016.05  |    5044.46  |  19.127 |    0.38  |
+| Rust/tch          | vgg16    | fashionmnist | Inference |        5 |         294.63  |     293.51  |     296.271 |   1.849 |    0.627 |
+| Rust/tch          | vgg16    | fashionmnist | Training  |        5 |        6602.88  |    6586.82  |    6618.72  |  21.214 |    0.321 |
+| Rust/tch          | vgg16    | tinyimagenet | Inference |        5 |         618.991 |     615.689 |     622.523 |   4.352 |    0.703 |
+| Rust/tch          | vgg16    | tinyimagenet | Training  |        5 |       14663.3   |   14625.2   |   14701.4   |  49.033 |    0.334 |

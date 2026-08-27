@@ -41,6 +41,47 @@ for name in sys.argv[1:]:
 PY
 fi
 
+# The cas-dc class draws small icons next to \ead and \ead[url] from
+# thumbnails/, which ship with Elsevier's template bundle rather than with the
+# class on CTAN. Generate stand-ins so the paper builds from this repository
+# alone; replace them from the official bundle before submitting if the icons
+# matter to you.
+mkdir -p paper/thumbnails
+"$PY" - <<'PY'
+from PIL import Image, ImageDraw
+import pathlib
+out = pathlib.Path("paper/thumbnails")
+icons = {
+    "cas-email": [(2, 4, 22, 18), "envelope"],
+    "cas-url": [(2, 4, 22, 18), "globe"],
+    "cas-facebook": [(2, 2, 22, 22), "box"],
+    "cas-twitter": [(2, 2, 22, 22), "box"],
+    "cas-gplus": [(2, 2, 22, 22), "box"],
+    "cas-instagram": [(2, 2, 22, 22), "box"],
+    "cas-linkedin": [(2, 2, 22, 22), "box"],
+    "cas-orcid": [(2, 2, 22, 22), "circle"],
+    "cas-mendeley": [(2, 2, 22, 22), "box"],
+}
+for name, (bbox, kind) in icons.items():
+    path = out / f"{name}.jpeg"
+    if path.exists():
+        continue
+    img = Image.new("RGB", (24, 24), "white")
+    d = ImageDraw.Draw(img)
+    if kind == "envelope":
+        d.rectangle(bbox, outline=(70, 70, 70), width=2)
+        d.line([bbox[0], bbox[1], (bbox[0] + bbox[2]) // 2, bbox[3] - 4], fill=(70, 70, 70), width=2)
+        d.line([(bbox[0] + bbox[2]) // 2, bbox[3] - 4, bbox[2], bbox[1]], fill=(70, 70, 70), width=2)
+    elif kind == "circle":
+        d.ellipse(bbox, outline=(70, 70, 70), width=2)
+    elif kind == "globe":
+        d.ellipse(bbox, outline=(70, 70, 70), width=2)
+        d.line([bbox[0], (bbox[1] + bbox[3]) // 2, bbox[2], (bbox[1] + bbox[3]) // 2], fill=(70, 70, 70), width=1)
+    else:
+        d.rectangle(bbox, outline=(70, 70, 70), width=2)
+    img.save(path, quality=92)
+PY
+
 echo "=== compiling ==="
 cd paper
 "$TECTONIC" -X compile paper.tex --keep-intermediates --synctex 2>&1 | tail -n 25 || {

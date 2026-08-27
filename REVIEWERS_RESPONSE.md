@@ -9,12 +9,12 @@ three outcomes:
 * **MANUSCRIPT** — the change lands in the paper text, `paper/paper.tex`.
 * **REQUIRES RE-EXECUTION** — needed a new campaign.
 
-**Status: the replicated campaign has been executed.** Every item previously
+**Status: the replicated campaign has been executed in full — 210 runs of 210, no failures.** Every item previously
 marked *REQUIRES RE-EXECUTION* is now closed with measured numbers, with one
 exception stated below (the workload still does not saturate the accelerator —
 Reviewer 1 comments 2 and 15). The design
 is 7 ecosystems × 2 architectures × 3 datasets × 5 independent interleaved
-repetitions = 210 runs, each block instrumented twice (NVML + RAPL hardware
+repetitions = 210 runs, all of which completed, each block instrumented twice (NVML + RAPL hardware
 counters, and CodeCarbon over the identical window). Raw records are under
 `results/campaign_v2/`; aggregates under `results/revision/tables/`.
 
@@ -28,9 +28,9 @@ Everything below is reproducible with `results/analysis/run_all.sh`.
 | Energy reported in Joules | The submitted figures were kilowatt-hours; a factor of 3.6×10⁶ |
 | "Faster is not greener" | Faster *is* greener here (ρ ≈ 1). The contrary result reproduces as an artefact of the estimator's duration floor |
 | Rankings are phase-dependent | Largely phase-consistent once inference is measured rather than estimated |
-| 30 epochs as repeated measurements | 5 independent runs per configuration; median between-run CV 0.46 % |
-| Accuracy not recorded | Recorded per epoch by every stack; convergence within 0.7 pp on Fashion-MNIST |
-| CodeCarbon as sole instrument | Dual instrument; the two agree on energy to 0.5 % over 11,423 blocks |
+| 30 epochs as repeated measurements | 5 independent runs per configuration; median between-run CV 0.44 % |
+| Accuracy not recorded | Recorded per epoch by every stack; convergence within 1.3 pp on Fashion-MNIST |
+| CodeCarbon as sole instrument | Dual instrument; the two agree on energy to 0.5 % over 12,600 blocks |
 
 ### The finding that justifies the reviewers' insistence on repetitions
 
@@ -38,11 +38,11 @@ Reviewer 3's major comment 2 asked for independent run-level repetitions.
 Executing them produced a result neither we nor the reviewers anticipated, and
 it is the clearest possible vindication of the request.
 
-**VGG-16 does not always train.** In 12 of 90 VGG-16 runs the network converges
+**VGG-16 does not always train.** In 12 of 100 VGG-16 runs the network converges
 to *exactly* chance accuracy — 1.00 % on CIFAR-100 (100 classes), 0.50 % on
 Tiny ImageNet (200 classes) — and stays there for all 30 epochs, having consumed
 the full energy budget while learning nothing. ResNet-18 never does this
-(0 of 95). Neither does it on Fashion-MNIST. VGG-16 as shipped has no batch
+(0 of 100). Neither does it on Fashion-MNIST. VGG-16 as shipped has no batch
 normalisation, and a plain 16-layer network under Adam at 1e-4 over many classes
 can settle into predicting one class; the initialisation decides whether it
 does.
@@ -62,8 +62,8 @@ Two consequences:
    all runs and **1.3 points** over the runs that trained. Almost the entire
    apparent disagreement between stacks was collapsed runs, not different
    computations.
-2. **It silently breaks fixed-budget energy comparison.** 11.7 % of the
-   campaign's energy — 5.1 MJ — was spent on runs that learned nothing. An
+2. **It silently breaks fixed-budget energy comparison.** 10.7 % of the
+   campaign's energy — 5.2 MJ — was spent on runs that learned nothing. An
    ecosystem that draws unlucky initialisations looks equally expensive and much
    less accurate. With one run per configuration, the published number is
    whichever outcome that seed produced, and nothing in the energy data
@@ -307,7 +307,7 @@ ecosystems within each block, pairwise Mann-Whitney with Holm correction, and
 Cliff's delta, all on **run totals** — five independent numbers per
 configuration rather than 30 correlated epochs of one. Between-run dispersion is
 now measurable rather than assumed: the median coefficient of variation of
-training energy is 0.46 % and the worst is 1.29 %, so the effects reported are
+training energy is 0.44 % and the worst is 1.29 %, so the effects reported are
 comfortably resolved by the design.
 
 *Outliers.* The submitted analysis had no way to tell an outlier from a
@@ -485,10 +485,10 @@ phases and are flattered by a per-phase comparison, and we built a bounded
 sensitivity analysis around charging that time back. **That reading was wrong.**
 The gap preceding each block is almost exactly the amount by which CodeCarbon's
 reported window exceeds the counter-bracketed phase — the two correlate at
-r = 0.98 over all 11,623 blocks, their medians differ by 0.23 s, and the window
+r = 0.98 over all 12,600 blocks, their medians differ by 0.23 s, and the window
 excess accounts for 96% of all untracked time. Coverage tracks nothing about the
 ecosystems except the median length of their blocks: JAX has 3.2-second blocks
-and 44% coverage, R has 37-second blocks and 99.8%.
+and 44% coverage, R has 37-second blocks and 99.8 %.
 
 The untracked time is the instrument holding its window open. It would not exist
 in an uninstrumented run, and charging it to the ecosystems would charge them for
@@ -590,7 +590,7 @@ ecosystem ran last: 210 runs in total. Every interval, test and effect size in
 the revised manuscript is computed across those runs.
 
 The design also answers a question the submitted one could not ask: how precise
-is the apparatus? Median between-run CV is 0.46 % for training and 1.10 % for
+is the apparatus? Median between-run CV is 0.44 % for training and 1.06 % for
 inference. That is low — and worth stating plainly, because low run-to-run
 variance is what made a single-run design look adequate in the first place. It
 is a property of the measurement, not evidence that the measurement is of the
