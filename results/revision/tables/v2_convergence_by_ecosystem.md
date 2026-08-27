@@ -8,6 +8,7 @@
 | Python/PyTorch    | cifar100     |        5 |             0 |
 | Python/TensorFlow | cifar100     |        5 |             2 |
 | R/torch           | cifar100     |        5 |             0 |
+| Rust/tch          | cifar100     |        5 |             0 |
 | C++/LibTorch      | fashionmnist |        5 |             0 |
 | Java/DL4J         | fashionmnist |        5 |             0 |
 | Python/JAX        | fashionmnist |        5 |             0 |

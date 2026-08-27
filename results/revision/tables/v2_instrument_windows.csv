@@ -11,5 +11,5 @@ Python/TensorFlow,Inference,900,923.558,417.323,2139.207
 Python/TensorFlow,Training,900,64.002,53.744,160.22
 R/torch,Inference,900,0.113,0.018,0.197
 R/torch,Training,900,0.024,0.008,0.063
-Rust/tch,Inference,900,428.778,232.105,837.02
-Rust/tch,Training,900,24.987,36.009,100.541
+Rust/tch,Inference,900,434.364,233.235,837.02
+Rust/tch,Training,900,24.983,36.003,100.541
