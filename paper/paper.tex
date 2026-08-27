@@ -254,9 +254,43 @@ Several indicators can be used to quantify sustainability, such as carbon footpr
 In this work we focus on \textbf{energy consumption}, measured in Joules, as it represents a direct and reproducible measure of computational effort.
 Unlike carbon footprint, which is heavily influenced by the energy mix and geographic location of execution, energy consumption can be compared more consistently across heterogeneous DL stacks under a uniform measurement protocol.
 
-We deliberately refrain from analyzing execution time as a primary metric, since lower runtime does not necessarily translate into lower energy consumption~\cite{weber2023twins,rua2024large,pereira2021ranking}.
-In fact, prior studies and preliminary results in our work reveal that execution time and energy usage can diverge significantly across DL ecosystems.
-While we do not provide a full-fledged statistical analysis of this phenomenon, we highlight the observed \emph{energy--time trade-off} in Section~\ref{sec:results} and outline it as a key direction for future research.
+We treat execution time as a secondary metric rather than a proxy for energy.
+The prevailing position in the software-energy literature is that lower runtime
+does not imply lower energy~\cite{weber2023twins,rua2024large,pereira2021ranking},
+and we test it directly in Section~\ref{subsec:rq3} rather than assuming it.
+Our result differs from that literature, and the difference is instructive: on
+counter-bracketed durations, energy and time rank our configurations almost
+identically. Those studies largely concern CPU-bound general-purpose benchmarks,
+where a language implementation can trade instruction count against memory
+traffic and shift energy per second substantially. In a GPU-bound DL workload
+the accelerator dominates and holds a narrow band of power, so time and energy
+are close to proportional. We report this as a scope condition on the
+established finding, not a refutation of it --- and we show in
+Section~\ref{sec:instrument} that a study of exactly our shape can obtain either
+answer depending on which field of the instrument's output it reads as the
+duration.
+
+\textbf{Validating the instrument} is itself an active line of work.
+Comparative studies run software estimators alongside hardware wattmeters and
+report close tracking under controlled conditions and larger deviations on
+heterogeneous infrastructure~\cite{aquino2025energyindex,bouza2023carbonfootprint};
+independent validation against external ground truth across hundreds of AI
+experiments reports estimator errors up to 40\% and systematic underestimation
+of 20--30\% in some settings~\cite{fischer2025groundtruthing}. That work asks
+whether an estimator's number is close to the truth.
+
+We ask a different and complementary question: whether a study can \emph{tell}
+when it is not. The distinction matters because the two lead to different
+remedies. If the problem is accuracy, the remedy is a better estimator or a
+correction factor. If the problem is that an estimator silently substitutes a
+model for a measurement, reports a floor in place of a duration, or degrades
+below its own sampling interval, then no correction factor helps: what is needed
+is a second instrument over the same window, so that agreement becomes an
+observable property of each block. Our findings in
+Section~\ref{sec:instrument} suggest the second framing is the more useful one
+for cross-ecosystem work, since on this platform the estimator's \emph{energy}
+turned out to be accurate and its \emph{duration} turned out not to be a
+duration.
 
 \textbf{Deep Learning workloads} are typically divided into two distinct phases: training and inference.
 \emph{Training} requires iterative updates of model parameters through backpropagation and is generally the most computationally expensive stage.

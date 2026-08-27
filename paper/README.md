@@ -1,8 +1,25 @@
 # Manuscript
 
 `paper.tex` is the revised manuscript, in the Elsevier `cas-dc` class it was
-originally submitted in. It builds against `bibliography.bib` and needs the
-`cas-dc` class files, as before.
+originally submitted in.
+
+## Build inputs that are not in this repository
+
+`paper.tex` arrived here on its own, without the rest of its project. Three
+things it needs have never been in the repository and must come from wherever
+the submission was authored:
+
+| Missing | Referenced as |
+|---|---|
+| `bibliography.bib` | `\bibliography{bibliography}` |
+| the `cas-dc` class and `cas-common.sty` | `\documentclass[a4paper,fleqn]{cas-dc}` |
+| author photographs | `\bio{bio/leo.jpg}` and three more |
+
+**No new citation keys were introduced by the revision.** The rewrite uses 48
+keys, all of which were already cited in the submitted version; three keys fell
+out with removed text. So an existing `bibliography.bib` resolves the manuscript
+unchanged. `citekeys.txt` lists every key the current text cites, for checking
+that against a `.bib` before submitting.
 
 ## Nothing in the text is a typed number
 
