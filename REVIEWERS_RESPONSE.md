@@ -77,13 +77,24 @@ a genuine collapse the training loss does not move either (all 12 change by
 pipeline defect shows training loss falling normally while test loss *rises*.
 
 Four further runs met the chance-accuracy criterion with training loss falling
-by 86–87 %. One Rust binary carried a private copy of the input transform,
-applied on the training path only, which resized the tensor its loader had
-already produced with a function that returns `uint8` — every value in [0,1]
-truncated to zero, so it trained on black images and was evaluated on real ones.
-Counted as collapses those four would have read as "VGG-16 sometimes fails to
-train". They are a defect; it is fixed, a conformance check now forbids
-per-binary transforms, and those runs were re-executed.
+by 86–87 %. Counted as collapses they would have read as "VGG-16 sometimes fails
+to train". They are a defect, and it is ours.
+
+The mechanism is worth stating precisely, because it is not carelessness. In the
+submitted package `vgg_fashion.rs` applied a private copy of the input transform
+on **both** the training and the evaluation path, and the loader returned raw
+uint8 — resizing uint8 and dividing by 255 is correct, so the binary was
+internally consistent even while disagreeing with every other ecosystem. This
+revision made the loader produce float [0,1] (specification S3) and separately
+switched evaluation to batched inference (also S3). **Each change is correct on
+its own.** Together they left the private transform on the training path only,
+resizing an already-float tensor with a function that returns uint8: every value
+truncated to zero. The network trained on black images and was evaluated on real
+ones.
+
+Fixed, the four runs re-executed, and a conformance check now forbids
+per-binary transforms outright — with a comment stripper, because the first
+version of the check failed on the comment explaining why it exists.
 
 Reproduce with `results/analysis/15_convergence.py`.
 

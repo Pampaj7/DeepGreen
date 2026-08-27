@@ -7,18 +7,26 @@ use std::collections::HashMap;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
-// The per-binary image transform that used to live here has been removed.
+// The per-binary image transform that used to live here has been removed, and
+// the way it broke is worth recording.
 //
-// It resized the tensor the loader had already produced, and it did so with
-// tch::vision::image::resize, which takes and returns uint8. The loader hands
-// over float values in [0,1]; converting those to uint8 truncates every one of
-// them to zero, so this binary trained on black images while evaluating on real
-// ones. Training loss fell as the network memorised the constant input and test
-// accuracy sat at chance, which looks like a model that fails to generalise
-// rather than a pipeline that destroys its inputs.
+// In the submitted package it was applied on BOTH the training and the
+// evaluation path, and the loader handed over raw uint8 at 28x28x1. Resizing
+// uint8 and then dividing by 255 is correct, so the binary was internally
+// consistent even though it disagreed with every other ecosystem.
 //
-// Specification S3 puts the input transform in exactly one place, the loader,
-// for this reason. scripts/check_consistency.py now enforces it.
+// This revision made the loader produce float 32x32x3 in [0,1], as
+// specification S3 requires, and separately switched evaluation to batched
+// inference -- which dropped the transform from the evaluation path while
+// leaving it on the training path. Both changes are right in isolation.
+// Together they meant the training path resized an already-correct float
+// tensor with tch::vision::image::resize, which returns uint8: every value in
+// [0,1] truncated to zero. The binary trained on black images and was
+// evaluated on real ones, and reported falling training loss with chance test
+// accuracy for thirty epochs.
+//
+// S3 puts the input transform in exactly one place for this reason, and
+// scripts/check_consistency.py now enforces it.
 
 fn main() {
     let device = Device::cuda_if_available();

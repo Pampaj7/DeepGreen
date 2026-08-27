@@ -1438,6 +1438,10 @@ Resize discards a dtype conversion$^\ast$ &
 Image scaled to \([0,1]\), then resized by a function returning \code{uint8}; the scaling is silently thrown away &
 no$^\ddagger$ \\
 \addlinespace
+Two correct changes that are wrong together$^\ast$ &
+Moving the transform into the loader, and batching evaluation, each right alone; together they left a private copy of the transform on the training path only, which trained the network on black images for thirty epochs &
+no$^\dagger$ \\
+\addlinespace
 Channel order assumed, not checked$^\ast$ &
 \code{[C,H,W]} treated as \code{[H,W,C]}: the width cropped to three pixels and the result transposed &
 no$^\ddagger$ \\
@@ -1537,9 +1541,18 @@ that returns \code{uint8} because the images it was written for were
 \code{uint8}. None is a lapse in care. A study can be executed carefully and
 land on all of them.
 
-\textbf{Some of them are ours.} Four entries were introduced while repairing the
+\textbf{Some of them are ours.} Five entries were introduced while repairing the
 study, and each was caught by a mechanism rather than by attention: the
-conformance checks, the accuracy metric, or the second instrument. We report
+conformance checks, the accuracy metric, or the second instrument.
+
+One of the five deserves singling out, because it is not a mistake in the usual
+sense. Moving the input transform into the loader is required by S3. Switching
+evaluation to batched inference is required by S3 as well. Each change is
+correct, and each was reviewed. Together they left a private copy of the
+transform on the training path and removed it from the evaluation path, and the
+result trained a network on black images for thirty epochs while reporting a
+plausible falling loss. No amount of care applied to either change in isolation
+would have caught it; what caught it was a metric neither change was about. We report
 them because the alternative --- a paper claiming its authors made no mistakes
 --- would undercut the argument it is making. The argument is that enforcement
 beats discipline, and the evidence for it is that our own discipline was not

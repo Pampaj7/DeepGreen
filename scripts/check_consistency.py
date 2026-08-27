@@ -137,13 +137,16 @@ def run() -> list[Result]:
     r.append(check_regex("Rust/tch", "S3 loader pool bounded",
                          glob_read("rust/src/datasets/*.rs"), r"init_loader_pool\(\)"))
 
-    # The input transform lives in the loader and nowhere else. A per-binary
-    # copy of it destroyed one configuration's training data for a whole
-    # campaign: vgg_fashion.rs resized the float tensor the loader had already
-    # produced, with a function that returns uint8, so every value in [0,1]
-    # truncated to zero and the network trained on black images while being
-    # evaluated on real ones. Training loss fell, test accuracy sat at chance,
-    # and nothing in the energy data showed it.
+    # The input transform lives in the loader and nowhere else.
+    #
+    # This check exists because we broke a configuration ourselves. vgg_fashion.rs
+    # kept a private copy of the transform, which was harmless while the loader
+    # returned raw uint8. Fixing the loader to produce float [0,1] and switching
+    # evaluation to batched inference were both correct changes; together they
+    # left the private copy on the training path only, resizing an already-float
+    # tensor with a function that returns uint8. Every value truncated to zero,
+    # so the network trained on black images and was evaluated on real ones.
+    # Nothing in the energy data showed it.
     r.append(check_regex("Rust/tch", "S3 no per-binary image transform",
                          strip_comments(glob_read("rust/src/bin/*.rs")),
                          r"image::resize|vision::image::resize|fn preprocess",
