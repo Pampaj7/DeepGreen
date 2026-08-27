@@ -291,6 +291,42 @@ def _acquire_exclusive_lock() -> None:
     globals()["_CAMPAIGN_LOCK"] = handle
 
 
+def _assert_accelerator_idle() -> None:
+    """Refuse to start while anything else is on the accelerator.
+
+    The exclusive lock stops a second *driver*, which is not the same thing as
+    stopping a second *workload*: killing a driver leaves its training binary
+    running, and that orphan keeps a CUDA context and a share of the GPU. A
+    campaign started next to one measures two jobs and attributes both to one,
+    with nothing in the output to show for it.
+
+    Machine-mode measurement is a claim about the whole machine, so the check
+    has to be about the whole machine too.
+    """
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-compute-apps=pid,process_name",
+             "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        print("warning: could not query the accelerator; proceeding unchecked.",
+              file=sys.stderr)
+        return
+    busy = [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+    if busy:
+        print(
+            "error: the accelerator is already in use:\n  "
+            + "\n  ".join(busy)
+            + "\nWhole-machine energy measurement attributes every watt to the run\n"
+              "being tracked, so a second workload silently inflates it. Stop those\n"
+              "processes first -- note that killing a campaign driver does not kill\n"
+              "the training binary it launched.",
+            file=sys.stderr,
+        )
+        raise SystemExit(3)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -308,6 +344,7 @@ def main() -> int:
 
     if not (args.print_plan or args.dry_run):
         _acquire_exclusive_lock()
+        _assert_accelerator_idle()
 
     if args.repetitions < 3:
         print(
