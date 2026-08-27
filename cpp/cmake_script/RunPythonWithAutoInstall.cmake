@@ -8,10 +8,20 @@
 #         [ARGS <arg1> [<arg2> ... ]]
 #         [RESULT_VARIABLE <result_var_name>]
 #         [ERROR_VARIABLE <error_var_name>]
+#         [WORKING_DIR <"path/to/run/in">]
 #    )
 #
+# WORKING_DIR matters for scripts that write their output relative to the
+# working directory. The model export writes <name>.pt next to wherever it runs,
+# while the C++ side loads it from CMAKE_BINARY_DIR; without this the two
+# disagree and the imported binaries fail at load time.
+#
 function(run_python_script_with_auto_install)
-    cmake_parse_arguments(RUNPY "" "SCRIPT;RESULT_VARIABLE;ERROR_VARIABLE" "ARGS" ${ARGN})
+    cmake_parse_arguments(RUNPY "" "SCRIPT;RESULT_VARIABLE;ERROR_VARIABLE;WORKING_DIR" "ARGS" ${ARGN})
+
+    if(NOT RUNPY_WORKING_DIR)
+        set(RUNPY_WORKING_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+    endif()
 
     if(NOT RUNPY_SCRIPT)
         message(FATAL_ERROR "You have to specify the python script through: SCRIPT \"path/to/script.py\".")
@@ -23,6 +33,7 @@ function(run_python_script_with_auto_install)
     foreach(i RANGE ${MAX_ATTEMPTS})
         execute_process(
                 COMMAND ${Python3_EXECUTABLE} ${RUNPY_SCRIPT} ${RUNPY_ARGS}
+                WORKING_DIRECTORY ${RUNPY_WORKING_DIR}
                 RESULT_VARIABLE result
                 ERROR_VARIABLE error_output
                 ERROR_STRIP_TRAILING_WHITESPACE

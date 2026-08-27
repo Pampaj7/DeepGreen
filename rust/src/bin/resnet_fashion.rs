@@ -1,27 +1,32 @@
 use rust::datasets::fashion::Fashion;
-use rust::models::resnet::resnet18;
 use rust::emissions::{init_tracker_daemon, start_tracker, stop_tracker, shutdown_tracker_daemon};
 
 use tch::{nn, nn::OptimizerConfig, Device, Kind};
 use tch::nn::ModuleT;
 use std::collections::HashMap;
-use rand::thread_rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 fn main() {
     let device = Device::cuda_if_available();
+    // Repetition, seed and epoch count come from the shared run contract
+    // (tools/deepgreen_tracker.py); the first campaign hard-coded 30 epochs
+    // and had no notion of an independent repetition at all.
+    let (rep, seed, epochs) = rust::emissions::run_params();
+    println!("[Rust] repetition {} seed {} epochs {}", rep, seed, epochs);
     println!("Using device: {:?}", device);
 
     init_tracker_daemon();
 
     // --- Load datasets
     let mut train_data = Fashion::new(
-        "/home/pampaj/DeepGreen/data/fashion_mnist_png/train",
+        &rust::data_path("fashion_mnist_png/train"),
         device,
         None,
     ).unwrap();
 
     let test_data = Fashion::new(
-        "/home/pampaj/DeepGreen/data/fashion_mnist_png/test",
+        &rust::data_path("fashion_mnist_png/test"),
         device,
         None,
     ).unwrap();
@@ -29,23 +34,33 @@ fn main() {
     println!("Train dataset size: {}", train_data.len());
     println!("Test dataset size: {}", test_data.len());
 
-    let mut rng = thread_rng();
+    let mut rng = StdRng::seed_from_u64(seed);
 
     // --- Model
     let vs = nn::VarStore::new(device);
-    let root = vs.root();
-    let net = resnet18(&root, 10); // 10 classi Fashion-MNIST
+    // Spec S1: load the shared TorchScript module rather than this crate's own
+    // port, so that Rust/tch, C++/LibTorch, Python/PyTorch and R/torch all train
+    // the identical torchvision graph. Parameters register into the VarStore, so
+    // the optimizer must be built after the load.
+    let mut net = tch::TrainableCModule::load(
+        rust::model_path("resnet18", "fashionmnist"),
+        vs.root(),
+    )
+    .expect("shared TorchScript module not found; run scripts/export_torchscript_models.py");
+    net.set_train();
 
-    let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
+    let mut opt = nn::Adam::default().build(&vs, 1e-4).unwrap();
     let batch_size = 128;
-    let epochs = 30;
 
     for epoch in 1..=epochs {
         train_data.shuffle(&mut rng);
 
         // === Training
-        let train_file = format!("resnet_fashion_train_epoch{:02}.csv", epoch);
-        start_tracker("emissions", &train_file);
+        // TrainableCModule ignores the bool in forward_t: the mode is module
+        // state, set here. Without this the evaluation runs with batch norm in
+        // training mode -- the same defect found in the TensorFlow stack.
+        net.set_train();
+        start_tracker("train", epoch);
 
         let mut total_loss = 0.0;
         let mut steps = 0;
@@ -67,45 +82,37 @@ fn main() {
                 stop_tracker();
 
         // === Eval (item-per-item)
-        let eval_file = format!("resnet_fashion_eval_epoch{:02}.csv", epoch);
-        start_tracker("emissions", &eval_file);
+        net.set_eval();
+        start_tracker("eval", epoch);
 
-        let mut correct = 0;
+        let mut correct: i64 = 0;
+        let mut test_loss_sum = 0.0f64;
+        let mut test_steps = 0i64;
         let mut pred_class_hist = HashMap::new();
 
         tch::no_grad(|| {
-            for batch in test_data.iter_batches(1) {
-                let (x, y) = batch.unwrap(); // x: [1, 1, 28, 28]
+            // Batched evaluation, at the same batch size as training.
+            // The first campaign evaluated one image at a time
+            // (test_data.iter_batches(1)) in every Rust binary, while all seven
+            // other ecosystems evaluated at 128. Batch-1 GPU inference is
+            // launch-overhead bound, which inflated this stack's inference cost
+            // and is the most likely source of its train/inference ranking
+            // reversal -- a result the manuscript reports as a finding.
+            for batch in test_data.iter_batches(batch_size) {
+                let (x, y) = batch.unwrap();
+                let output = net.forward_t(&x, false);
+                test_loss_sum += output.cross_entropy_for_logits(&y).double_value(&[]);
+                test_steps += 1;
+                let predicted = output.argmax(-1, false);
 
-                // Rimuovo batch → [1, 28, 28]
-                let img = x.squeeze_dim(0);
-
-                // Resize a 32x32
-                let mut img_resized = tch::vision::image::resize(&img.to(Device::Cpu), 32, 32).unwrap();
-
-                // Se è in scala di grigi, replico i canali → [3, 32, 32]
-                if img_resized.size()[0] == 1 {
-                    img_resized = img_resized.repeat(&[3, 1, 1]);
-                }
-
-                // Conversione a float e normalizzazione
-                img_resized = img_resized.to_kind(Kind::Float) / 255.0;
-
-                // Aggiungo batch dimension e porto su GPU
-                let img_resized = img_resized.unsqueeze(0).to_device(device);
-
-                // Forward
-                let output = net.forward_t(&img_resized, false);
-
-                let predicted = output
-                    .argmax(-1, false)
-                    .to(Device::Cpu)
+                correct += predicted
+                    .eq_tensor(&y)
+                    .sum(tch::Kind::Int64)
                     .int64_value(&[]);
 
-                *pred_class_hist.entry(predicted).or_insert(0) += 1;
-
-                if predicted == y.int64_value(&[]) {
-                    correct += 1;
+                let preds_cpu = predicted.to(Device::Cpu);
+                for i in 0..preds_cpu.size()[0] {
+                    *pred_class_hist.entry(preds_cpu.int64_value(&[i])).or_insert(0) += 1;
                 }
 
                 drop(output);

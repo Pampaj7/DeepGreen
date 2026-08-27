@@ -1,0 +1,8 @@
+metric,value
+rows,2880.0
+sampled gpu_power == 0 W,158.0
+sampled gpu_power > board limit,27.0
+max sampled gpu_power (W),3053.9
+blocks shorter than 15 s sampling period,1977.0
+shortest block (s),0.51
+derived gpu power out of range,0.0

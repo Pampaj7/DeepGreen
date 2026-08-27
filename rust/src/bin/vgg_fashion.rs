@@ -1,12 +1,12 @@
 use rust::datasets::fashion::Fashion;
-use rust::models::vgg::vgg16;
 use rust::emissions::{init_tracker_daemon, start_tracker, stop_tracker, shutdown_tracker_daemon};
 
 use tch::{nn, nn::OptimizerConfig, Device, Kind};
 use tch::nn::ModuleT;
 use tch::vision::image::resize;
 use std::collections::HashMap;
-use rand::thread_rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 /// Converte grayscale [1,H,W] in RGB [3,H,W]
 fn expand_to_rgb(img: &tch::Tensor) -> tch::Tensor {
@@ -38,19 +38,24 @@ fn preprocess_batch(x: &tch::Tensor, device: Device) -> tch::Tensor {
 
 fn main() {
     let device = Device::cuda_if_available();
+    // Repetition, seed and epoch count come from the shared run contract
+    // (tools/deepgreen_tracker.py); the first campaign hard-coded 30 epochs
+    // and had no notion of an independent repetition at all.
+    let (rep, seed, epochs) = rust::emissions::run_params();
+    println!("[Rust] repetition {} seed {} epochs {}", rep, seed, epochs);
     println!("Using device: {:?}", device);
 
     init_tracker_daemon();
 
     // --- Load datasets
     let mut train_data = Fashion::new(
-        "/home/pampaj/DeepGreen/data/fashion_mnist_png/train",
+        &rust::data_path("fashion_mnist_png/train"),
         device,
         None,
     ).unwrap();
 
     let test_data = Fashion::new(
-        "/home/pampaj/DeepGreen/data/fashion_mnist_png/test",
+        &rust::data_path("fashion_mnist_png/test"),
         device,
         None,
     ).unwrap();
@@ -58,23 +63,33 @@ fn main() {
     println!("Train dataset size: {}", train_data.len());
     println!("Test dataset size: {}", test_data.len());
 
-    let mut rng = thread_rng();
+    let mut rng = StdRng::seed_from_u64(seed);
 
     // --- Model
     let vs = nn::VarStore::new(device);
-    let root = vs.root();
-    let net = vgg16(&root, 10); // 10 classi Fashion-MNIST
+    // Spec S1: load the shared TorchScript module rather than this crate's own
+    // port, so that Rust/tch, C++/LibTorch, Python/PyTorch and R/torch all train
+    // the identical torchvision graph. Parameters register into the VarStore, so
+    // the optimizer must be built after the load.
+    let mut net = tch::TrainableCModule::load(
+        rust::model_path("vgg16", "fashionmnist"),
+        vs.root(),
+    )
+    .expect("shared TorchScript module not found; run scripts/export_torchscript_models.py");
+    net.set_train();
 
-    let mut opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
+    let mut opt = nn::Adam::default().build(&vs, 1e-4).unwrap();
     let batch_size = 128;
-    let epochs = 30;
 
     for epoch in 1..=epochs {
         train_data.shuffle(&mut rng);
 
         // === Training
-        let train_file = format!("vgg_fashion_train_epoch{:02}.csv", epoch);
-        start_tracker("emissions", &train_file);
+        // TrainableCModule ignores the bool in forward_t: the mode is module
+        // state, set here. Without this the evaluation runs with batch norm in
+        // training mode -- the same defect found in the TensorFlow stack.
+        net.set_train();
+        start_tracker("train", epoch);
 
         let mut total_loss = 0.0;
         let mut steps = 0;
@@ -100,28 +115,37 @@ fn main() {
         stop_tracker();
 
         // === Eval (item-per-item)
-        let eval_file = format!("vgg_fashion_eval_epoch{:02}.csv", epoch);
-        start_tracker("emissions", &eval_file);
+        net.set_eval();
+        start_tracker("eval", epoch);
 
-        let mut correct = 0;
+        let mut correct: i64 = 0;
+        let mut test_loss_sum = 0.0f64;
+        let mut test_steps = 0i64;
         let mut pred_class_hist = HashMap::new();
 
         tch::no_grad(|| {
-            for batch in test_data.iter_batches(1) {
+            // Batched evaluation, at the same batch size as training.
+            // The first campaign evaluated one image at a time
+            // (test_data.iter_batches(1)) in every Rust binary, while all seven
+            // other ecosystems evaluated at 128. Batch-1 GPU inference is
+            // launch-overhead bound, which inflated this stack's inference cost
+            // and is the most likely source of its train/inference ranking
+            // reversal -- a result the manuscript reports as a finding.
+            for batch in test_data.iter_batches(batch_size) {
                 let (x, y) = batch.unwrap();
-
-                let x = preprocess_batch(&x, device);
-
                 let output = net.forward_t(&x, false);
-                let predicted = output
-                    .argmax(-1, false)
-                    .to(Device::Cpu)
+                test_loss_sum += output.cross_entropy_for_logits(&y).double_value(&[]);
+                test_steps += 1;
+                let predicted = output.argmax(-1, false);
+
+                correct += predicted
+                    .eq_tensor(&y)
+                    .sum(tch::Kind::Int64)
                     .int64_value(&[]);
 
-                *pred_class_hist.entry(predicted).or_insert(0) += 1;
-
-                if predicted == y.int64_value(&[]) {
-                    correct += 1;
+                let preds_cpu = predicted.to(Device::Cpu);
+                for i in 0..preds_cpu.size()[0] {
+                    *pred_class_hist.entry(preds_cpu.int64_value(&[i])).or_insert(0) += 1;
                 }
 
                 drop(output);
@@ -136,6 +160,10 @@ fn main() {
         }
 
         stop_tracker();
+
+        // Outside the tracked block: writing the metric must not be measured.
+        let test_loss = if test_steps > 0 { test_loss_sum / test_steps as f64 } else { f64::NAN };
+        rust::emissions::log_metric(epoch, total_loss / steps as f64, test_loss, acc);
     }
 
     shutdown_tracker_daemon();

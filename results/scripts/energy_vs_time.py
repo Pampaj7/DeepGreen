@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# =============================================================================
+# DEPRECATED -- superseded by results/analysis/ (JSS revision).
+#
+# This script is kept for provenance only. Do not use it to regenerate results:
+#   * it reads CodeCarbon's ``energy_consumed`` column, which is in kWh, and
+#     labels it Joules (an offset of 3.6e6). See results/analysis/01_data_audit.py.
+#   * it labels the x axis "Language" while plotting language-framework
+#     ecosystems.
+#   * it hard-codes an absolute path to the author's home directory.
+# The replacement pipeline is results/analysis/run_all.sh.
+# =============================================================================
+
 
 """
 Scatter plot doppio (train vs eval) per visualizzare il tradeoff tra energia consumata e tempo di esecuzione.
@@ -11,7 +23,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # ======== CONFIG ========
-CSV_PATH = "/home/pampaj/DeepGreen/results/data/combined_data.csv"
+CSV_PATH = str(__import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "combined_data.csv")
 OUTPUT_DIR = Path("../plots/plots_tradeoff")
 LANG_COL = "language"
 TIME_COL = "duration"            # in secondi

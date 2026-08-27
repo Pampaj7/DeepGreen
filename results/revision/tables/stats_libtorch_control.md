@@ -1,0 +1,10 @@
+**Spread within the shared-backend LibTorch group**
+
+| phase     | metric        | libtorch_stacks                                 |   libtorch_spread_x |   full_spread_x |   pct_of_full_spread |
+|:----------|:--------------|:------------------------------------------------|--------------------:|----------------:|---------------------:|
+| Inference | energy_j      | C++/LibTorch, Python/PyTorch, R/torch, Rust/tch |                7.28 |            7.28 |               100    |
+| Training  | energy_j      | C++/LibTorch, Python/PyTorch, R/torch, Rust/tch |                4.44 |            4.58 |                98.06 |
+| Inference | energy_harm_j | C++/LibTorch, Python/PyTorch, R/torch, Rust/tch |                8.83 |            8.83 |               100    |
+| Training  | energy_harm_j | C++/LibTorch, Python/PyTorch, R/torch, Rust/tch |                9.94 |            9.94 |               100    |
+| Inference | duration_s    | C++/LibTorch, Python/PyTorch, R/torch, Rust/tch |                8.47 |            8.47 |               100    |
+| Training  | duration_s    | C++/LibTorch, Python/PyTorch, R/torch, Rust/tch |               11.63 |           11.63 |               100    |

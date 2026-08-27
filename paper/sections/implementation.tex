@@ -1,0 +1,99 @@
+\section{The ecosystems did not run the same experiment}
+\label{sec:implementation}
+
+The manuscript states a common protocol: the same 30 epochs, learning rate,
+optimiser and batch size. Reading the source of all eight implementations shows
+otherwise.
+
+\begin{table}[t]
+\centering
+\caption{Training protocol as implemented, read from source. The manuscript
+states a common learning rate; two values are in use.}
+\label{tab:protocol}
+\small
+\begin{tabular}{llrlrl}
+\toprule
+Ecosystem & Optimiser & LR & Loader mechanism & Threads & Input scaling \\
+\midrule
+Python/PyTorch    & Adam & 1e-4 & DataLoader workers & 2 & $[0,1]$ \\
+Python/TensorFlow & Adam & \textbf{1e-3} & Keras generator & 1 & $[0,1]$ \\
+Python/JAX        & Adam & 1e-4 & Keras generator & 1 & $[0,1]$ \\
+C++/LibTorch      & Adam & 1e-4 & DataLoader workers & 2 & $[0,1]$ \\
+Java/DL4J         & Adam & 1e-4 & AsyncDataSetIterator & 2 & $[0,1]$ \\
+R/torch           & Adam & 1e-4 & dataloader workers & \textbf{0} & $[0,1]$ \\
+Rust/tch          & Adam & \textbf{1e-3} & rayon, all cores & \textbf{96} & \textbf{mean/std} \\
+MATLAB/DLT        & adam & 1e-4 & augmentedImageDatastore & 1 & $[0,1]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data-loader parallelism, not language, tracks the ranking}
+
+The largest single difference is how many CPU threads decode and feed images: from
+zero (R decodes on the main thread) to all 96 cores (Rust, through \code{rayon}).
+Spearman correlation between loader threads and mean epoch duration is
+\(\rho=-0.73\) (\(p=0.04\)) across the eight ecosystems. The fastest stack
+decodes on 96 cores; the slowest uses no loader workers; they differ by
+\(11.6\times\) in duration.
+
+Combined with the GPU-load result of Section~\ref{sec:instrument} --- the
+accelerator at a fraction of its limit, duration accounting for essentially the
+whole log energy spread --- the most parsimonious reading of the headline result
+is that it ranks data-pipeline configurations.
+
+\subsection{One ecosystem was not solving the same task}
+
+Three defects in the Rust implementation all push in the direction of the
+reported result:
+
+\begin{itemize}\itemsep2pt
+  \item \textbf{Fashion-MNIST was trained at \(28\times28\times1\).} The loader
+        applied no resize and no channel replication, so training ran on the
+        native grayscale image while \emph{its own evaluation loop} --- and every
+        other ecosystem, in both phases --- used \(32\times32\times3\). The
+        \code{conv1} input volume during training was \(0.26\times\) everyone
+        else's.
+  \item \textbf{Tiny ImageNet was trained at its native \(64\times64\)} in the
+        ResNet binary, while the VGG binary passed \code{Some(32)} and every
+        other ecosystem used \(32\times32\): four times the spatial work for the
+        same nominal configuration, inside one ecosystem.
+  \item \textbf{Evaluation ran one image at a time} (\code{iter\_batches(1)}) in
+        all six binaries, against batch 128 elsewhere. Batch-1 GPU inference is
+        launch-overhead bound.
+\end{itemize}
+
+The published numbers line up with the defects. Against the median of the other
+stacks, this ecosystem's training energy is \(0.07\times\) for
+ResNet-18/Fashion-MNIST --- the cheapest cell in the entire campaign, and
+precisely the cell with the smallest input --- rising to \(0.61\times\); its
+inference energy is \(1.51\)--\(1.95\times\) on CIFAR-100 and Fashion-MNIST.
+
+The manuscript's \emph{training/inference ranking reversal}, reported as a
+finding, is therefore reproducible for this ecosystem as a pure artefact of input
+shape and evaluation batching.
+
+\subsection{One ecosystem evaluated in training mode}
+
+The TensorFlow stack built its functional graph with
+\code{backbone(inputs, training=True)}, pinning training-mode behaviour into the
+graph. Batch normalisation then used the statistics of the current batch during
+evaluation as well. Because the test split is served in class order, each
+evaluation batch held a single class and normalisation ran against degenerate
+per-class statistics: measured test accuracy was \SI{21}{\percent} against
+\SI{83}{\percent} on train, and \SI{86}{\percent} once the flag was removed.
+
+Two consequences. The accuracy this stack would have reported was meaningless ---
+but accuracy was never written to disk, so nothing surfaced it. And its inference
+phase was measuring a different computation from every other ecosystem, all of
+which switch to evaluation mode.
+
+\subsection{The dataset itself was ambiguous}
+
+Fashion-MNIST class~0 is \code{T-shirt/top}. Used verbatim as a directory name it
+creates a \emph{nested} directory, so \code{train/T-shirt/} holds a \code{top/}
+subdirectory rather than images. Loaders then disagree about what the dataset
+contains: \code{ImageFolder} and \code{flow\_from\_directory} walk recursively and
+recover the \num{6000} images, a loader listing only direct children sees an empty
+class, and a loader using \code{read\_dir} yields the subdirectory as an image
+path. The same dataset directory is three different datasets depending on who
+reads it.

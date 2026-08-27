@@ -1,0 +1,9 @@
+{
+  "_comment": "Single CodeCarbon configuration for every DeepGreen ecosystem. The non-Python stacks (C++, Java, R, MATLAB, Rust) drive CodeCarbon through their own bridges and must read these values rather than relying on defaults. Mirrors CODECARBON_CONFIG in tools/deepgreen_bench.py.",
+  "required_codecarbon_version": ">=3.0",
+  "tracking_mode": "machine",
+  "measure_power_secs": 1,
+  "save_to_file": true,
+  "allow_multiple_runs": true,
+  "log_level": "error"
+}

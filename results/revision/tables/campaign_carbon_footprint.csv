@@ -1,0 +1,7 @@
+quantity,value
+measurement blocks,2880.0
+training blocks,1440.0
+inference blocks,1440.0
+total energy (kWh),4.023
+total emissions (kg CO2eq),1.33
+grid intensity (gCO2eq/kWh),330.6

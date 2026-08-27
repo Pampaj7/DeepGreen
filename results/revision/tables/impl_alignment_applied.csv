@@ -1,0 +1,9 @@
+aspect,first_campaign,after_alignment,where
+learning rate,"1e-4 for six stacks, 1e-3 for TensorFlow and Rust",1e-4 everywhere,"python/tensorflow/models/*.py, rust/src/bin/*.rs"
+loader threads,"0 (R), 1 (TF, JAX, MATLAB), 2 (PyTorch, C++, Java), 96 (Rust)","2 by default; Rust pool capped via DEEPGREEN_LOADER_THREADS, R moved 0 -> 2","R/models/*.r, rust/src/lib.rs::init_loader_pool"
+input scaling,"Rust normalised with mean/std, the other seven used raw [0,1]","raw [0,1] everywhere; set DEEPGREEN_NORMALIZE=1 to restore","rust/src/datasets/*.rs, rust/src/lib.rs::normalize_inputs"
+C++ dataset loader,per-target choice between two implementations; the imported targets did not build at all,"single entry point cpp/src/dataset/ImageFolder.h, lazy by default; imported targets re-enabled","cpp/src/dataset/ImageFolder.h, cpp/CMakeLists.txt"
+Rust input shape,Fashion-MNIST trained at 28x28x1 and evaluated at 32x32x3; resnet_tiny trained at 64x64 while vgg_tiny used 32x32,"32x32x3 everywhere, applied in the loader so both phases share it","rust/src/datasets/fashion.rs, rust/src/bin/resnet_tiny.rs"
+Rust eval batching,"iter_batches(1) in all six binaries, against 128 elsewhere","batched at the training batch size, accuracy computed on the batch",rust/src/bin/*.rs
+dataset paths,hard-coded /home/pampaj/DeepGreen/... in every Rust binary,resolved from DEEPGREEN_DATA with a 'data/' fallback,rust/src/lib.rs::data_path
+CodeCarbon config,"two major versions, two tracking modes, two sampling intervals","one pinned configuration, version-checked at startup","tools/codecarbon_config.json, tools/deepgreen_bench.py"

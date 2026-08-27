@@ -9,7 +9,7 @@ logging.basicConfig(
 )
 
 tracker = None
-output_dir = os.path.abspath("/home/pampaj/DeepGreen/java/DL4J")  # Use absolute path for output directory
+output_dir = os.path.abspath(os.environ.get("DEEPGREEN_EMISSIONS", "Java/deepgreen-dl4j/emissions"))  # Use absolute path for output directory
 
 
 def start_tracker(output_file):

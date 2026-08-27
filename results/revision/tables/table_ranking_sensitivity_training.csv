@@ -1,0 +1,9 @@
+ecosystem,as_measured_J,gpu_only_J,harmonised_J,duration_s,rank_as_measured,rank_gpu_only,rank_harmonised,rank_duration
+Rust/tch,3164.7,1138.6,2079.9,8.8,1,1,1,1
+C++/LibTorch,4162.9,2630.3,3984.9,12.7,2,4,4,3
+Python/PyTorch,5266.5,2358.2,3704.1,12.6,3,3,2,2
+Python/JAX,5478.2,2324.3,3789.9,13.7,4,2,3,4
+MATLAB/DLT,12337.1,4345.0,8098.7,35.1,5,5,5,5
+Python/TensorFlow,13716.7,4505.5,8767.9,39.8,6,6,6,6
+R/torch,14059.1,9723.8,20672.5,102.3,7,8,8,8
+Java/DL4J,14480.1,8923.1,14658.0,53.6,8,7,7,7

@@ -1,0 +1,92 @@
+\section{A catalogue of defect classes}
+\label{sec:catalogue}
+
+Table~\ref{tab:catalogue} collects the defects we found, each with a measured
+effect. We report them as classes rather than as a list of bugs in one project:
+every one of them is a plausible mistake in any study of this shape, and most are
+invisible in the resulting data.
+
+\begin{table}[t]
+\centering
+\caption{Defect classes, with the measured effect of each. ``Visible in the
+data'' asks whether a reader given only the released measurements could detect
+the problem.}
+\label{tab:catalogue}
+\small
+\begin{tabular}{p{4.6cm}p{6.4cm}c}
+\toprule
+Class & Measured effect & Visible \\
+\midrule
+Unit mislabelling &
+Energy reported in \si{\kilo\watt\hour} labelled as \si{\joule}; \(3.6\times10^6\) &
+yes \\
+\addlinespace
+Mixed instrument versions &
+\SI{231}{\watt} vs \SI{107}{\watt} of modelled host power; up to \SI{70}{\percent} of reported energy &
+no \\
+\addlinespace
+Mixed tracking mode &
+One stack at \SI{31}{\percent} host share against \(\sim\)\SI{50}{\percent} &
+no \\
+\addlinespace
+Interpreter resolved from \code{PATH} &
+CodeCarbon version becomes a property of the shell &
+no \\
+\addlinespace
+Unsynchronised tracker &
+Inference \SI{0}{\joule} recorded; training underestimated \SI{24}{\percent} &
+no \\
+\addlinespace
+Divergent hyperparameters &
+Two learning rates across eight stacks &
+no \\
+\addlinespace
+Divergent loader parallelism &
+0 to 96 threads; \(\rho=-0.73\) with duration, \(11.6\times\) spread &
+no \\
+\addlinespace
+Divergent input shape &
+One stack at \(0.26\times\) the \code{conv1} input volume; \(0.07\times\) energy &
+no \\
+\addlinespace
+Divergent evaluation batching &
+Batch 1 vs 128; \(1.5\)--\(1.95\times\) inference energy &
+no \\
+\addlinespace
+Evaluation in training mode &
+Test accuracy \SI{21}{\percent} vs \SI{86}{\percent}; different computation measured &
+no\(^\dagger\) \\
+\addlinespace
+Silent CPU fallback &
+Whole workload on CPU after a CUDA wheel mismatch; one warning line &
+no \\
+\addlinespace
+Linker drops the CUDA dependency &
+Same source, same LibTorch: \code{Cpu} vs \code{Cuda(0)} &
+no \\
+\addlinespace
+Ambiguous dataset layout &
+A class name containing \code{/} yields three different datasets &
+no \\
+\addlinespace
+Host not idle &
+Whole-machine tracking counts unrelated downloads and builds &
+no \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+\raggedright\footnotesize
+\(^\dagger\) invisible because no ecosystem wrote its accuracy to disk; visible
+the moment one does.
+\end{table}
+
+Two observations. First, only one of the fourteen is visible from the released
+data --- the one that changes no conclusion. Second, several are not mistakes of
+carelessness but defaults: the linker's \code{--as-needed} behaviour, CodeCarbon's
+fallback power constants, a framework resolving CUDA wheels that do not match its
+build. A study can be executed carefully and still land on all of them.
+
+This is our argument for enforcement rather than discipline. The defects that
+matter are the ones that produce plausible numbers, and plausible numbers are
+exactly what review cannot catch.

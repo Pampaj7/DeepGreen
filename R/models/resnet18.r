@@ -4,7 +4,10 @@ library(torchvision)
 library(coro)
 
 # --- tracking utility (CodeCarbon via Python CLI) ---
-source("R/scripts/energy_tracking.r")
+# Shared measurement bridge (spec S5). The stack-private helper set
+# tracking_mode = "process", the only one in the campaign to do so, which
+# excluded almost all host energy and made its totals incomparable.
+source("R/scripts/deepgreen_tracking.r")
 
 # ===== Helpers (log) =====
 .now <- function() format(Sys.time(), "%Y-%m-%d %H:%M:%S")
@@ -72,8 +75,8 @@ get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
   })
   .log("Test dataset loaded. Classes: %s, Samples: %d", paste(test_set$classes, collapse = ", "), length(test_set))
 
-  train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE, num_workers = 0)
-  test_loader  <- dataloader(test_set, batch_size = batch_size, shuffle = FALSE, num_workers = 0)
+  train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE, num_workers = 2)  # was 0: single-threaded decoding made R ~11x slower than Rust
+  test_loader  <- dataloader(test_set, batch_size = batch_size, shuffle = FALSE, num_workers = 2)  # was 0: single-threaded decoding made R ~11x slower than Rust
 
   list(
     train_loader = train_loader,
@@ -116,16 +119,70 @@ evaluate <- function(model, test_loader, criterion, device) {
   list(loss = loss_sum / total, acc = 100 * correct / total)
 }
 
+
+# ===== Shared TorchScript module (spec S1) =====
+# The four LibTorch-based ecosystems must train the SAME module. In the first
+# campaign this stack built torchvision-for-R's own ResNet-18/VGG-16 while C++
+# and Rust each used a hand-written port and Python used torchvision, so the
+# "one backend, four bindings" control group actually compared four
+# implementations. The module is produced once by
+# scripts/export_torchscript_models.py; the exporting torch build must match the
+# LibTorch that the R torch package links against.
+deepgreen_model_path <- function(arch, dataset) {
+  root <- Sys.getenv("DEEPGREEN_MODELS", unset = "models")
+  file.path(root, paste0(arch, "_", dataset, ".pt"))
+}
+
+deepgreen_dataset_key <- function(dataset_path) {
+  base <- basename(dataset_path)
+  switch(sub("_png$", "", base),
+         "cifar100"      = "cifar100",
+         "fashion_mnist" = "fashionmnist",
+         "tiny_imagenet" = "tinyimagenet200",
+         stop(sprintf("unknown dataset directory: %s", base)))
+}
+
+load_shared_module <- function(arch, dataset_path, device) {
+  path <- deepgreen_model_path(arch, deepgreen_dataset_key(dataset_path))
+  if (!file.exists(path)) {
+    stop(sprintf(
+      "shared TorchScript module not found at %s; run scripts/export_torchscript_models.py",
+      path))
+  }
+  m <- torch::jit_load(path)
+  m$to(device = device)
+  m
+}
+
 # ===== Esperimento (con tracking integrato) =====
 run_experiment <- function(dataset_path, checkpoint_path,
                            img_size = c(32, 32), grayscale = FALSE, test_split = "test",
                            epochs = 30, batch_size = 128,
                            run_id = NULL, python_bin = Sys.getenv("PYTHON_BIN", unset = "python")) {
 
+  params <- dg_run_params()
+  epochs <- params$epochs
+  torch_manual_seed(params$seed)
+  set.seed(params$seed)
+
   device <- if (cuda_is_available()) torch_device("cuda") else torch_device("cpu")
-  .log("Script avviato! device=%s", device$type)
+  if (device$type != "cuda") {
+    stop("R/torch does not see a GPU. Measuring now would attribute a CPU fallback ",
+         "to the ecosystem; set DEEPGREEN_ALLOW_CPU=1 to override deliberately.")
+  }
+  .log("device=%s | repetition=%s seed=%s epochs=%s",
+       device$type, params$repetition, params$seed, epochs)
 
   loaders <- get_loaders(dataset_path, batch_size, img_size, grayscale, test_split)
+  # R/torch is the one LibTorch binding that cannot use the shared TorchScript
+  # module (spec S1). In torch 0.17.0 a script_module's $train() and $eval()
+  # raise "unused argument", and the underlying handle is not reachable through
+  # the documented fields, so the module cannot be switched between training and
+  # evaluation. The shared modules are exported in training mode, so this stack
+  # would evaluate with batch norm using batch statistics -- the same defect
+  # found in the TensorFlow and Rust stacks. It therefore builds its own model,
+  # and the architecture parity that holds for Python, C++ and Rust does not
+  # hold here. See results/analysis/experiment_spec.md, S1.
   model <- build_resnet18(num_classes = loaders$num_classes, pretrained = FALSE)
   model$to(device = device)
   criterion <- nn_cross_entropy_loss()
@@ -133,16 +190,9 @@ run_experiment <- function(dataset_path, checkpoint_path,
 
   # --- init energy tracker (CLI) ---
   dataset_name <- basename(dataset_path)  # es: "cifar100_png"
-  energy_init(
-    model = "resnet18",
-    dataset = dataset_name,
-    run_id = run_id,
-    emissions_dir = file.path("R", "emissions"),  # <<<<< path esplicito
-    python_bin = python_bin,
-    backend = "daemon"   # ⟵ invece di "cli"
-  )
+  dg_init()
 
-  on.exit(energy_shutdown(), add = TRUE)
+  on.exit(dg_shutdown(), add = TRUE)
 
   # crea la cartella del checkpoint finale se manca
   dir.create(dirname(checkpoint_path), showWarnings = FALSE, recursive = TRUE)
@@ -151,17 +201,19 @@ run_experiment <- function(dataset_path, checkpoint_path,
     .log("Epoch %d/%d", epoch, epochs)
 
     # ---- TRAIN (tracciato) ----
-    energy_start_epoch("train", epoch)
+    dg_start("train", epoch)
     train_loss <- train(model, loaders$train_loader, criterion, optimizer, device)
-    train_co2  <- energy_stop_epoch()
+    dg_stop()
 
     # ---- EVAL (tracciato) ----
-    energy_start_epoch("eval", epoch)
+    dg_start("eval", epoch)
     eval <- evaluate(model, loaders$test_loader, criterion, device)
-    eval_co2 <- energy_stop_epoch()
+    dg_stop()
 
-    .log("Train Loss=%.4f (CO2=%.6f kg) | Test Loss=%.4f, Acc=%.2f%% (CO2=%.6f kg)",
-         train_loss, train_co2, eval$loss, eval$acc, eval_co2)
+    # Outside the tracked window: writing the metric must not be measured.
+    dg_metric(epoch, train_loss, eval$loss, eval$acc)
+    .log("Train Loss=%.4f | Test Loss=%.4f, Acc=%.2f%%",
+         train_loss, eval$loss, eval$acc)
   }
 
   # Salva solo il modello finale

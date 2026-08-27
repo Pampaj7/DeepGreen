@@ -6,7 +6,11 @@ from torchvision import models, transforms
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
-from codecarbon import EmissionsTracker
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from tools.deepgreen_bench import Harness, RunContext
 from torchvision.models import vgg16
 
 def build_vgg16(num_classes=100, pretrained=False):
@@ -23,6 +27,17 @@ def get_loaders(dataset_path, batch_size=128, img_size=(32, 32), grayscale=False
     transform_list.append(transforms.ToTensor())
 
     transform = transforms.Compose(transform_list)
+    # Tiny ImageNet ships train/ and val/, the other two ship train/ and test/.
+    # TensorFlow and JAX already resolved this at runtime; this stack took the
+    # split from a caller-supplied default and failed on Tiny ImageNet.
+    if not os.path.isdir(os.path.join(dataset_path, test_split)):
+        for candidate in ("test", "val"):
+            if os.path.isdir(os.path.join(dataset_path, candidate)):
+                test_split = candidate
+                break
+        else:
+            raise FileNotFoundError(
+                f"no test or val split under {dataset_path}")
     train_set = ImageFolder(root=os.path.join(dataset_path, "train"), transform=transform)
     test_set = ImageFolder(root=os.path.join(dataset_path, test_split), transform=transform)
 
@@ -63,43 +78,66 @@ def evaluate(model, test_loader, criterion, device):
     return loss_sum / total, acc
 
 
-def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32), grayscale=False, epochs=30,
-                   batch_size=128, test_split="test"):
-    device = torch.device(
-        "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    train_loader, test_loader, num_classes = get_loaders(dataset_path, batch_size, img_size, grayscale,
-                                                         test_split=test_split)
+def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32), grayscale=False,
+                   test_split="test", epochs=30, batch_size=128, repetition=0, seed=None,
+                   dataset_name=None, precision="fp32"):
+    """Run one *independent* repetition of the vgg16 experiment.
 
-    model = build_vgg16(num_classes=num_classes, pretrained=False)
-    model.to(device)
+    Changes with respect to the first campaign:
+      * CodeCarbon is configured through tools.deepgreen_bench so that every
+        ecosystem shares one tracking mode, sampling interval and version
+        requirement (reviewer 1 comments 8 and 9).
+      * ``repetition`` and ``seed`` make run-level replication possible; the
+        first campaign executed each configuration once and averaged epochs,
+        which are not independent (reviewer 1 comment 5, reviewer 3 major
+        comment 2).
+      * Test accuracy and both losses are persisted per epoch, so energy can be
+        normalised by the useful work produced (reviewer 1 comment 6,
+        reviewer 3 major comment 3).
+      * Precision is pinned rather than left to the framework default
+        (reviewer 1 comment 8).
+    """
+    ctx = RunContext(
+        ecosystem="Python/PyTorch",
+        model="vgg16",
+        dataset=dataset_name or Path(dataset_path).name,
+        repetition=repetition,
+        seed=seed,
+        epochs=epochs,
+        batch_size=batch_size,
+        precision=precision,
+    )
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    with Harness(ctx) as bench:
+        bench.set_seeds()
 
-    os.makedirs("python/pytorch/emissions/", exist_ok=True)
+        device = torch.device(
+            "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+        train_loader, test_loader, num_classes = get_loaders(
+            dataset_path, batch_size, img_size, grayscale, test_split)
 
-    for epoch in range(epochs):
-        print(f"Epoch {epoch + 1}/{epochs}")
+        model = build_vgg16(num_classes=num_classes, pretrained=False)
+        model.to(device)
 
-        # Track training emissions
-        train_tracker = EmissionsTracker(
-            output_dir="python/pytorch/emissions/",
-            output_file=f"{output_file}_train_epoch{epoch+1}.csv"
-        )
-        train_tracker.start()
-        train_loss = train(model, train_loader, criterion, optimizer, device)
-        train_tracker.stop()
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-        # Track evaluation emissions
-        eval_tracker = EmissionsTracker(
-            output_dir="python/pytorch/emissions/",
-            output_file=f"{output_file}_eval_epoch{epoch+1}.csv"
-        )
-        eval_tracker.start()
-        test_loss, test_acc = evaluate(model, test_loader, criterion, device)
-        eval_tracker.stop()
+        for epoch in range(1, epochs + 1):
+            print(f"Epoch {epoch}/{epochs} (repetition {ctx.repetition}, seed {ctx.seed})")
 
-        print(f"Train Loss={train_loss:.4f}, Test Loss={test_loss:.4f}, Test Acc={test_acc:.2f}%")
+            with bench.track("train", epoch):
+                train_loss = train(model, train_loader, criterion, optimizer, device)
 
-    os.makedirs("checkpoints", exist_ok=True)
-    torch.save(model.state_dict(), checkpoint_path)
+            with bench.track("eval", epoch):
+                test_loss, test_acc = evaluate(model, test_loader, criterion, device)
+
+            bench.log_metrics(
+                epoch,
+                train_loss=train_loss,
+                test_loss=test_loss,
+                test_acc=test_acc,
+            )
+            print(f"Train Loss={train_loss:.4f}, Test Loss={test_loss:.4f}, Test Acc={test_acc:.2f}%")
+
+        os.makedirs(os.path.dirname(checkpoint_path) or "checkpoints", exist_ok=True)
+        torch.save(model.state_dict(), checkpoint_path)

@@ -1,0 +1,6 @@
+**Share of the energy spread attributable to duration**
+
+| phase     |   energy_spread_x |   duration_spread_x |   mean_power_spread_x |   log_share_duration_pct |
+|:----------|------------------:|--------------------:|----------------------:|-------------------------:|
+| Inference |              8.83 |                8.47 |                  1.29 |                    98.06 |
+| Training  |              9.94 |               11.63 |                  1.56 |                   106.85 |

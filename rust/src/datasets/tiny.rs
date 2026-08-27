@@ -30,6 +30,7 @@ pub struct TinyImageNet {
 impl TinyImageNet {
     /// Costruttore: carica path immagini e setta normalizzazione
     pub fn new(dir: &str, device: Device, resize_to: Option<i64>) -> Result<Self> {
+        crate::init_loader_pool();
         let (mean, std) = imagenet_norm(device);
 
         let mut class_folders: Vec<_> = fs::read_dir(dir)?.map(|e| e.unwrap().path()).collect();
@@ -59,24 +60,36 @@ impl TinyImageNet {
 
     /// Carica una singola immagine da path
     fn load_item_by_path(&self, path: &PathBuf, label: i64) -> Result<(Tensor, i64)> {
-        // Carica immagine da file → float [H,W,C]
-        let mut img = image::load(path)?.to_kind(Kind::Float) / 255.0;
+        // image::load returns a *uint8* tensor already in [C,H,W] order, not
+        // [H,W,C]. The previous narrow(2, 0, 3) therefore cropped the *width*
+        // to three pixels and the permute that followed transposed the result,
+        // so this loader fed the network a 3-pixel-wide sliver of each image.
+        // The mistake never surfaced as a wrong accuracy because resize()
+        // returns uint8 and the run died on the dtype first.
+        let mut img = image::load(path)?;
 
-        // Se ha più di 3 canali, taglia ai primi 3 (RGB)
-        if img.size()[2] > 3 {
-            img = img.narrow(2, 0, 3);
+        if img.size()[0] > 3 {
+            img = img.narrow(0, 0, 3); // drop the alpha channel
+        } else if img.size()[0] == 1 {
+            img = img.repeat(&[3, 1, 1]); // Tiny ImageNet holds some greyscale images
         }
 
-        // [H,W,C] → [C,H,W]
-        img = img.permute(&[2, 0, 1]);
-
-        // Resize opzionale
+        // Resize opzionale -- on the raw uint8: resize() takes and returns
+        // uint8, so converting to float before it discards the scaling.
         if let Some(size) = self.resize_to {
             img = resize(&img, size, size)?;
         }
 
+        let img = img.to_kind(Kind::Float) / 255.0;
+
         // Normalizzazione e device
-        let img = (img.to_device(self.device) - &self.mean) / &self.std;
+        // Normalisation is off by default: the other seven ecosystems feed
+        // raw [0,1] inputs. See crate::normalize_inputs().
+        let img = if crate::normalize_inputs() {
+            (img.to_device(self.device) - &self.mean) / &self.std
+        } else {
+            img.to_device(self.device)
+        };
         Ok((img, label))
     }
 

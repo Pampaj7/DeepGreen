@@ -12,7 +12,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import io.github.stlabunifi.deepgreen.dl4j.dataloader.FashionMNISTDataloader;
 import io.github.stlabunifi.deepgreen.dl4j.model.builder.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
-import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonTrackerHandler;
+import io.github.stlabunifi.deepgreen.dl4j.python.handler.DeepGreenTracker;
 
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.deeplearning4j.util.ModelSerializer;
@@ -23,10 +23,13 @@ public class Vgg16TrainFashionExpt {
 	public final static String checkpoint_output_dir = "checkpoints";
 	public final static String filename = "vgg16_fashion";
 
-	public final static int rngSeed = 123; 		// random number seed for reproducibility
+	public final static int rngSeed = (int) DeepGreenTracker.seed();
 	public final static int batchSize = 128; 	// batch size for each epoch
 	public final static int numClasses = 10; 	// number of output classes
-	public final static int numEpochs = 30; 	// number of epochs to perform
+	// Epochs, repetition and seed come from the shared run contract
+	// (tools/deepgreen_tracker.py); the first campaign hard-coded 30 and had
+	// no notion of an independent repetition.
+	public final static int numEpochs = DeepGreenTracker.epochs();
 	public final static double lrAdam = 1e-4;	// learning rate used in Adam optimizer
 
 	public static final int transformed_imgHeight = 32;
@@ -59,7 +62,7 @@ public class Vgg16TrainFashionExpt {
 			if (Files.exists(testEmissionFilePath) && !Files.isDirectory(testEmissionFilePath))
 				Files.delete(testEmissionFilePath);
 
-			PythonTrackerHandler trackerHandler = new PythonTrackerHandler(emissionOutputDir.toString());
+			DeepGreenTracker tracker = DeepGreenTracker.start();
 
 
 			// Load Fashion MNIST
@@ -93,14 +96,18 @@ public class Vgg16TrainFashionExpt {
 			for (int i = 0; i < numEpochs; i++) {
 				System.out.println("Epoch " + (i + 1) + "/" + numEpochs);
 				
-				trackerHandler.startTracker(train_emission_filename);
+				tracker.startPhase("train", i + 1);
 				vgg16.fit(fashionTrain);
-				trackerHandler.stopTracker();
+				tracker.stopPhase();
 				
-				trackerHandler.startTracker(test_emission_filename);
+				tracker.startPhase("eval", i + 1);
 				var eval = vgg16.evaluate(fashionTest);
-				trackerHandler.stopTracker();
+				tracker.stopPhase();
 				
+				// Outside the tracked window: writing the metric must not be measured.
+				// DL4J's Evaluation does not expose a test loss, so it is recorded as NaN;
+				// the training score is the model's last minibatch score.
+				tracker.metric(i + 1, vgg16.score(), Double.NaN, eval.accuracy() * 100.0);
 				System.out.println(eval.stats());
 			}
 			

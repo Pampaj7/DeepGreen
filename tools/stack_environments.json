@@ -1,0 +1,24 @@
+{
+  "_comment": "Per-ecosystem launch environment. Each non-Python stack needs library paths that no other stack needs, and getting one wrong makes the stack fall back to the CPU or fail to find its model. Discovered on the replication machine; edit for another host rather than hard-coding paths in the driver. Values support ${VAR} expansion against the current environment, and $REPO for the repository root.",
+
+  "Rust/tch": {
+    "LD_LIBRARY_PATH": "${DEEPGREEN_LIBTORCH}/lib",
+    "_note": "DEEPGREEN_LIBTORCH must point at the CUDA LibTorch the crate was linked against; scripts/build_rust_cuda.sh checks this."
+  },
+
+  "C++/LibTorch": {
+    "LD_LIBRARY_PATH": "$REPO/cpp/tools/libtorch/libtorch_linux_cuda-src/lib:${DEEPGREEN_CUDA}/lib:${DEEPGREEN_CUDA}/targets/x86_64-linux/lib:${DEEPGREEN_CONDA}/lib",
+    "_note": "The embedded interpreter also needs DEEPGREEN_PYTHON, which the run contract already provides."
+  },
+
+  "R/torch": {
+    "R_LIBS_USER": "${DEEPGREEN_R_LIBS}",
+    "LD_LIBRARY_PATH": "${DEEPGREEN_CUDA}/lib:${DEEPGREEN_CUDA}/targets/x86_64-linux/lib:${DEEPGREEN_R_LIBS}/torch/lib",
+    "_note": "liblantern.so links against libcudart.so.12 while the R bundle ships it under a hashed name, so a CUDA 12 runtime must be on the path or torch loads as 'Lantern is not loaded'."
+  },
+
+  "Java/DL4J": {
+    "JAVA_HOME": "${DEEPGREEN_CONDA}",
+    "_note": "The CUDA runtime comes from org.bytedeco:cuda-platform-redist inside the JVM process, so no library path is needed here."
+  }
+}

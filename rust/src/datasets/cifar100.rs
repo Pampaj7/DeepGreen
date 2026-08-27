@@ -27,6 +27,7 @@ pub struct Cifar100 {
 
 impl Cifar100 {
     pub fn new(dir: &str, device: Device, resize_to: Option<i64>) -> Result<Self> {
+        crate::init_loader_pool();
         let (mean, std) = cifar100_norm(device);
 
         let mut class_folders: Vec<_> = fs::read_dir(dir)?.map(|e| e.unwrap().path()).collect();
@@ -73,15 +74,23 @@ impl Cifar100 {
 
             for (img_buf, label) in samples {
                 // Decodifica PNG → Tensor CPU
-                let mut img = image::load_from_memory(&img_buf)?.to_kind(Kind::Float) / 255.0;
+                // Same operation order as fashion.rs and tiny.rs: decode to
+                // uint8 [C,H,W], fix the shape, resize, and only then scale to
+                // [0,1]. resize() takes and returns uint8, so a float tensor
+                // handed to it comes back as bytes. CIFAR-100 passes
+                // resize_to = None today and so never hit that, but the order
+                // is what kept it working, not the dataset.
+                let mut img = image::load_from_memory(&img_buf)?;
 
-                if img.size() == [32, 32, 3] {
-                    img = img.permute(&[2, 0, 1]); // HWC -> CHW
+                if img.size()[0] > 3 {
+                    img = img.narrow(0, 0, 3); // drop the alpha channel
                 }
 
                 if let Some(size) = self.resize_to {
                     img = resize(&img.to(Device::Cpu), size, size)?;
                 }
+
+                let img = img.to_kind(Kind::Float) / 255.0;
 
                 images.push(img.unsqueeze(0));
                 labels.push(label);
@@ -89,7 +98,11 @@ impl Cifar100 {
 
             // Cat e normalizzazione su GPU
             let mut x = Tensor::cat(&images, 0).to_device(self.device);
-            x = (x - &self.mean) / &self.std;
+            // Normalisation is off by default: the other seven ecosystems feed
+            // raw [0,1] inputs. See crate::normalize_inputs().
+            if crate::normalize_inputs() {
+                x = (x - &self.mean) / &self.std;
+            }
 
             let y = Tensor::from_slice(&labels).to_device(self.device);
 

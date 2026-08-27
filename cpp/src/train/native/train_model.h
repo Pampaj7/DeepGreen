@@ -85,29 +85,33 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
     );
 
 
-    // Remove existing emission file
-    const std::string outputDir = Utils::join_paths(PROJECT_SOURCE_DIR, "emissions");
-    const std::string trainOutputFile = outputFileName + "_train.csv";
-    Utils::removeFileIfExists(Utils::join_paths(outputDir, trainOutputFile));
-    const std::string testOutputFile = outputFileName + "_test.csv";
-    Utils::removeFileIfExists(Utils::join_paths(outputDir, testOutputFile));
+    // Output location, repetition, seed and epoch count come from the shared
+    // run contract (tools/deepgreen_tracker.py). The first campaign wrote into
+    // cpp/emissions/ with one file per phase and had no notion of a repetition.
+    const auto runParams = PythonTracker::runParams();
+    const uint32_t totalEpochs = runParams.epochs;
+    torch::manual_seed(static_cast<int64_t>(runParams.seed));
+    std::printf("[C++] repetition %u seed %lu epochs %u\n",
+        runParams.repetition, static_cast<unsigned long>(runParams.seed), totalEpochs);
 
     // tracker
     PythonTracker::initializeTracker();
 
     // training loop
-    for (uint32_t epoch = 1; epoch <= numberOfEpochs; ++epoch) {
-        std::printf("Epoch {%u}/{%d}\n",
-            epoch,
-            numberOfEpochs);
+    for (uint32_t epoch = 1; epoch <= totalEpochs; ++epoch) {
+        std::printf("Epoch {%u}/{%u}\n", epoch, totalEpochs);
 
-        PythonTracker::startTracker(outputDir, trainOutputFile);
+        PythonTracker::startTracker("train", epoch);
         float train_loss = CNNFunction::train(model, device, *train_loader, optimizer, train_dataset_size, criterion);
         PythonTracker::stopTracker();
 
-        PythonTracker::startTracker(outputDir, testOutputFile);
+        PythonTracker::startTracker("eval", epoch);
         auto test_loss_and_acc = CNNFunction::test(model, device, *test_loader, test_dataset_size, criterion);
         PythonTracker::stopTracker();
+
+        // Outside the tracked window: writing the metric must not be measured.
+        PythonTracker::logMetric(epoch, train_loss,
+            test_loss_and_acc.at(0), test_loss_and_acc.at(1));
 
         std::printf(
             "Train Loss: %.4f | Test Loss:  %.4f | Accuracy: %.2f%%\n",

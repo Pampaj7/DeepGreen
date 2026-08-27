@@ -1,0 +1,9 @@
+ecosystem,FashionMNIST,CIFAR100,TinyImageNet
+C++/LibTorch,253.0,289.8,358.5
+Java/DL4J,968.2,915.1,968.7
+MATLAB/DLT,487.1,490.4,783.2
+Python/JAX,381.3,428.6,704.9
+Python/PyTorch,380.8,317.1,502.9
+Python/TensorFlow,877.6,931.9,1289.7
+R/torch,2868.7,2370.5,2722.8
+Rust/tch,818.3,937.3,707.6

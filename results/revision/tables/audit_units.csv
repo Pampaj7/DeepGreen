@@ -1,0 +1,7 @@
+check,value
+components sum to total (max rel. error),9.26e-13
+"emissions/energy (mean, kg per unit)",0.330604
+implied carbon intensity if unit=kWh (gCO2eq/kWh),330.6
+implied mean power if unit=kWh (median W),328.4
+implied mean power if unit=J (median W),9.122e-05
+correction factor applied (J/kWh),3.6e+06

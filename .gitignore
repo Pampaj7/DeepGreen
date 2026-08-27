@@ -38,3 +38,15 @@ checkpoints/
 *.ot
 !models/MANIFEST.txt
 **.h5
+
+### Manuscript ###
+# LaTeX build noise
+paper/build.log
+paper/*.aux
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+# The rejection letter: a private editorial communication that names a
+# co-author's address. Kept locally, not published with the repository.
+paper/reviewer.tex

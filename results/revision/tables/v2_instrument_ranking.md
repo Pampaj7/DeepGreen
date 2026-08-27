@@ -1,0 +1,10 @@
+**Ecosystem ranking under each instrument, per block**
+
+| model    | dataset      |   n_ecosystems | rank_by_counters                                                                                | rank_by_codecarbon                                                                              | identical   |
+|:---------|:-------------|---------------:|:------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------|:------------|
+| resnet18 | cifar100     |              7 | Python/JAX < Cpp/LibTorch < Python/TensorFlow < Rust/tch < Python/PyTorch < Java/DL4J < R/torch | Python/JAX < Python/TensorFlow < Cpp/LibTorch < Rust/tch < Python/PyTorch < Java/DL4J < R/torch | False       |
+| resnet18 | fashionmnist |              7 | Rust/tch < Python/JAX < Cpp/LibTorch < Python/TensorFlow < Python/PyTorch < Java/DL4J < R/torch | Rust/tch < Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < Java/DL4J < R/torch | False       |
+| resnet18 | tinyimagenet |              7 | Rust/tch < Python/JAX < Cpp/LibTorch < Python/TensorFlow < Python/PyTorch < Java/DL4J < R/torch | Rust/tch < Python/JAX < Cpp/LibTorch < Python/TensorFlow < Python/PyTorch < Java/DL4J < R/torch | True        |
+| vgg16    | cifar100     |              7 | Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < Rust/tch < R/torch < Java/DL4J | Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < Rust/tch < R/torch < Java/DL4J | True        |
+| vgg16    | fashionmnist |              7 | Rust/tch < Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < R/torch < Java/DL4J | Rust/tch < Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < R/torch < Java/DL4J | True        |
+| vgg16    | tinyimagenet |              7 | Rust/tch < Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < R/torch < Java/DL4J | Rust/tch < Python/JAX < Python/TensorFlow < Cpp/LibTorch < Python/PyTorch < R/torch < Java/DL4J | True        |

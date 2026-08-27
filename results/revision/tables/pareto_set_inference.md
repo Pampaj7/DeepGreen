@@ -1,0 +1,12 @@
+**Inference: Pareto-optimal ecosystems**
+
+| ecosystem         |   energy_J |   duration_s | pareto_optimal   |
+|:------------------|-----------:|-------------:|:-----------------|
+| C++/LibTorch      |     300.43 |         1.58 | True             |
+| Java/DL4J         |     950.66 |         4    | False            |
+| MATLAB/DLT        |     586.88 |         3.09 | False            |
+| Python/JAX        |     504.94 |         2.44 | False            |
+| Python/PyTorch    |     400.3  |         1.85 | False            |
+| Python/TensorFlow |    1033.08 |         5.06 | False            |
+| R/torch           |    2654    |        13.34 | False            |
+| Rust/tch          |     821.08 |         3.35 | False            |

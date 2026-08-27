@@ -1,0 +1,7 @@
+phase,metric,test,H,df,p_value,epsilon_squared
+Inference,energy_j,Kruskal-Wallis,1196.619198,7,0.0,0.83074
+Training,energy_j,Kruskal-Wallis,897.717454,7,0.0,0.622009
+Inference,energy_harm_j,Kruskal-Wallis,1196.692479,7,0.0,0.830791
+Training,energy_harm_j,Kruskal-Wallis,1026.598066,7,0.0,0.71201
+Inference,duration_s,Kruskal-Wallis,1156.832146,7,0.0,0.802955
+Training,duration_s,Kruskal-Wallis,1090.153852,7,0.0,0.756392

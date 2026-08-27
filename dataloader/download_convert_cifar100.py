@@ -13,7 +13,9 @@ def save_image(img_tensor, path):
     img.save(path)
 
 # be careful on remote machine you probably need to change path
-def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_png"): #dataset_root="/home/pampaj/DeepGreen/data"):
+# NOTE: the torchvision cache root was "../data", i.e. OUTSIDE the repository.
+# It now follows DEEPGREEN_DATA like the PNG output.
+def convert_cifar100_to_png(output_root=os.path.join(os.environ.get("DEEPGREEN_DATA", "data"), "cifar100_png")): #dataset_root="/home/pampaj/DeepGreen/data"):
     #output_root = os.path.join(dataset_root, "cifar100_png")
     try:
         os.makedirs(output_root, exist_ok=True)
@@ -22,8 +24,8 @@ def convert_cifar100_to_png(output_root="/home/pampaj/DeepGreen/data/cifar100_pn
         
     transform = transforms.Compose([transforms.ToTensor()])
 
-    train_data = CIFAR100(root="../data", train=True, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
-    test_data = CIFAR100(root="../data", train=False, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
+    train_data = CIFAR100(root=os.environ.get("DEEPGREEN_DATA", "data"), train=True, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
+    test_data = CIFAR100(root=os.environ.get("DEEPGREEN_DATA", "data"), train=False, download=True, transform=transform) # root=dataset_root TODO ../data/cifar100 oppure conformare agli altri con ./data
 
     label_map = {idx: name for idx, name in enumerate(train_data.classes)}
     with open(os.path.join(output_root, "classes.json"), "w") as f:

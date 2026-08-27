@@ -25,6 +25,7 @@ pub struct Fashion {
 
 impl Fashion {
     pub fn new(dir: &str, device: Device, _resize_to: Option<i64>) -> Result<Self> {
+        crate::init_loader_pool();
         let (mean, std) = fashion_norm(device);
 
         let mut class_folders: Vec<_> = fs::read_dir(dir)?
@@ -65,13 +66,35 @@ impl Fashion {
             let samples: Result<Vec<(Tensor, i64)>> = chunk
                 .par_iter()
                 .map(|(path, label)| {
-                    let mut img = image::load(path)?.to_kind(Kind::Float) / 255.0;
+                    // image::load returns a *uint8* tensor in [C,H,W] order, and
+                    // tch::vision::image::resize both takes and returns uint8. The
+                    // float conversion therefore has to come after the resize:
+                    // doing it first, as this loader used to, threw the scaling
+                    // away and handed the module a byte tensor ("Input type
+                    // (unsigned char) and bias type (float) should be the same").
+                    // Cifar100 escaped the bug only because it passes resize_to =
+                    // None. The old shape branch tested size()[2], i.e. the width,
+                    // which is the [H,W,C] layout this loader never receives.
+                    let mut img = image::load(path)?;
 
                     if img.size().len() == 2 {
-                        img = img.unsqueeze(0); // [1,H,W]
-                    } else if img.size()[2] == 1 {
-                        img = img.permute(&[2, 0, 1]); // [1,H,W]
+                        img = img.unsqueeze(0); // [H,W] -> [1,H,W]
+                    } else if img.size()[0] > 3 {
+                        img = img.narrow(0, 0, 3); // drop the alpha channel
                     }
+
+                    // Match the other ecosystems: 32x32, three channels.
+                    // The first campaign fed Fashion-MNIST to this stack at its
+                    // native 28x28x1 during training while every other stack --
+                    // and this stack's own evaluation loop -- used 32x32x3. The
+                    // conv1 input volume was 0.26x everyone else's, so the
+                    // training energy was not comparable.
+                    img = tch::vision::image::resize(&img, 32, 32)?;
+                    if img.size()[0] == 1 {
+                        img = img.repeat(&[3, 1, 1]);
+                    }
+
+                    let img = img.to_kind(Kind::Float) / 255.0;
 
                     // NON .to_device qui, restiamo su CPU
                     Ok((img, *label))
@@ -85,7 +108,11 @@ impl Fashion {
 
             // concateno e poi sposto su device + normalizzo
             let mut x = Tensor::cat(&images, 0).to_device(self.device);
-            x = (x - &self.mean) / &self.std;
+            // Normalisation is off by default: the other seven ecosystems feed
+            // raw [0,1] inputs. See crate::normalize_inputs().
+            if crate::normalize_inputs() {
+                x = (x - &self.mean) / &self.std;
+            }
 
             let y = Tensor::from_slice(&labels).to_device(self.device);
 

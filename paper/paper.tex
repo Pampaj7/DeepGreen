@@ -1,0 +1,1029 @@
+\documentclass[a4paper,fleqn]{cas-dc}
+%\documentclass{article}
+
+\usepackage[numbers]{natbib}
+
+\usepackage{balance}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{stfloats}
+\usepackage{comment}
+\usepackage{siunitx}
+\usepackage{eurosym}
+
+\ExplSyntaxOn
+\ExplSyntaxOff
+
+% For displaying urls
+\usepackage{url}
+
+% For graphic inclusion
+\usepackage{graphicx} % Required for inserting images
+\graphicspath{{images/}}
+
+% For boxed environment of RQs
+\usepackage{tcolorbox}
+
+\usepackage{enumitem} % Provides more control over list formatting
+
+\usepackage{xcolor}
+\usepackage{framed} % Required for the highlight environment
+\usepackage{fontawesome}
+\definecolor{formalshadelight}{RGB}{242,242,242}
+\definecolor{formalshadedark}{RGB}{50,50,50}
+
+\newenvironment{highlight}{%
+  \def\FrameCommand{%
+    \hspace{2pt}%
+    {\color{formalshadedark}\vrule width 2pt}%
+    {\color{formalshadelight}\vrule width 3pt}%
+    \colorbox{formalshadelight}%
+  }%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}%
+  \noindent\begin{minipage}{\linewidth}\noindent\hspace{-4.55pt}% disable indenting first paragraph
+}
+{%
+  \vspace{2pt}\vspace{-2pt}\end{minipage}\endMakeFramed%
+}
+
+% for \paragraph as \subsubsubsection
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{5}
+
+\makeatletter
+\newcommand\subsubsubsection{\@startsection{paragraph}{4}{\z@}{-1ex\@plus -1ex \@minus -.25ex}{0.1ex \@plus .25ex}{\normalfont\normalsize\bfseries}}
+\newcommand\subsubsubsubsection{\@startsection{subparagraph}{5}{\z@}{-2.5ex\@plus -1ex \@minus -.25ex}{1.25ex \@plus .25ex}{\normalfont\normalsize\bfseries}}
+\makeatother
+
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{tabularx}
+
+% for \todo command
+\usepackage{pifont}
+\newcommand{\todo}[1]{\textcolor{blue}{\ding{46}~#1}}
+\newcommand{\tocheck}[1]{\textcolor{orange}{#1}}
+\newcommand{\new}[1]{#1}
+\newcommand{\neew}[1]{#1}
+\newcommand{\last}[1]{\textcolor{black}{#1}}
+%\newcommand{\last}[1]{#1}
+
+\usepackage{tikz}
+\newcommand*\encircle[1]{\tikz[baseline=(char.base)]{
+            \node[shape=circle,draw,inner sep=0.8pt] (char) {#1};}}
+
+\newcommand{\concept}[2]{\vspace{3pt}\sloppy\noindent\textbf{{#1}:~}{#2}\vspace{3pt}}
+
+% for boxed text in results
+\usepackage{tcolorbox}
+
+\usepackage{xspace}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\etc}{\emph{etc.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+
+\renewcommand{\quote}{\list{}{\rightmargin=\leftmargin\topsep=3pt}\item\relax}
+
+
+% for automated search query listing
+\usepackage{listings}
+\lstset{
+    escapeinside={(*}{*)}
+}
+
+\usepackage{xcolor}
+
+% enable sloppy to avoid overfull
+\usepackage{microtype}
+\setlength{\emergencystretch}{2pt}
+
+% allow to end columns with 1-2 lines
+\flushbottom
+\setlength\dbltextfloatsep{0.5\baselineskip}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% END SETTINGS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+\shorttitle{Deep Green AI}
+\shortauthors{Pampaloni \etal}
+
+\title[mode=title]{Deep Green AI: Energy Efficiency of Deep Learning across Language--Framework Ecosystems}
+
+%\title [mode = title]{Faster is not Greener: Deep Green AI across Programming Languages and Frameworks}
+
+
+%\tnotemark[1]
+
+%\tnotetext[1]{This document is the results of the research project funded by the Lower Energy Acceleration Program (LEAP).}
+%\ead[url]{www.cvr.cc, cvr@sayahna.org}
+%\credit{Conceptualization of this study, Methodology, Software}
+
+
+\author[1]{Leonardo Pampaloni}\cormark[1]
+\ead{leonardo.pampaloni1@edu.unifi.it}
+
+\author[1]{Marco Pagliocca}\cormark[1]
+\ead{marco.pagliocca@edu.unifi.it}
+
+\cortext[1]{Corresponding authors: Leonardo Pampaloni and Marco Pagliocca.}
+
+
+\author[1]{Enrico Vicario}
+\ead{enrico.vicario@unifi.it}
+
+\author[1]{Roberto Verdecchia}[orcid=0000-0001-9206-6637]
+\ead{roberto.verdecchia@unifi.it}
+
+%\fntext[equal]{These authors contributed equally to this work.}
+
+\address[1]{University of Florence, Florence, Italy}
+
+%\date{July 2025} TODO
+
+
+
+\begin{keywords}
+Machine Learning \sep Deep Learning \sep Green AI \sep Energy Efficiency \sep Sustainability \sep Green IT
+\end{keywords}
+
+
+\begin{abstract}\newline
+
+\textbf{Context.}
+The rapid growth of Deep Learning (DL) has been accompanied by a steep increase in its environmental footprint.
+Training and inference of state-of-the-art models demand vast computational resources, resulting in significant energy consumption and carbon emissions.
+While prior work has investigated energy-efficient algorithms, hardware-aware optimizations, and the energy profiles of general-purpose programming languages,
+the intersection between DL workloads and practitioner-level \emph{ecosystem choices} (i.e. language bindings, DL frameworks, runtimes, and associated toolchains) remains largely unexplored.
+
+\textbf{Objectives.}
+This paper investigates \emph{how the choice of language--framework ecosystems affects the energy efficiency of DL workloads}.
+We adopt a practitioner-centric perspective to quantify operational energy--time trade-offs that developers face when selecting an ecosystem for both training and inference,
+rather than isolating a ``pure'' programming-language effect.
+We focus on computer vision image classification as a representative and energy-intensive workload.
+
+\textbf{Methods.}
+We conduct an empirical case study comparing two widely adopted convolutional neural networks (ResNet-18 and VGG-16) across six language-based DL ecosystems (Python, C++, Java, R, MATLAB, and Rust),
+leveraging multiple frameworks (PyTorch, TensorFlow, and JAX within Python) and three heterogeneous datasets (Fashion-MNIST, CIFAR-100, and Tiny ImageNet).
+Experiments are executed on a dedicated NVIDIA L40S GPU server, with energy consumption measured using the \texttt{CodeCarbon} toolkit.
+Energy consumption is estimated under a uniform measurement protocol; since each ecosystem relies on its officially supported runtime, CUDA/cuDNN toolchains may differ across stacks, and results are interpreted at the ecosystem level.
+
+\textbf{Results.}
+Our experiments reveal substantial differences across ecosystems.
+During training, average energy consumption ranges from 0.0009~J (Rust ecosystem) to 0.0040~J (Java ecosystem), a 4.6$\times$ gap; average execution time varies from 8.8~s to over 102~s, an 11$\times$ slowdown.
+For inference, the C++ ecosystem achieves the lowest average energy consumption (6.8$\times 10^{-5}$~J) and is also the fastest (1.6~s), outperforming the R ecosystem, which is both the worst energy consumer (5.0$\times 10^{-4}$~J) and the slowest (13.3~s), by 7.3$\times$ and 8.4$\times$, respectively.
+Overall, these results suggest that execution time is not a reliable proxy for energy usage across heterogeneous DL ecosystems, and that training- and inference-phase rankings may diverge.
+
+\textbf{Conclusions.}
+Our findings indicate that language--framework ecosystem selection, often perceived as a secondary engineering choice, can materially affect the energy profile of DL applications in practice.
+Since energy is obtained via software-level estimation, absolute values should be interpreted with caution and used primarily for relative comparisons under identical measurement conditions.
+This work provides actionable evidence for incorporating energy efficiency into DL research and practice, and offers an extensive replication package to enable reproducibility and extension of our study.
+\end{abstract}
+
+
+\maketitle
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{sec:intro}
+
+The rapid advancement of Artificial Intelligence (AI), particularly in the domain of Deep Learning (DL), has delivered groundbreaking progress across domains such as healthcare, natural language processing, environmental monitoring, and autonomous systems. As models grow in size and complexity, their performance continues to improve, often reaching or surpassing human-level capabilities in specific tasks. However, these achievements have come at a growing environmental cost. The training and deployment of state-of-the-art neural networks demand vast computational resources and energy, contributing to significant carbon footprints~\cite{strubell2019energy,lacoste2019quantifying,bender2021stochastic,xu2021survey,patterson2021carbon,luccioni2023counting,kaack2022aligning}.
+Recent studies show that energy usage and emissions vary widely depending on model architecture, dataset size, hardware infrastructure, and even geographic location of execution~\cite{patterson2022plateau,luccioni2022bloom}.
+In response, standardized benchmarks, such as MLPerf Tiny, have begun to incorporate energy measurements to assess efficiency under realistic deployment conditions~\cite{banbury2021mlperf}.
+In a world of limited environmental resources, the ever-growing energy required to power AI has become a pressing concern, making sustainability a central dimension of AI research~\cite{henderson2020systematic,schwartz2020green}.
+
+Rather than framing this trend solely as a cause of concern, the field is now embracing a proactive paradigm, referred to as \emph{Green AI}~\cite{schwartz2020green,verdecchia2023systematic}. This research line promotes the development of AI systems that are not only accurate and effective but also energy-conscious and efficient. Recent surveys have highlighted advances across lightweight architectures, efficient training and inference strategies, model compression, and hardware-aware optimizations~\cite{xu2021survey,mehlin2023towards,tripp2024measuring,yarally2023uncovering}. Evidence increasingly points in the direction of energy improvements not necessarily implying a degradation of accuracy~\cite{cruz2025greening}.
+
+Beyond algorithmic efficiency, research in software sustainability has shown that the choice of programming language itself can have a substantial impact on energy usage~\cite{pereira2021ranking,georgiou2017analyzing,pereira2017energy,gordillo2024ranking,nanz2015comparative,chandra2019impact,mahadevappa2021energy,maleki2017understanding}. Nevertheless, while both Green AI and the environmental sustainability of programming languages have been independently investigated, their intersection remains largely unexplored.
+A first step was made by Georgiou \etal~\cite{georgiou2022green}, who analyzed the energy footprint of Deep Learning frameworks within Python, and by Marini \etal~\cite{marini2025green}, who studied the impact of programming languages in AI workloads.
+
+For a practitioner, however, a programming language is inseparable from its \emph{ecosystem}. Choosing a language for DL typically implies adopting a specific software stack, including language bindings, frameworks/libraries, runtimes/execution engines, and low-level driver/toolchain dependencies.
+As a result, in real-world settings it is often more meaningful to evaluate \emph{language--framework ecosystems} as they are adopted in practice, rather than attempting to isolate a ``pure'' language effect under synthetic, fully standardized conditions.
+
+Yet, to the best of our knowledge, no prior work has systematically examined this ecosystem-level dimension across multiple language-based DL stacks in the context of GPU-based DL, where frameworks, execution engines, toolchains, and dataset complexity can introduce substantial variability~\cite{weber2023twins}.
+
+This paper addresses this gap by presenting a large-scale empirical study on \emph{the impact of language--framework ecosystems on the energy efficiency of DL workloads}.
+To achieve our goal, we consider two widely adopted convolutional neural networks (ResNet-18 and VGG-16) across six language-based ecosystems (Python, C++, Java, R, MATLAB, and Rust), three popular Python frameworks (PyTorch, TensorFlow, and JAX), and three heterogeneous datasets (Fashion-MNIST, CIFAR-100, and Tiny ImageNet).
+Energy measurements are collected on a dedicated NVIDIA L40S GPU server using the \texttt{CodeCarbon} toolkit, improving cross-ecosystem comparability under controlled execution conditions.
+Since each ecosystem relies on its officially supported runtime, CUDA/cuDNN toolchains may differ across stacks. We interpret the observed differences at the ecosystem level.
+
+Our results reveal substantial differences across ecosystems.
+During training, average energy usage ranges from 0.0009~J (Rust ecosystem) to 0.0040~J (Java ecosystem), a 4.6$\times$ gap, while execution time varies from 8.8~s to more than 102~s, an 11$\times$ slowdown.
+In the inference phase, the C++ ecosystem achieves the lowest average energy consumption (6.8$\times 10^{-5}$~J) and is also the fastest (1.6~s), outperforming the R ecosystem, which is both the worst energy consumer (5.0$\times 10^{-4}$~J) and the slowest (13.3~s), by 7.3$\times$ and 8.4$\times$, respectively.
+These findings highlight that ecosystem selection---often perceived as a secondary engineering choice---can critically shape the energy profile of DL applications, and that efficiency rankings may differ between training and inference.
+
+The contributions of this work are as follows:
+\begin{itemize}
+    \item A systematic empirical comparison of deep-learning energy consumption across multiple language--framework ecosystems for GPU-based DL workloads;
+    \item A statistical and discursive interpretation of the observed trade-offs between training and inference phases;
+    \item A comprehensive replication package, including all data, scripts, and settings required to fully reproduce our results.\footnote{Replication package available at: \url{https://zenodo.org/records/17734884}}
+\end{itemize}
+
+Improving the energy efficiency of AI systems is not just a technical challenge but also an ethical imperative as the field matures and scales~\cite{dodge2022efficient}.
+In this regard, providing concrete empirical evidence on the energy consumption of different language--framework ecosystems represents a crucial first step towards the development of AI that is not only powerful, but also truly sustainable.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Background}
+\label{sec:background}
+
+The notion of \emph{Green AI}~\cite{schwartz2020green,verdecchia2023systematic,cruz2025greening} promotes the development of AI systems that are not only accurate but also energy-efficient and sustainable.
+Several indicators can be used to quantify sustainability, such as carbon footprint, financial cost, or energy usage~\cite{kaack2022aligning,patterson2021carbon}.
+In this work we focus on \textbf{energy consumption}, measured in Joules, as it represents a direct and reproducible measure of computational effort.
+Unlike carbon footprint, which is heavily influenced by the energy mix and geographic location of execution, energy consumption can be compared more consistently across heterogeneous DL stacks under a uniform measurement protocol.
+
+We deliberately refrain from analyzing execution time as a primary metric, since lower runtime does not necessarily translate into lower energy consumption~\cite{weber2023twins,rua2024large,pereira2021ranking}.
+In fact, prior studies and preliminary results in our work reveal that execution time and energy usage can diverge significantly across DL ecosystems.
+While we do not provide a full-fledged statistical analysis of this phenomenon, we highlight the observed \emph{energy--time trade-off} in Section~\ref{sec:results} and outline it as a key direction for future research.
+
+\textbf{Deep Learning workloads} are typically divided into two distinct phases: training and inference.
+\emph{Training} requires iterative updates of model parameters through backpropagation and is generally the most computationally expensive stage.
+\emph{Inference}, by contrast, involves only forward passes on a trained model and is usually less resource demanding.
+Both phases, however, display different energy profiles---\ie optimizations in one phase do not necessarily carry over to the other~\cite{mehlin2023towards,tripp2024measuring}.
+This motivates the need to analyze the two phases separately when evaluating their energy efficiency.
+
+\textbf{Language--framework ecosystems} may influence the energy efficiency of DL workloads through a combination of factors, including framework execution engines, runtime overheads, data input pipelines, numerical precision policies, and the underlying driver/toolchain configuration.
+While compiled and interpreted languages differ in their execution models, in GPU-based DL workloads much of the computation is typically delegated to optimized backend kernels; therefore, differences observed in practice should be interpreted at the \emph{ecosystem level} rather than attributed to the programming language alone.
+Moreover, some ecosystems (e.g. MATLAB with its Deep Learning Toolbox, or Java with Deeplearning4j) introduce additional runtime layers compared to lower-level bindings (e.g. LibTorch in C++ or \texttt{torch} in R), which can affect both performance and energy behavior.
+Understanding these ecosystem-level differences is crucial, since language choice is often treated as a secondary engineering decision, yet in practice it constrains the set of available frameworks, runtimes, and supported toolchains, ultimately affecting the energy profile of DL model training and inference.
+
+\textbf{Software-based energy profiling} has emerged as a robust and widely accepted methodology in recent Green AI research, particularly when fine-grained attribution to specific hardware components (e.g. isolating GPU draw from total system power) is required~\cite{dodge2022efficient,patterson2022plateau}.
+To capture energy usage across this heterogeneous landscape, we adopt the \texttt{CodeCarbon} toolkit~\cite{lacoste2019quantifying}, which estimates CPU, GPU, and memory consumption by interfacing with low-level system utilities.
+Software-based profilers have become standard in sustainability-oriented AI research~\cite{dodge2022efficient,patterson2022plateau}, as they enable reproducible, large-scale, and cross-ecosystem comparisons---an essential requirement for this study.
+The reliability of \texttt{CodeCarbon} as a measurement tool for ML and DL workloads is well-documented in high-impact studies, ranging from model compression analysis~\cite{paula2025comparative} and optimizer efficiency benchmarks~\cite{patterson2025optimizer} to large-scale evaluations of Large Language Models~\cite{llmgreen2024} and cybersecurity systems~\cite{cybergreen2026}.
+Recent comparative studies have also employed \texttt{CodeCarbon} alongside sensor-based tools (e.g. hardware wattmeters) within the same experimental setup, showing that software-based estimates can closely track sensor readings in controlled settings while exhibiting larger deviations under heterogeneous infrastructures~\cite{aquino2025energyindex,bouza2023carbonfootprint}.
+
+At the same time, indipendent validation work compares estimator-based measurements---including \texttt{CodeCarbon}---against external ground-truth across hundreds of AI experiments, and reports that software estimators can exhibit errors up to 40\%, and that dynamic estimation can systematically underestimate consumption by about 20--30\% in some settings~\cite{fischer2025groundtruthing}.
+Accordingly, we treat software-based energy tracking as a practical proxy for comparing computational effort under a uniform protocol and interpret results primarily through relative comparisons within our experimental setting.
+Limitations of estimator-based measurements and their implications for absolute values are discussed explicitly in Section~\ref{sec:threats}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Research Methodology}
+\label{sec:methodology}
+
+This work adopts an empirical methodology grounded in the principles of software engineering empirical experimentation~\cite{feldt2010validity,ampatzoglou2019identifying,sjoberg2023construct,verdecchia2023threats}.
+Our objective is not to propose a new algorithm or framework, but to systematically analyze how choosing among language--framework ecosystems (including their supported runtime and toolchain) can impact the energy efficiency of DL workloads.
+To this end, we designed an \textit{in vitro} controlled experiment that treats ecosystems as independent variables, DL workloads as experimental objects, and energy consumption as the primary dependent variable~\cite{basili1994gqm,cook1979quasi,campbell1963experimental}.
+
+\textbf{Research goal and questions.}
+Following the Goal-Question-Metric (GQM) paradigm~\cite{basili1994gqm}, our goal is formulated as:
+\begin{quote}
+    \emph{Analyze} DL training and inference, \\
+    \emph{for the purpose of} quantifying and comparing their energy consumption, \\
+    \emph{with respect to} the choice of DL ecosystems (i.e. language bindings, frameworks/libraries, supported runtimes/execution engines, and associated toolchains), \\
+    \emph{from the viewpoint of} software engineering researchers and practitioners, \\
+    \emph{in the context of} computer vision image classification workloads.
+\end{quote}
+
+\textbf{Research questions.}
+This study investigates how language--framework ecosystem selection influences the energy efficiency of Deep Learning (DL) workloads.
+We focus on three key questions:
+
+\begin{itemize}
+    \item \textbf{RQ1:} \textit{How does language--framework ecosystem choice affect the energy efficiency of DL \emph{training}?}
+    \item \textbf{RQ2:} \textit{How does language--framework ecosystem choice affect the energy efficiency of DL \emph{inference}?}
+    \item \textbf{RQ3:} \textit{How do energy efficiency and execution time relate across different DL ecosystems?}
+\end{itemize}
+
+\textbf{Objects of study.}
+We focus on convolutional neural networks (CNNs), which remain fundamental in modern computer vision tasks~\cite{xu2021survey,mehlin2023towards,tripp2024measuring}.
+Specifically, we consider two canonical architectures: ResNet-18~\cite{he2015resnet} and VGG-16~\cite{simonyan2014vgg}.
+These models are selected not only for their distinct computational characteristics (residual connections vs. sequential depth), but primarily because they are natively provided \emph{off-the-shelf} by the vast majority of DL frameworks.
+By relying on these standard, pre-implemented architectures, we ensure that our measurements capture the frameworks' internal optimizations and native performance, rather than introducing researcher-specific biases that would result from implementing the models from scratch.
+
+To account for varying workload complexity, we employ three widely utilized datasets.
+\emph{Fashion-MNIST} provides a lightweight baseline with 28$\times$28 grayscale images across 10 classes~\cite{xiao2017fashion}, and is often used as a modern drop-in replacement for MNIST\footnote{\url{https://github.com/zalandoresearch/fashion-mnist}}. It includes 60,000 training and 10,000 test images.
+\emph{CIFAR-100} increases complexity with 32$\times$32 color images across 100 categories, remaining a canonical benchmark for image classification~\cite{krizhevsky2009learning}, and comprises 50,000 training and 10,000 test images.
+\emph{Tiny ImageNet} represents a demanding workload with 64$\times$64 color images across 200 classes and 100,000 training and 10,000 test images, serving as a proxy for ImageNet-scale tasks~\cite{banbury2021mlperf}.
+
+All datasets were resized to a uniform resolution of 32$\times$32 pixels.
+This preserves the relative differences in complexity (grayscale vs. color, number of classes, dataset size) while removing input resolution as a confounding factor~\cite{marini2025green,georgiou2022green}.
+In addition, standardizing input size avoids the need to modify the final classification layer of the networks for each dataset, thus keeping model architectures fixed across experiments.
+This design choice not only improves comparability of results but also reflects realistic developer practice, where pre-trained or canonical models are often reused with minimal architectural modifications~\cite{cruz2025greening,verdecchia2023systematic}.
+Finally, a common resolution improves stability across frameworks, some of which (e.g. Burn for Rust, Deeplearning4j for Java) offer more reliable performance with standardized image sizes~\cite{pereira2021ranking,gordillo2024ranking}.
+Nevertheless, fixing a 32$\times$32 input resolution may interact with framework-specific memory and kernel selection strategies; therefore, conclusions should not be extrapolated to higher-resolution workloads without additional experiments.
+
+\textbf{Independent and dependent variables.}
+Our primary independent variable is the \emph{DL ecosystem}, i.e. the language--framework stack as adopted in practice (including its officially supported runtime and CUDA/cuDNN toolchain). In our design, each ecosystem is treated as a single categorical treatment; we do not attempt to decompose effects into separate contributions of language, framework, runtime, or toolchain.
+Specifically, we evaluate eight language-based ecosystems: Python (\texttt{PyTorch}, \texttt{TensorFlow}, \texttt{JAX}), C++ (\texttt{LibTorch}), Java (\texttt{Deeplearning4j}), R (\texttt{torch}), MATLAB (\texttt{Deep Learning Toolbox}), and Rust (\texttt{tch}).
+A second independent variable is the \emph{DL phase} (training and inference).
+Our dependent variable is the \emph{total energy consumption} of each run, measured in Joules at the level of CPU, GPU, and memory~\cite{patterson2021carbon,dodge2022efficient,luccioni2023counting}.
+
+
+\textbf{Study design.}
+We adopt a \emph{black-box design}: models are executed using off-the-shelf implementations under identical hyperparameters (e.g. learning rate, batch size)~\cite{pereira2017energy,georgiou2017analyzing,rua2024large}.
+This choice enforces the realism of the study by reflecting how practitioners use frameworks \emph{in vivo}, rather than relying on ad-hoc or reimplemented versions.
+
+By keeping hyperparameters constant, we implement a controlled \emph{fixed-budget} comparison across ecosystems (i.e. identical training recipe and number of epochs). This design ensures a fair baseline comparison in which we minimize the risk of introducing researcher-specific implementation biases, thereby improving comparability; however, it does not guarantee convergence equivalence across frameworks.
+This represents an explicit trade-off: allowing per-ecosystem hyperparameter tuning could yield better absolute efficiency for each stack, but would confound whether differences stem from the ecosystem itself or from the tuning process.
+
+Moreover, we treat framework-level execution engines and optimizations (e.g. graph compilation, runtime schedulers, backend kernels) as \emph{part of the ecosystem} rather than normalizing them away.
+As a consequence, observed differences should be interpreted as ecosystem-level effects, not as isolated language-level behavior.
+
+\textbf{Numerical precision policy.}
+We retained the default numerical precision and mixed-precision policies of each ecosystem (e.g. FP32 vs mixed precision), treating them as part of the ecosystem-level behavior observed in practice.
+Consequently, differences in precision paths may contribute to measured energy and execution time; we therefore avoid attributing observed effects to the programming language alone.
+
+\textbf{Measurement procedure.}
+Energy usage is monitored with the \texttt{CodeCarbon} toolkit~\cite{lacoste2019quantifying}, which integrates with system utilities to estimate CPU, GPU, and memory consumption.
+The tool reports Joule-level estimates at fixed sampling intervals~\cite{patterson2022plateau}.
+To preserve the integrity of the observed performance, our data aggregation strategy is deliberately inclusive.
+Instead of filtering out runtime anomalies or performance spikes, we incorporate all completed executions to capture the full spectrum of each ecosystem’s behavior.
+This approach ensures that the results reflect not only best or worst-case efficiency, but also the actual reliability and systemic overhead of the execution environment as experienced by practitioners.
+
+Runs are executed on dedicated hardware, and energy is measured for each epoch in both training and inference phases, allowing us to observe intra-run variability and aggregate results across the full learning process~\cite{tripp2024measuring,mehlin2023towards}.
+Energy measurements are then analyzed statistically to compare ecosystems both within and across DL phases~\cite{georgiou2022green,marini2025green}.
+Reported values correspond to the \emph{mean energy consumption} across the 30 epochs per run (epoch-level measurements), attributed separately to training and inference phases~\cite{lacoste2019quantifying,tripp2024measuring,banbury2021mlperf}. We treat epochs as repeated measurements within a fixed-budget protocol to obtain stable within-run averages.
+The selection of 30 epochs constitutes a pragmatic compromise to (i) reduce transient effects such as memory allocation, cache warm-up, and one-time initialization overheads, and (ii) provide a stable average under a fixed-budget protocol.
+
+Finally, each run is fully logged, with metadata on dataset, model, language, framework, and phase, ensuring traceability and enabling later reanalysis~\cite{verdecchia2023threats,ampatzoglou2019identifying}.
+
+\textbf{Reproducibility and rigor.}
+We fixed pseudo-random seeds for data shuffling and model initialization where supported by the ecosystem.
+Nevertheless, full determinism cannot be guaranteed across all stacks due to non-deterministic GPU kernels and differences in backend execution engines.
+
+A complete replication package is provided (see replication package link in Section~\ref{sec:intro}), including: (i) source code for all implementations, (ii) scripts to reproduce runs, (iii) environment specifications (e.g. virtual environments, Maven, CMake), and (iv) collected raw data~\cite{cruz2025greening,verdecchia2023systematic}.
+Configurations are standardized across languages where feasible, with deviations documented when framework-specific requirements arise~\cite{pereira2021ranking,gordillo2024ranking}.
+This package enables replication, validation, and extension under different hardware or software conditions~\cite{feldt2010validity,sjoberg2023construct}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+\section{Experimental Execution}
+\label{sec:execution}
+
+This section describes the practical execution of the study, complementing the research design presented in Section~\ref{sec:methodology}.
+Here we document the experimental setup, implementation details, measurement procedure, and reproducibility package, following a step-by-step process to ensure transparency~\cite{feldt2010validity,verdecchia2023threats}.
+
+\textbf{Experimental setup.}
+All experiments were executed on a dedicated server equipped with an NVIDIA L40S GPU (Ada Lovelace architecture, 48GB GDDR6 ECC memory, 864GB/s bandwidth, 350W TDP), and two Intel Xeon Gold 5418Y CPUs ($2 \times 24$ cores, 48 cores / 96 threads total, 2.0GHz). The system provides 503GB of RAM and 1.8TB NVMe RAID1 SSD storage.
+The operating system is Ubuntu 22.04.5 LTS (kernel 5.15.0-142-generic), running NVIDIA drivers with CUDA runtime support.
+This setup reflects current high-performance configurations used in energy-aware AI benchmarking~\cite{patterson2021carbon,patterson2022plateau,tripp2024measuring}.
+
+\textbf{Model implementations.}
+To avoid threats to internal validity, we rely on canonical open-source implementations whenever possible~\cite{he2015resnet,simonyan2014vgg,xiao2017fashion,krizhevsky2009learning}.
+For Python, we use PyTorch (v2.6.0) with TorchVision (v0.21.0), TensorFlow (v2.16.1) with Keras (v3.11.3), and JAX (v0.4.22) with Flax (v0.11.1).
+For C++, we adopt LibTorch (v2.7.0).
+For Java, we use Deeplearning4j (v1.0.0-M2.1).
+For Rust, we employ the \texttt{tch} crate (v0.14.0).
+For R, we use \texttt{torch} (binding to LibTorch v0.15.1; CUDA 12.1; cuDNN 8.9).
+MATLAB uses its Deep Learning Toolbox (v14.6).
+%Julia implementations were attempted (Flux v0.16.4, Lux v1.16.0) but excluded due to unresolved numerical errors.
+
+Since each ecosystem requires different build toolchains and officially supported binaries, the underlying CUDA/cuDNN versions may vary across implementations.
+In Python, PyTorch, TensorFlow, and JAX rely on wheels bundled with precompiled CUDA/cuDNN runtimes (ranging from CUDA 12.0 to 12.3 with cuDNN 8.6--8.9).
+LibTorch (C++) is compiled against CUDA 12.8 and cuDNN 9.10.
+Deeplearning4j (Java) depends on ND4J CUDA bindings (CUDA 11.6, cuDNN 8.3).
+MATLAB uses the Parallel Computing Toolbox compiled with CUDA 11.8 and cuDNN 8.6, while R relies on the \texttt{torch} binding (v0.15.1) built on top of LibTorch (CUDA 12.1, cuDNN 8.9).
+Rust experiments are implemented with the \texttt{tch} crate (v0.14.0), built against CUDA 12.1 and cuDNN 8.9.
+By testing each framework with its officially supported or community-standard backend, we capture the realistic conditions under which practitioners use them ``in the wild''~\cite{cruz2025greening,verdecchia2023systematic}.
+
+During a preliminary pilot phase, the Julia programming language (using \texttt{Flux} and \texttt{Lux}) was also considered. However, persistent technical challenges encountered during implementation related to gradient updates during training, which remained unresolved also after directly contacting the developers of the libraries, prevented its reliable inclusion in the final study.
+
+Table~\ref{tab:frameworks} lists all ecosystems, frameworks/libraries, and versions considered in the study.
+
+\begin{table*}[t]
+\centering
+\caption{Ecosystems, frameworks/libraries, and versions used in the study.}
+\label{tab:frameworks}
+\begin{tabularx}{\linewidth}{l l l l}
+\toprule
+\textbf{Ecosystem} & \textbf{Framework / Library} & \textbf{Version} & \textbf{CUDA/cuDNN} \\
+\midrule
+Python  & PyTorch / TorchVision    & v2.6.0 / v0.21.0  & Bundled (CUDA 12.1, cuDNN 8.9) \\
+        & TensorFlow / Keras       & v2.16.1 / v3.11.3 & Bundled (CUDA 12.3, cuDNN 8.6) \\
+        & JAX / Flax               & v0.4.22 / v0.11.1 & Bundled (CUDA 12.0, cuDNN 8.9) \\
+C++     & LibTorch                 & v2.7.0            & CUDA 12.8, cuDNN 9.10 \\
+Java    & Deeplearning4j           & v1.0.0-M2.1       & ND4J CUDA backend (11.6, cuDNN 8.3) \\
+Rust    & \texttt{tch} crate       & v0.14.0           & CUDA 12.1, cuDNN 8.9 \\
+R       & \texttt{torch} (LibTorch binding) & v0.15.1 & CUDA 12.1, cuDNN 8.9 \\
+MATLAB  & Deep Learning Toolbox    & v14.6             & Bundled (CUDA 11.8, cuDNN 8.6) \\
+% Julia & Flux / Lux               & v0.16.4 / v1.16.0 & --- (excluded due to errors) \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\textbf{Procedure.}
+As summarized in Table~\ref{tab:hyperparams}, each experimental configuration (model $\times$ dataset $\times$ ecosystem) is executed with consistent hyperparameters tuned to balance comparability and realism~\cite{xu2021survey,mehlin2023towards}.
+Training runs are performed for 30 epochs with a batch size of 128, using the Adam optimizer with a fixed learning rate of $1 \times 10^{-4}$.
+Loss is computed via cross-entropy, consistent across all ecosystems.
+Input preprocessing includes resizing all images to $32 \times 32$ pixels, with grayscale datasets (e.g. Fashion-MNIST) expanded to three channels for compatibility with CNN backbones.
+These settings reflect canonical practices in the community while ensuring comparability across implementations~\cite{banbury2021mlperf,pereira2021ranking}.
+
+\textbf{Measurement.}
+Energy usage is monitored with the \texttt{CodeCarbon} toolkit (v3.0.4)~\cite{lacoste2019quantifying}.
+While \texttt{CodeCarbon} natively supports emission and energy tracking, we extended its usage with a custom \emph{daemon-based controller} to ensure robustness, reproducibility, and fine-grained attribution~\cite{dodge2022efficient}.
+Specifically, a lightweight Python daemon listens for \texttt{START}, \texttt{STOP}, and \texttt{EXIT} commands, dynamically instantiating or terminating \texttt{CodeCarbon} trackers.
+This design decouples the monitoring process from model execution, preventing crashes or logging interference across ecosystems~\cite{weber2023twins,rua2024large}.
+
+All runs are executed in isolation on the server to avoid interference from external workloads.
+Energy consumption is logged at epoch granularity, and logs are enriched with metadata including dataset, model, ecosystem identifier (language + framework/library), and DL phase (training vs inference), ensuring full traceability~\cite{ampatzoglou2019identifying,verdecchia2023threats}.
+
+Separate trackers are started and stopped for the training and evaluation phases of each epoch, enabling precise allocation of energy consumption to workload stages rather than reporting aggregate totals~\cite{tripp2024measuring,mehlin2023towards}.
+This daemonized setup provides a more reliable and fine-grained view of energy consumption trends across heterogeneous experimental conditions~\cite{georgiou2022green,marini2025green}.
+
+\textbf{Reproducibility.}
+To ensure transparency, a comprehensive replication package accompanies this study (see replication package link in Section~\ref{sec:intro}).
+It includes:
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{Source code} for all implementations, adapted where necessary from canonical open-source repositories;
+    \item \textbf{Automation scripts} to reproduce training and inference runs, ensuring identical hyperparameters across ecosystems;
+    \item \textbf{Environment specifications}, tailored to each ecosystem: \texttt{virtualenv}/\texttt{conda} for Python, Maven for Java, CMake for C++, \texttt{renv} for R, Live Scripts for MATLAB, and Cargo for Rust;
+    \item \textbf{Raw energy logs} and metadata for every run, enabling reanalysis and statistical validation~\cite{basili1994gqm,feldt2010validity}.
+\end{enumerate}
+Configurations are standardized across ecosystems where feasible, with deviations (e.g. CUDA/cuDNN toolchains; see Table~\ref{tab:frameworks}) explicitly documented.
+This package enables replication, validation, and extension of our results under heterogeneous hardware or software conditions~\cite{sjoberg2023construct,verdecchia2023threats}.
+The scripts used to download and convert the datasets are available in the \texttt{dataloader} module of our replication repository.\footnote{Available at: \url{https://zenodo.org/records/17734884}}
+
+\begin{table}[t]
+\centering
+\caption{Hyperparameter configuration used across all experiments.}
+\label{tab:hyperparams}
+\begin{tabular}{l l}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Number of epochs      & 30 \\
+Batch size            & 128 \\
+Optimizer             & Adam \\
+Learning rate         & $1 \times 10^{-4}$ \\
+Loss function         & Cross-entropy \\
+Input resolution      & $32 \times 32$ (all datasets) \\
+Input channels        & 3 (grayscale datasets expanded) \\
+Hardware parallelism  & GPU-enabled for all frameworks \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results}
+\label{sec:results}
+
+We now present the results of our empirical study, structured according to the research questions defined in Section~\ref{sec:methodology}.
+This granularity allows us to attribute consumption separately to training and inference phases (Section~\ref{subsec:rq1} and Section~\ref{subsec:rq2} respectively).
+Then, in Section~\ref{subsec:rq3}, we report the relationship between energy consumption and execution time, as it is not trivial~\cite{weber2023twins,rua2024large}.
+Finally, in Section~\ref{subsec:aggregated}, we assess the overall energy consumption of complete DL workloads.
+
+\subsection{RQ1: Impact of ecosystems on training energy efficiency}
+\label{subsec:rq1}
+
+Figure~\ref{fig:training_energy} and Table~\ref{tab:train_results} summarize energy consumption during model training across all evaluated ecosystems and datasets.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=1\textwidth]{images/results/energy__grouped__train.png}
+    \caption{Energy consumption during training across ecosystems, models, and datasets. Energy is measured in millijoules.}
+    \label{fig:training_energy}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Mean energy consumption and mean execution time during training.}
+\label{tab:train_results}
+\begin{tabular}{l
+                S[scientific-notation=true,table-format=1.2e-2]
+                S[table-format=3.2]}
+\toprule
+\textbf{Ecosystem} & {\textbf{Energy (J)}} & {\textbf{Time (s)}} \\
+\midrule
+Rust       & 8.79e-4 &   8.80 \\
+C++        & 1.16e-3 &  12.66 \\
+PyTorch    & 1.46e-3 &  12.58 \\
+JAX        & 1.52e-3 &  13.70 \\
+MATLAB     & 3.43e-3 &  35.08 \\
+TensorFlow & 3.81e-3 &  39.84 \\
+R          & 3.91e-3 & 102.32 \\
+Java       & 4.02e-3 &  53.60 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Overall, results demonstrate that ecosystem selection can lead to substantial differences in training energy efficiency:
+\begin{itemize}
+    \item \textbf{Rust} achieves the best results, with the lowest mean energy consumption ($8.8 \times 10^{-4}$~J).
+    \item \textbf{C++}, \textbf{PyTorch}, and \textbf{JAX} are comparable, with mean energy values around $1.0$--$1.5 \times 10^{-3}$~J.
+    \item \textbf{MATLAB} and \textbf{TensorFlow} exhibit higher mean training energy consumption. MATLAB consumes $3.4 \times 10^{-3}$~J (3.9$\times$ Rust), while TensorFlow consumes $3.8 \times 10^{-3}$~J, i.e. at least 2.5$\times$ higher than other Python ecosystems under the same fixed-budget protocol.
+    \item \textbf{R} and \textbf{Java} are the least energy-efficient ecosystems during training in our setting. R requires $3.9 \times 10^{-3}$~J, while Java reports $4.0 \times 10^{-3}$~J (4.6$\times$ Rust).
+\end{itemize}
+
+Furthermore, as can be seen in Figure~\ref{fig:training_energy}, inefficiencies tend to amplify with increasing workload, increasing the practical relevance of ecosystem choice. Differences as dataset complexity varies (CIFAR-100, Fashion-MNIST, Tiny ImageNet) are examined in Section~\ref{subsec:aggregated}.
+
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ1 Findings: Impact of Ecosystems on Training Energy Efficiency}]
+\small
+Across our evaluated language--framework ecosystems, mean training energy consumption differs by multiple factors (up to 4.6$\times$ between the best and worst ecosystems in our setting).
+Lower-energy ecosystems (Rust, C++/LibTorch, and Python/PyTorch--JAX) form a tight cluster, whereas Java and R exhibit substantially higher energy under the same fixed-budget protocol.
+\end{tcolorbox}
+
+\subsection{RQ2: Impact of ecosystems on inference energy efficiency}
+\label{subsec:rq2}
+
+Figure~\ref{fig:inference_energy} and Table~\ref{tab:inference_results} report energy consumption during inference across all evaluated ecosystems and datasets.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=1\textwidth]{images/results/energy__grouped__eval.png}
+    \caption{Energy consumption during inference across ecosystems, models, and datasets. Energy is measured in microjoules (since inference consumes significantly less energy than training).}
+    \label{fig:inference_energy}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Mean energy consumption (J) and mean execution time (s) during inference.}
+\label{tab:inference_results}
+\resizebox{0.7\columnwidth}{!}{%
+\begin{tabular}{lcc}
+\toprule
+\textbf{Ecosystem} & \textbf{Energy (J)} & \textbf{Time (s)} \\
+\midrule
+C++        & 6.84e$^{-5}$ & 1.58 \\
+MATLAB     & 1.48e$^{-4}$ & 3.09 \\
+PyTorch    & 1.75e$^{-4}$ & 1.85 \\
+JAX        & 2.24e$^{-4}$ & 2.44 \\
+Java       & 2.49e$^{-4}$ & 4.00 \\
+Rust       & 3.43e$^{-4}$ & 3.35 \\
+TensorFlow & 4.61e$^{-4}$ & 5.06 \\
+R          & 4.98e$^{-4}$ & 13.34 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+Compared to training, inference exhibits a different efficiency ranking:
+\begin{itemize}
+    \item \textbf{C++} is the most energy-efficient ecosystem for inference, with an average consumption of $6.8 \times 10^{-5}$~J.
+    \item \textbf{MATLAB} and \textbf{PyTorch} record low values ($1.5$--$1.7 \times 10^{-4}$~J), but still more than 2$\times$ the energy consumed by C++.
+    \item \textbf{JAX} and \textbf{Java} form a middle tier, with energy costs between $2.2$--$2.5 \times 10^{-4}$~J.
+    \item \textbf{Rust} performs worse in inference than in training (mean $3.4 \times 10^{-4}$~J), showing that training-phase advantages do not necessarily carry over to inference within the same ecosystem.
+    \item \textbf{TensorFlow} and \textbf{R} are the least energy-efficient ecosystems during inference in our setting. TensorFlow consumes $4.6 \times 10^{-4}$~J, while R reaches $5.0 \times 10^{-4}$~J (7.3$\times$ C++).
+\end{itemize}
+
+These results show that efficiency rankings differ across ecosystems and across lifecycle phases (training and inference).
+Therefore, optimizing energy consumption requires phase-aware decisions rather than relying on a single global ranking.
+
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ2 Findings: Impact of Ecosystems on Inference Energy Efficiency}]
+\small
+Inference results reveal a reshuffling of efficiency rankings compared to training.
+C++ is the most energy-efficient inference ecosystem; the next best (MATLAB and PyTorch) consume roughly 2$\times$ as much energy in our setting.
+Conversely, Rust, which dominates energy efficiency in training, now ranks among the worst. R continues to perform the poorest, consuming 7.6× more energy than C++.
+\end{tcolorbox}
+
+\subsection{RQ3: Energy-time relationship across ecosystems}
+\label{subsec:rq3}
+
+Table~\ref{tab:train_results} and Table~\ref{tab:inference_results} also report the average execution times during training and inference, respectively.
+
+Looking across ecosystems, we observe that \emph{energy consumption and execution time do not correlate in a trivial way}, suggesting that different stacks may induce different utilization regimes of the underlying hardware and runtime components.
+
+In Table~\ref{tab:train_results}, \textbf{Rust} also has the fastest training time ($8.8$~s).
+In contrast, the slowest ecosystem is \textbf{R} ($102.3$~s), nearly twice the execution time of \textbf{Java} ($53.6$~s), even though Java is the least energy-efficient ecosystem during training.
+
+In inference (Table~\ref{tab:inference_results}), runtimes vary considerably for similar energy usages.
+\textbf{C++} is the most efficient option also in terms of execution time ($1.6$~s on average).
+\textbf{MATLAB} is slower ($3.09$~s) than \textbf{PyTorch} ($1.8$~s) despite lower energy efficiency.
+A comparable pattern is observed for \textbf{R} ($13.3$~s) and \textbf{TensorFlow} ($5.1$~s), whose runtimes differ by $2.6 \times$ despite relatively close energy consumption.
+
+\subsubsection{Energy--time relationship}
+Figure~\ref{fig:energy_time_tradeoff} depicts the joint distribution of energy consumption and execution time for both training and inference across ecosystems.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{images/results/scatter_train_eval.png}
+    \caption{Energy--time trade-off across training (left) and inference (right).
+    Each point represents a model--dataset--ecosystem configuration.
+    The background quadrants indicate different efficiency regimes:
+    \textbf{green (bottom-left)} = fast and energy-efficient;
+    \textbf{yellow (bottom-right)} = slow but relatively frugal;
+    \textbf{orange (top-left)} = fast but energy-intensive;
+    \textbf{red (top-right)} = both slow and wasteful.}
+    \label{fig:energy_time_tradeoff}
+\end{figure*}
+
+The scatter plots show a non-trivial relationship between execution time and energy consumption.
+Configurations can be fast and frugal (bottom-left), slow but frugal (bottom-right), fast but energy-intensive (top-left), or both slow and energy-intensive (top-right).
+The quadrant coloring is intended as a qualitative visual aid rather than a statistical partition.
+In detail:
+
+\begin{itemize}
+    \item \textbf{C++} and \textbf{PyTorch} frequently occupy the bottom-left region in both training and inference.
+    \item \textbf{Rust} achieves fast execution but appears higher on the energy axis during inference, effectively shifting toward the top-left region.
+    \item \textbf{JAX} is competitive during training (often bottom-left), while its inference configurations show wider dispersion across energy and time, indicating higher sensitivity to configuration/runtime effects within our setup.
+    \item \textbf{MATLAB} shows contrasting behavior, especially during training, spanning from bottom-left to top-right.
+    \item \textbf{TensorFlow} is largely concentrated in the top-right region in both phases, indicating higher energy and time costs than other Python ecosystems in our setting.
+    \item \textbf{Java} and especially \textbf{R} cluster in the top-right region for both training and inference; R is the most extreme case, combining high energy with the longest execution times.
+\end{itemize}
+
+Overall, these results highlight that \emph{faster is not always greener}.
+Execution time alone is therefore an unreliable proxy for sustainability, and energy must be measured directly.
+
+\subsubsection{Efficiency Index of Deep Green AI}
+To provide a unified view of sustainability, we define a multi-objective Efficiency Index ($\text{EI}$) that balances energy consumption and execution time at the ecosystem level.
+For each ecosystem $k$ (within each phase), we compute:
+\[
+\text{EI}_k = \alpha \cdot \frac{\bar{E}_k}{\min_h(\bar{E}_h)} + (1-\alpha) \cdot \frac{\bar{T}_k}{\min_h(\bar{T}_h)}, \quad \alpha = 0.5,
+\]
+where $\bar{E}_k$ and $\bar{T}_k$ denote the mean energy consumption (Joules) and mean execution time (seconds) of ecosystem $k$, and the minima are taken over all ecosystems within the same phase (training or inference).
+Thus, the ecosystem that is best on both dimensions attains $\text{EI}=1.0$, while higher values indicate proportionally worse trade-offs.
+
+Tables~\ref{tab:efficiency_train} and \ref{tab:efficiency_eval} report the multi-objective Efficiency Indices for training and inference, respectively.
+
+\begin{table}[t]
+\centering
+\caption{Multi-objective Efficiency Index during \emph{training}. 
+The index combines normalized energy and time ($\alpha=0.5$). Lower is better.}
+\label{tab:efficiency_train}
+\resizebox{0.9\columnwidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+\textbf{Ecosystem} & \textbf{Norm. Energy} & \textbf{Norm. Time} & \textbf{Efficiency Index} \\
+\midrule
+Rust       & 1.00 &  1.00 & 1.00 \\
+C++        & 1.32 &  1.44 & 1.38 \\
+PyTorch    & 1.66 &  1.43 & 1.55 \\
+JAX        & 1.73 &  1.56 & 1.65 \\
+MATLAB     & 3.90 &  3.99 & 3.95 \\
+TensorFlow & 4.34 &  4.53 & 4.43 \\
+Java       & 4.57 &  6.09 & 5.33 \\
+R          & 4.44 & 11.63 & 8.04 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Multi-objective Efficiency Index during \emph{inference}. 
+The index combines normalized energy and time ($\alpha=0.5$). Lower is better.}
+\label{tab:efficiency_eval}
+\resizebox{0.9\columnwidth}{!}{
+\begin{tabular}{lccc}
+\toprule
+\textbf{Ecosystem} & \textbf{Norm. Energy} & \textbf{Norm. Time} & \textbf{Efficiency Index} \\
+\midrule
+C++        & 1.00 & 1.00 & 1.00 \\
+PyTorch    & 2.55 & 1.17 & 1.86 \\
+MATLAB     & 2.16 & 1.96 & 2.06 \\
+JAX        & 3.28 & 1.55 & 2.41 \\
+Java       & 3.64 & 2.54 & 3.09 \\
+Rust       & 5.02 & 2.13 & 3.58 \\
+TensorFlow & 6.75 & 3.21 & 4.98 \\
+R          & 7.28 & 8.47 & 7.87 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+
+\begin{itemize}
+    \item During \emph{training}, \textbf{Rust} achieves the best balance between time and energy ($\text{EI}=1.0$).
+    \textbf{C++}, \textbf{PyTorch}, and \textbf{JAX} follow closely (roughly $1.3 \leq \text{EI} \leq 1.7$).
+    In contrast, \textbf{MATLAB} and \textbf{TensorFlow} perform about 4$\times$ worse under the combined metric.
+    \textbf{Java} shows an even higher combined penalty ($\text{EI}\approx 5.3$), while \textbf{R} remains the least efficient ecosystem ($\text{EI}\approx 8.0$).
+    \item During \emph{inference}, \textbf{C++} dominates ($\text{EI}=1.0$), while \textbf{PyTorch} (1.9) and \textbf{MATLAB} (2.1) remain competitive.
+    \textbf{JAX} and \textbf{Java} are mid-range ($2.4 \leq \text{EI} \leq 3.1$), whereas \textbf{Rust} drops in relative efficiency (3.6).
+    Finally, \textbf{TensorFlow} approaches $\text{EI}\approx 5$, and \textbf{R} again emerges as the least efficient ecosystem (7.9).
+\end{itemize}
+
+This representation confirms that training and inference exhibit markedly different patterns; therefore, sustainability must be evaluated across phases, as rankings are not maintained.
+
+\subsubsection{Energy, Time, and Efficiency Index}
+Tables~\ref{tab:efficiency_train} and \ref{tab:efficiency_eval} also report normalized values of energy (\texttt{Norm. Energy}) and time (\texttt{Norm. Time}).
+
+Under the combined view of Table~\ref{tab:efficiency_train}, \textbf{R} emerges as the least efficient ecosystem during training; its long training time does not compensate for the modest energy difference compared to \textbf{Java}.
+In contrast, \textbf{C++} becomes a more favorable choice than \textbf{PyTorch} under $\text{EI}$, reflecting its lower energy under a small time penalty.
+
+In Table~\ref{tab:efficiency_eval}, \textbf{PyTorch} benefits from its execution time and climbs the ranking, surpassing \textbf{MATLAB} in inference.
+Conversely, \textbf{MATLAB} and \textbf{Java}, while being slower than \textbf{JAX} and \textbf{Rust} respectively, can outperform them under $\text{EI}$ due to better energy efficiency.
+
+Overall, these results show that ecosystem selection affects DL efficiency along multiple dimensions, and a combined view can change the preference ordering compared to energy-only or time-only rankings.
+
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ3 Findings: Energy-Time Relationship across ecosystems}]
+\small
+Results highlight the necessity of directly measuring energy consumption, and support that \emph{faster is not always greener}.
+The best training trade-off is achieved by Rust/tch, followed by a cluster of ecosystems (C++/LibTorch, Python/PyTorch, Python/JAX) with relatively small degradations under $\text{EI}$.
+In inference, C++/LibTorch dominates, while other ecosystems can shift positions depending on whether energy or time is emphasized.
+\end{tcolorbox}
+
+\subsection{Aggregated perspective of DL phases through energy}
+\label{subsec:aggregated}
+
+By combining training and inference results, we derive an overall picture of how ecosystem choice influences DL energy efficiency.
+Figure~\ref{fig:energy_heatmap} reports normalized energy consumptions across ecosystems and datasets.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/results/heatmap_all.png}
+    \caption{Heatmap of normalized energy consumption across ecosystems and datasets (training + inference aggregated).
+    For each dataset, energy values are normalized by the maximum observed value across ecosystems (i.e. $\tilde{E}_{k,d} = E_{k,d} / \max_h E_{h,d}$).
+    Darker cells indicate higher relative energy usage.}
+    \label{fig:energy_heatmap}
+\end{figure*}
+
+This perspective highlights the stability of each ecosystem in terms of relative energy consumption across the entire DL workload as dataset size increases--from \emph{CIFAR-100}, and \emph{Fashion MNIST} to \emph{Tiny ImageNet}, representing an approximate 1.8$\times$ growth in sample count:
+
+\begin{itemize}
+    \item \textbf{Rust} and \textbf{C++} consistently achieve the best energy efficiency across all datasets.
+    For CIFAR-100, both record the lowest normalized energy usage (0.05).
+    With Fashion-MNIST, values remain stable (Rust 0.05, C++ 0.06).
+    For Tiny ImageNet, C++ (0.11) slightly outperforms Rust (0.12), suggesting marginally better scaling in this aggregated view.
+
+    \item \textbf{JAX} and \textbf{PyTorch} exhibit intermediate but stable performance.
+    Their normalized energy remains low on CIFAR-100 (both 0.07) and increases modestly on Fashion-MNIST (JAX 0.07, PyTorch 0.08).
+    On Tiny ImageNet, PyTorch (0.14) scales slightly better than JAX (0.17).
+
+    \item \textbf{MATLAB} and \textbf{TensorFlow} show higher sensitivity to dataset size, with normalized energy increasing substantially as complexity grows.
+    MATLAB increases from 0.12 (CIFAR-100) to 0.14 (Fashion-MNIST) and 0.37 (Tiny ImageNet).
+    TensorFlow follows a steeper trend (0.17, 0.20, 0.41).
+
+    \item \textbf{Java} and \textbf{R} consistently rank among the least energy-efficient ecosystems, though their ordering varies across datasets.
+    While their absolute inefficiency remains high, their degradation rates across datasets appear less steep than MATLAB and TensorFlow in this specific normalization.
+\end{itemize}
+
+Overall, energy consumption increases with dataset complexity, but the magnitude of this effect depends on the ecosystem. This reinforces that, when selecting an ecosystem for an end-to-end workload (i.e. both training and inference), its suitability for the size of the dataset must also be taken into account.
+
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{Other Findings: Energy Efficiency Degradation Across Ecosystems}]
+\small
+Results confirm that energy usage increases with dataset complexity, though the magnitude of this effect depends on the ecosystem.
+Some ecosystems degrade more gently (e.g. C++, PyTorch in this aggregated view), while others scale sharply (e.g. MATLAB, TensorFlow), and some remain consistently high with comparatively limited dependence on dataset size (e.g. Java, R) under the adopted normalization.
+\end{tcolorbox}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Discussion}
+\label{sec:discussion}
+
+Our study highlights that the energy efficiency of DL workloads is not only a matter of algorithmic or hardware design, but is also materially influenced by the \emph{choice of language--framework ecosystem} (i.e. the adopted stack, including frameworks/libraries, runtimes, and toolchains)~\cite{georgiou2022green,marini2025green,pereira2021ranking,gordillo2024ranking}.
+In this section, we interpret the results in light of their broader implications, and discuss lessons learned for different stakeholders.
+
+\subsection{Interpretation of Results}
+The experiments reveal three main insights.
+
+\textbf{Phase-dependent rankings.}
+First, our results show that efficiency rankings are phase-dependent: ecosystems that are highly efficient during training are not necessarily the most efficient during inference.
+In our setting, the Rust ecosystem attains the lowest mean energy consumption during training, whereas during inference the C++ ecosystem dominates, and Rust does not retain its training advantage.
+This indicates that optimizations (and overheads) can manifest differently across lifecycle phases, motivating phase-aware decisions rather than a single global ranking.
+
+\textbf{Ecosystem-level overheads amplify with workload scale.}
+Second, we observed that higher-consumption ecosystems (e.g. TensorFlow, Java, R in our experiments) exhibit substantially higher energy usage under the same fixed-budget protocol, and that differences tend to become more pronounced as workload complexity increases.
+While the exact causes cannot be isolated in a black-box study (they may include runtime layers, input pipelines, execution engines, backend kernel selection, and toolchain differences), the practical implication is clear: ecosystem overheads can become a first-order term at larger scales.
+Accordingly, these results should be interpreted as \emph{ecosystem-level} effects rather than attributed to the programming language alone.
+
+\textbf{Energy--time divergence.}
+Third, our data reveals a clear \emph{energy--time divergence}: faster execution does not guarantee lower energy consumption.
+This reinforces previous warnings against using execution time as a proxy for energy in sustainability evaluations~\cite{weber2023twins,cruz2025greening}.
+Taken together, the results suggest that energy usage is shaped not only by runtime, but by how each ecosystem exercises the full stack (framework execution, scheduling/compilation, libraries, and toolchain) under realistic conditions.
+
+\subsection{Implications for Stakeholders}
+Our findings carry different implications for different communities:
+
+\begin{itemize}
+ \item \textbf{Researchers:} Our results reinforce the need to treat energy as a primary evaluation metric, complementing accuracy and runtime~\cite{schwartz2020green,verdecchia2023systematic,cruz2025greening}.
+ Neglecting energy, or using runtime as its proxy, can lead to misleading conclusions about efficiency, especially when comparing heterogeneous ecosystems.
+
+ \item \textbf{Practitioners:} Developers face phase-specific trade-offs.
+ In our results, the most energy-efficient ecosystem for training is not the most efficient for inference, implying that "one stack for everything" can be suboptimal when workloads are inference-heavy or training-heavy.
+ In practice, ecosystem choice must balance \emph{environmental sustainability} (i.e. energy/time efficiency under the target phase mix) with \emph{organizational sustainability} (i.e. developer skill sets, tooling, long-term maintainability).
+ Notably, some widely adopted ecosystems can also be competitive in efficiency in our setting (e.g. PyTorch), but this should not be assumed as a general rule across hardware and toolchains~\cite{georgiou2022green,marini2025green}. 
+
+ \item \textbf{Framework designers:} The results highlight that efficiency stems from the \emph{ecosystem} as a whole (kernels, runtime engines, data pipeline, and toolchain compatibility), not from the surface language alone.
+ Therefore, delivering sustainable DL tooling requires attention to end-to-end stack engineering (and reproducible profiling) rather than focusing solely on API design.
+ Our pilot attempt to include Julia, which we excluded due to persistent technical issues, illustrates a pragmatic barrier: without sufficient ecosystem stability, potential benefits (including energy efficiency) remain difficult to realize in practice.
+
+ \item \textbf{Policy makers and funding agencies:} AI efficiency is a multifaceted construct involving trade-offs between accuracy, speed, energy, dataset complexity, and lifecycle phase.
+ We caution against adopting any single metric (including our Efficiency Index) as a target (Goodhart's Law).
+ Instead, policy should promote transparency via multi-dimensional reporting (e.g. separate energy/time for training and inference, accuracy, hardware/software stack details, and toolchain versions) to ensure results are comparable and auditable~\cite{henderson2020systematic,dodge2022efficient,kaack2022aligning}.
+\end{itemize}
+
+\subsection{AI Requires Explicit Energy Measurement}
+\label{sec:explicit_measurement}
+
+Our results show that ecosystem selection is not a neutral engineering choice, but a factor that can shift deep learning energy consumption by multiple factors in our setting (up to about 4.6$\times$ during training and 7.3$\times$ during inference, depending on the compared ecosystems).
+This study provides repeated empirical evidence that \textbf{faster is not always greener}, and that sustainable AI requires explicit measurement of energy, not just accuracy or runtime~\cite{weber2023twins,cruz2025greening,schwartz2020green}.
+
+Furthermore, our findings highlight that efficiency is not only about designing efficient models at a conceptual level, but also about delivering implementations that preserve this efficiency in practice.
+Our \emph{black-box evaluation} of off-the-shelf ecosystems is intentional: it reveals differences that would be obscured by hand-tuned or ad-hoc reimplementations, and mirrors how practitioners use frameworks \emph{in vivo}, supporting external validity~\cite{feldt2010validity,ampatzoglou2019identifying,sjoberg2023construct,verdecchia2023threats}.
+We also observed that dataset complexity can amplify inefficiencies, meaning sustainability evaluations must consider scaling effects rather than relying on small workloads alone~\cite{tripp2024measuring,banbury2021mlperf}.
+
+Finally, we provide a comprehensive replication package and a fine-grained dataset of our results.
+This resource offers concrete evidence and a baseline for framework designers and researchers to diagnose inefficiencies and guide the development of more energy-aware DL ecosystems~\cite{lacoste2019quantifying,verdecchia2023systematic}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{An Industrial Simulation of Deep Green AI Large-Scale Impact}
+\label{sec:scenario}
+
+To contextualize our empirical results in a hyperscale setting, we present an illustrative industrial scenario that translates our \emph{relative} ecosystem-level energy differences into approximate energy and cost impacts.
+This scenario is not intended as a direct estimate for any specific production system, model family, or hardware stack; rather, it shows how small per-workload gaps can compound at scale.
+
+\textbf{Relative multipliers.}
+For a given phase (training or inference) and ecosystem $k$, we define a phase-specific energy multiplier relative to any reference ecosystem $base$ as:
+\[
+m_k = \frac{\bar{E}_k}{\bar{E}_{\text{base}}},
+\]
+where $\bar{E}_k$ is the mean energy measured under our experimental protocol for that phase.
+Accordingly, $m_k$ should be interpreted as a \emph{relative energy-per-work} factor under our setup, not as a universal constant.
+
+Under the simplifying assumption that the ecosystem-level multiplier transfers to the same workload definition, for any baseline energy budget $\bar{E}_{\text{base}}$, the scaled energy is calculated as $\bar{E}_k = m_k \cdot \bar{E}_{\text{base}}$.
+
+\textbf{Training phase (illustrative scaling).}
+From Table~\ref{tab:train_results}, Rust and C++ consume on average $m_{\text{Rust}} \approx 0.60$ and $m_{\text{C++}} \approx 0.80$ of PyTorch's training energy under our protocol. If, for example, the PyTorch's \emph{training} energy budget is $E_{\text{PyTorch}}=1$~GWh, then the same run would be approximately 0.60~GWh in Rust (saving about 400~MWh) and 0.80~GWh in C++ (saving about 200~MWh).
+Assuming an electricity price of \SI{100}{\euro\per\mega\watt\hour}~\cite{kaack2022aligning}, this corresponds to roughly 40,000~\euro\ saved for that single training run in the Rust case.
+
+\textbf{Inference phase (hyperscale workload, fixed work).}
+Inference energy typically scales approximately linearly with the served workload volume when comparing stacks under a fixed service target (same number of requests/inferences).
+Let $E_{\text{PyTorch}}$ be the daily energy attributable to \emph{inference} when using PyTorch as baseline.
+We assume a deployment with $N=100{,}000$ GPUs running continuously for 24 hours, and assume an average inference-attributable power draw of $P_{\text{PyTorch}}=0.4$~kW per GPU, yielding $E_{\text{PyTorch}} = N \cdot P_{\text{PyTorch}} \cdot 24\text{h} = 960$~MWh/day.
+We then apply the inference multipliers $m_k$ from Table~\ref{tab:inference_results} to obtain the scenario-based daily energy and cost figures reported in Table~\ref{tab:industrial_inference}.
+
+Under these assumptions, migrating from PyTorch (96,000~€ per day) to C++ (37,500~€ per day) would cut costs by more than 50\%, amounting to annual savings in the tens of millions~\cite{patterson2021carbon,patterson2022plateau}.  
+Conversely, less efficient configurations (e.g., R or TensorFlow) would increase costs by 50–200\%.
+
+\begin{table*}[t]
+\tiny
+\centering
+\caption{Projected daily energy cost for large-scale inference (100k GPUs, 24h, electricity at \SI{100}{\euro\per\mega\watt\hour}). 
+Baseline: Python/PyTorch efficiency. Relative efficiency computed from mean inference energy (Table~\ref{tab:inference_results}).}
+\label{tab:industrial_inference}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Ecosystem} & \textbf{Relative Efficiency} & \textbf{Energy (MWh/day)} & \textbf{Cost (€)} & \textbf{Savings vs PyTorch (€)} \\
+\midrule
+PyTorch (Python)    & 1.00×  & 960  & 96,000  & – \\
+C++                 & 0.39×  & 375  & 37,500  & +58,500 \\
+MATLAB              & 0.85×  & 820  & 82,000  & +14,000 \\
+JAX (Python)        & 1.28×  & 1230 & 123,000 & -27,000 \\
+Java                & 1.43×  & 1370 & 137,000 & -41,000 \\
+Rust                & 1.97×  & 1890 & 189,000 & -93,000 \\
+TensorFlow (Python) & 2.64×  & 2540 & 254,000 & -158,000 \\
+R                   & 2.85×  & 2740 & 274,000 & -178,000 \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\textbf{Takeaway.}
+Even when treated purely as relative multipliers under a uniform protocol, ecosystem-level energy differences can translate into large operational deltas at hyperscale.
+However, these figures should be interpreted as scenario-based scaling of our measured \emph{relative} differences, not as absolute forecasts for a particular production model, utilization regime, or hardware/software configuration.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Threats to Validity}
+\label{sec:threats}
+
+As with any empirical study, our work is subject to several threats to validity. In this section we outline the main risks and the measures we adopted to mitigate them, following the classification into internal, construct, external, and conclusion validity~\cite{feldt2010validity,ampatzoglou2019identifying,wyrich2024evidence}. Threats are reported by considering those that might have most deeply \emph{affected} our results, and by acknowledging common pitfalls that may arise while discussing them~\cite{verdecchia2023threats}.
+
+\textbf{Internal Validity.}
+A primary threat concerns the execution environment.
+Experiments were run on a dedicated high-performance server (cf. Section~\ref{sec:execution}); despite efforts to minimize background processes, residual system activity (e.g. operating system daemons) may still have influenced energy measurements~\cite{verdecchia2023threats}.
+We mitigated this risk by isolating workloads and monitoring runs under comparable conditions.
+
+Another internal threat stems from the use of multiple frameworks and toolchains, each relying on different CUDA and cuDNN versions due to compatibility constraints.
+For instance, the required CUDA versions in our study ranged from 11.6 (for Java's Deeplearning4j) to 12.8 (for C++'s LibTorch), with corresponding variations in cuDNN libraries (see our replication package for a complete dependency list).
+Such heterogeneity can affect both runtime efficiency and energy usage~\cite{patterson2021carbon,marini2025green}, potentially favoring ecosystems with more up-to-date backends.
+Although not controlled, this variability reflects the reality practitioners encounter ``in the wild''~\cite{sjoberg2023construct}.
+Accordingly, we interpret our results as differences between language--framework ecosystems (including their officially supported runtimes and toolchains), and we avoid attributing the observed effects to the programming language alone.
+
+Implementation choices represent another source of internal threats.
+We deliberately avoided ad-hoc optimizations and advanced engineering techniques, preferring instead to configure models and frameworks in ways that closely resemble how a practitioner or applied researcher would use them~\cite{verdecchia2023systematic}.
+Specifically, we maintained uniform hyperparameters across all ecosystems.
+While we acknowledge that certain ecosystems might benefit from different configurations, we adopt uniform hyperparameters as a controlled fixed-budget comparison across ecosystems (same recipe and number of epochs), which does not guarantee convergence equivalence across frameworks.
+Moreover, introducing hyperparameter tuning would introduce a significant \emph{confounding variable}, making it difficult to discern whether differences stem from the ecosystem itself or from the tuning process.
+
+Another example is data loading and preprocessing.
+In some community repositories for C++ and Rust we observed unconventional strategies, such as pre-loading the entire dataset into memory to accelerate training.
+While effective in reducing runtime, this approach diverges from standard practice and introduces bias.
+To preserve comparability, we enforced consistent high-level data loading constraints and standardized final layers to match dataset classes.
+Nevertheless, data-loading and preprocessing are not identical across ecosystems (e.g. thread scheduling, host-to-device transfer patterns, and memory allocation strategies), and such differences may contribute to the measured energy and time.
+In all cases, we relied on official library implementations or community-accepted baselines~\cite{banbury2021mlperf,tripp2024measuring}.
+Some outliers may remain (e.g. MATLAB occasionally exhibited anomalous behavior), and we acknowledge that implementation-level variability may have influenced results.
+Finally, all datasets were downloaded and stored locally, avoiding network access or web-based loaders that could introduce additional overhead.
+
+GPU-side runtime effects can also introduce additional uncontrolled variability, such as thermal throttling, framework-specific JIT compilation or graph compilation effects.
+We partially mitigated this by running on dedicated hardware and averaging measurements over multiple epochs; however, we cannot fully exclude that early-epoch warm-up effects (e.g. memory allocator initialization, autotuning) affect phase-specific measurements.
+
+\textbf{Construct Validity.}
+A primary threat to construct validity concerns the operationalization of our target construct, ``sustainability''.
+In this work, we used \textbf{energy consumption} (measured in Joules) as its primary proxy.
+As argued in Section~\ref{sec:background}, we selected this metric over derived alternatives (e.g. carbon footprint) because it is a direct and reproducible measure of computational effort, less affected by confounding variables such as the grid's energy mix or the geographic location of the server.
+
+A secondary threat concerns the accuracy of measuring this proxy.
+Energy consumption was operationalized using the \texttt{CodeCarbon} toolkit~\cite{lacoste2019quantifying}.
+While \texttt{CodeCarbon} leverages NVIDIA’s NVML and system profilers, a potential threat is the reliance on software-level sampling rather than external hardware power meters~\cite{patterson2022plateau,cruz2025greening}.
+We extended \texttt{CodeCarbon} with a custom daemon to obtain fine-grained, phase-specific measurements (training and inference); nevertheless, absolute values may not perfectly reflect actual power draw.
+Although the tracker runs out-of-process and the server was dedicated, we cannot fully exclude minor interference effects (e.g. sampling overhead or scheduling interactions), which we treat as a limitation common to software-based profiling.
+Therefore, we primarily interpret measurements as supporting \emph{relative comparisons} under an identical measurement protocol, rather than as precise absolute ground-truth energy values.
+Recent validation work comparing estimator-based measurements against external ground-truth reports that established estimation approaches can exhibit errors up to 40\%, and that dynamic estimation can systematically underestimate consumption by about 20--30\% in some settings~\cite{fischer2025groundtruthing}.
+
+Finally, minor adaptations to model implementations (e.g. modifying final classification layers or adopting community loaders) could have introduced variability, potentially confounding the construct.
+We mitigated this risk by documenting all changes and ensuring they were minimal and aligned with community practice~\cite{mehlin2023towards,verdecchia2023systematic}.
+
+\textbf{External Validity.}
+Our study focused on two convolutional architectures (ResNet-18 and VGG-16) and three image classification datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet).
+While these choices are representative of standard computer vision tasks, results may not generalize to other model families (e.g. transformers, large language models) or other domains (e.g. speech recognition, tabular learning)~\cite{strubell2019energy,patterson2021carbon}.
+Similarly, although the chosen languages cover prominent DL ecosystems in current practice, they do not encompass all possible programming environments.
+Our selection focuses on mature, GPU-compatible DL ecosystems with stable support from the community or vendor support; conclusions should not be extrapolated to ecosystems not covered by this criterion.
+
+Moreover, we evaluated a specific hardware platform (NVIDIA L40S GPU, dual Intel Xeon CPUs); results may vary with different GPUs, CPUs, drivers, or heterogeneous accelerators (e.g. TPUs, embedded devices)~\cite{patterson2022plateau,kaack2022aligning}.
+Nonetheless, our design balances realism and breadth with tractability, and provides a meaningful baseline within the stated ecosystem-level scope~\cite{verdecchia2023systematic}.
+
+\textbf{Conclusion Validity.}
+Variability in results could arise from stochastic effects of DL training (e.g. random initialization, non-deterministic GPU operations)~\cite{weber2023twins}.
+We mitigated this by standardizing hyperparameters and using fixed seeds where supported, though some frameworks may not guarantee full determinism.
+
+A specific threat to statistical fairness concerns the presence of outliers or abnormal execution cycles in certain ecosystems.
+We report arithmetic means over the collected measurements to summarize average behavior under our protocol; however, averages can be sensitive to anomalous execution cycles, and robust estimators (e.g. medians/trimmed means) are left for future work.
+Since runtime anomalies (e.g. memory management spikes or non-optimal garbage collection) correspond to real energy consumption that users would incur, their inclusion provides a more faithful and transparent estimation of the total impact.
+
+Moreover, while differences in mean energy consumption are substantial in our setting (e.g. up to about 4.6$\times$ in training and 7.3$\times$ in inference between best and worst ecosystems), smaller differences should be interpreted with caution.
+In addition, while we average measurements over epochs, epochs within the same run are not statistically independent; therefore, treating epoch-level measurements as independent samples would inflate statistical confidence.
+Additional independent run-level repetitions per configuration would strengthen statistical inference and are left for future work.
+
+In summary, while several threats to validity remain, we believe the precautions adopted---dedicated hardware, consistent hyperparameters (as a fixed-budget recipe), standardized data handling where feasible, phase-specific tracking, and reliance on official or community-accepted implementations---support the robustness and practical relevance of our findings, within the stated ecosystem-level scope~\cite{verdecchia2023threats}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper presented a case study on the impact of \emph{language--framework ecosystems} on the energy efficiency of \emph{Deep Learning (DL) workloads}, focusing on \emph{computer vision} image classification.
+We conducted a systematic experimental campaign across six language-based ecosystems (Python, C++, Java, R, MATLAB, and Rust), eight frameworks/libraries, and three datasets of increasing complexity~\cite{banbury2021mlperf}.
+Energy consumption was monitored at fine granularity, enabling separate analyses of training and inference phases~\cite{lacoste2019quantifying,patterson2021carbon}.
+
+Our results highlight three key findings.
+First, ecosystem selection can substantially shift operational efficiency in our setting, with gaps reaching about \textbf{11$\times$} in execution time during training and about \textbf{7.3$\times$} in energy consumption during inference (and about \textbf{4.6$\times$} in energy during training).
+Importantly, these differences should be interpreted at the ecosystem level (framework execution engines, runtimes, and toolchains), rather than attributed to the programming language alone.
+
+Second, training and inference phases exhibit markedly different efficiency rankings across ecosystems.
+This underscores the need to evaluate both lifecycle stages separately---a critical consideration for industrial scenarios and a recurring theme in Green AI research~\cite{cruz2025greening,mehlin2023towards}.
+
+Third, our results repeatedly demonstrate that execution time and energy usage do not always correlate.
+This reveals a non-trivial energy--time trade-off and supports our central finding that \textit{faster does not imply greener}, confirming similar warnings from related software engineering domains~\cite{weber2023twins,verdecchia2023systematic}.
+
+Overall, these findings stress that ecosystem selection---often treated as a secondary engineering decision---can have significant sustainability implications~\cite{schwartz2020green,verdecchia2023systematic,kaack2022aligning}.
+For practitioners, this suggests that energy-aware ecosystem choices can yield substantial savings at scale, especially when the expected phase mix (training- and inference-heavy) is made explicit~\cite{patterson2022plateau,cruz2025greening}.
+For researchers, our study motivates further investigation of the intersection between Green AI and software engineering practices, with an emphasis on reproducible ecosystem-level benchmarking and phase-aware evaluation~\cite{schwartz2020green,verdecchia2023systematic,cruz2025greening}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Future Work}
+\label{sec:future}
+
+Building on this study, several promising directions remain open.
+
+First, our analysis can be extended to more diverse model families beyond CNNs, such as transformers and multimodal architectures, to assess whether the observed ecosystem-level patterns hold under different operator mixes, memory footprints, and compilation strategies~\cite{patterson2021carbon}.
+
+Second, testing on heterogeneous hardware platforms (e.g. TPUs, embedded and edge devices) would clarify how robust the observed rankings are under different accelerator toolchains and runtime stacks~\cite{patterson2022plateau,kaack2022aligning}.
+In particular, future work should explicitly treat the \emph{hardware--software stack} as part of the ecosystem definition (driver versions, compiler toolchains, and vendor runtimes), rather than assuming portability of efficiency rankings.
+
+Third, a deeper exploration of the \emph{energy--time trade-off} is needed to identify regimes where faster execution is beneficial or detrimental from a sustainability perspective, including phase-aware serving constraints~\cite{weber2023twins,cruz2025greening}.
+
+Fourth, complementing our black-box, off-the-shelf evaluation, future work could introduce a controlled \emph{white-box} layer-level analysis (e.g. per-layer profiling) implemented with each ecosystem's native primitives.
+This would help localize where inefficiencies originate (e.g. convolution/attention kernels, activation and normalization layers, data pipelines, host-to-device transfers, memory allocation and caching), and clarify which components are ecosystem-driven versus model-driven~\cite{georgiou2022green,marini2025green,pereira2021ranking,gordillo2024ranking}.
+Crucially, such analysis should be designed as \emph{complementary} evidence, since fine-grained attribution can reduce realism while increasing internal control.
+
+Finally, expanding the scope of reproducibility by incorporating real-world workloads, distributed training and inference (multi-GPU, multi-node), and standardized energy-aware benchmarks would enable evaluation in contexts closer to production environments~\cite{lacoste2019quantifying,verdecchia2023systematic,banbury2021mlperf}.
+A particularly valuable extension would be to include independent run-level repetitions (not only epoch-level repeated measurements) and to cross-validate software-based energy estimates with external power sensors in a subset of configurations, to strengthen both statistical inference and measurement validity~\cite{verdecchia2023systematic}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Carbon Footprint of This Study}
+
+The total carbon footprint of our experiments is estimated at approximately 3.3~kg of CO$_2$e, based on  \texttt{CodeCarbon} measurements across 7,200 training and inference epochs. This corresponds to the emissions of driving an average passenger car for about 27~km (17~miles), an equivalency derived from average new car emissions data reported by the European Environment Agency (EEA)~\cite{EEA-cars-monitoring}, or the electricity required to power a typical European household for one day, based on residential energy consumption data from Eurostat~\cite{Eurostat-energy-data}. 
+While modest compared to large-scale industrial training, this evaluation underscores the importance of quantifying and reporting the environmental impact of research experiments.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Declaration of Generative AI and AI-assisted Technologies in the Writing Process}
+During the preparation of this work the authors used ChatGPT-5 in order to improve the readability of the manuscript text. After using this tool, the authors reviewed and edited the content as needed and take full responsibility for the content of the article.
+
+\balance
+\bibliographystyle{IEEEtran}
+\bibliography{bibliography}
+
+
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bio{bio/leo.jpg}
+\textbf{Leonardo Pampaloni} graduated with a Master’s degree in Software Engineering from the University of Florence, Italy, achieving top marks. His research interests lie in software sustainability and energy efficiency in Artificial Intelligence, with particular emphasis on Green AI and computer vision. He has contributed to empirical studies on cross-language benchmarking of AI frameworks and optimization of DL workloads. More information is available at \url{https://github.com/Pampaj7}.
+\endbio
+
+\bio{bio/marco.jpg}
+\textbf{Marco Pagliocca} received a Bachelor’s degree in Computer Engineering with highest honors from the University of Florence, Italy, where he is currently pursuing a Master’s degree in the same field. His research interests focus on environmental sustainability, human-centered engineering, and the use of technology as a means to improve everyday life. He believes that Artificial Intelligence can simplify mechanical tasks and encourage greater attention to meaningful aspects of human activity.
+\endbio
+
+\bio{bio/enrico.jpg}
+\textbf{Enrico Vicario} is a Professor of Computer
+Science and Engineering and the Head of the Software Technologies Laboratory of the University of Florence, Italy. His research interests include the area of software engineering, with a focus on quantitative evaluation of stochastic models, software architectures and methodologies, and on their connection through model-driven engineering practices.
+\endbio
+
+\bio{bio/roberto.jpg}
+\textbf{Roberto Verdecchia} is an Assistant Professor at the Software Technologies Laboratory (STLab) of the University of Florence, Italy. He holds a double Ph.D.\ in Computer Science, appointed by the Gran Sasso Science Institute, L'Aquila, Italy, and the Vrije Universiteit Amsterdam, the Netherlands. His research interests focus on the adoption of empirical methods to improve software development and system evolution, with particular interest in the fields of  technical debt, software architecture, software sustainability, and software testing. More information is available at \href{https://robertoverdecchia.github.io/}{robertoverdecchia.github.io}. %He was the recipient of a ACM/SIGSOFT Distinguished Paper Award (ICSE'19)...andt others?.
+\endbio
+
+\end{document}

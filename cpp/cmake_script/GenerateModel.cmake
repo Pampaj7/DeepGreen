@@ -21,6 +21,10 @@ function(export_model_for_dataset MODEL_NAME DATASET_NAME NUM_CLASSES)
     run_python_script_with_auto_install(
             SCRIPT "${PY_SCRIPT_PATH}/models/${MODEL_FILENAME}.py"
             ARGS ${OUTPUT_FILENAME} ${NUM_CLASSES}
+            # The C++ side loads the module from CMAKE_BINARY_DIR, so it must be
+            # written there. Without this the .pt files land in whatever
+            # directory cmake was invoked from and the binaries fail at load.
+            WORKING_DIR "${CMAKE_BINARY_DIR}"
             RESULT_VARIABLE export_success
             ERROR_VARIABLE export_error
     )

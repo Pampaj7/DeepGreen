@@ -5,8 +5,8 @@ import pandas as pd
 from pathlib import Path
 
 # ========= CONFIG =========
-CSV_PATH = Path("/home/pampaj/DeepGreen/cpp/emissions/cpp_combined_data.csv")
-OUTPUT_PATH = Path("/home/pampaj/DeepGreen/cpp/emissions/cpp_combined_data.csv")
+CSV_PATH = Path(__file__).resolve().parent / "cpp_combined_data.csv"
+OUTPUT_PATH = Path(__file__).resolve().parent / "cpp_combined_data.csv"
 DROP_COLS = ["model"]   # colonne da rimuovere
 # ==========================
 

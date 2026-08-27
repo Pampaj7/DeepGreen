@@ -15,6 +15,8 @@
     
     <!-- VERSIONS FOR DEPENDENCIES -->
     <dl4j.version>1.0.0-M2.1</dl4j.version>
+    <!-- must match the CUDA/cuDNN that nd4j-cuda-11.6 was built against -->
+    <cuda.redist.version>11.6-8.3-1.5.7</cuda.redist.version>
     <logback.version>1.2.3</logback.version> <!-- max version compatible with deeplearning4j -->
     
     <!-- VERSIONS FOR DEFAULT MAVEN PLUGINS -->
@@ -77,6 +79,20 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <!-- version taken from dependencyManagement -->
+    </dependency>
+
+    <!-- CUDA redistributables bundled with the JVM process.
+         DL4J 1.0.0-M2.1 links against the CUDA 11.6 runtime, and 1.0.0-M2.1 is
+         the last release: there is no CUDA 12 backend for this API. On a host
+         with CUDA 12 or 13 the backend fails to load with
+         "libcudart.so.11.0: cannot open shared object file", ND4J reports "no
+         backend on your classpath", and the run dies. Bundling the
+         redistributables makes the stack self-contained instead of depending
+         on a system CUDA 11.6 that no other ecosystem here needs. -->
+    <dependency>
+      <groupId>org.bytedeco</groupId>
+      <artifactId>cuda-platform-redist</artifactId>
+      <version>${cuda.redist.version}</version>
     </dependency>
   </dependencies>
 

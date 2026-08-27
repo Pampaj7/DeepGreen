@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# =============================================================================
+# DEPRECATED -- superseded by results/analysis/ (JSS revision).
+#
+# This script is kept for provenance only. Do not use it to regenerate results:
+#   * it reads CodeCarbon's ``energy_consumed`` column, which is in kWh, and
+#     labels it Joules (an offset of 3.6e6). See results/analysis/01_data_audit.py.
+#   * it labels the x axis "Language" while plotting language-framework
+#     ecosystems.
+#   * it hard-codes an absolute path to the author's home directory.
+# The replacement pipeline is results/analysis/run_all.sh.
+# =============================================================================
+
 
 import os
 import pandas as pd

@@ -1,0 +1,203 @@
+% !TeX program = pdflatex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{listings}
+
+\sisetup{group-separator={,}, detect-weight=true}
+
+\lstset{basicstyle=\ttfamily\footnotesize, breaklines=true, frame=single,
+        backgroundcolor=\color{black!3}, columns=fullflexible}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\title{\bfseries What Are We Measuring?\\[2pt]
+\large An Instrument and Implementation Audit of Energy\\
+Comparisons Across Deep Learning Ecosystems}
+
+\author{%
+Leonardo Pampaloni \and Marco Pagliocca \and Enrico Vicario \and Roberto Verdecchia\\[2pt]
+\small University of Florence, Italy
+}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Comparing the energy cost of deep learning across language--framework ecosystems
+is an attractive idea: the practitioner picks a stack, and the choice appears to
+carry an energy price. We show that such comparisons are dominated by decisions
+that have nothing to do with the ecosystems being compared.
+
+We audit a complete measurement campaign of \num{2880} tracked blocks --- two
+CNN architectures, three image datasets, eight ecosystems, on one NVIDIA L40S
+server --- and re-analyse it end to end. Three classes of defect emerge, each
+quantified. \emph{Instrument}: the campaign mixed two CodeCarbon major versions,
+two tracking modes and two sampling intervals; for four of the eight stacks
+roughly two thirds of the reported energy is a constant, modelled host power
+multiplied by wall-clock time. \emph{Implementation}: the stacks did not run the
+same experiment --- two learning rates, four data-loader configurations, one
+stack normalising its inputs, one training on \(28\times28\times1\) inputs while
+evaluating on \(32\times32\times3\), and one evaluating a single image at a time.
+\emph{Placement and linkage}: a framework whose CUDA libraries fail to load, or a
+binary whose linker drops the CUDA dependency, runs the entire workload on the
+CPU while reporting nothing but a warning.
+
+Under a common measurement boundary the study's headline conclusions do not
+survive. The reported ``faster is not greener'' effect disappears: the energy and
+time rankings agree with Spearman \(\rho=1.00\) for inference and \(0.98\) for
+training. The four stacks that share the LibTorch backend --- the study's own
+internal control group --- span \SIrange{98}{100}{\percent} of the total reported
+spread, so the effect is host-side rather than language-intrinsic.
+
+We contribute a written experiment specification, a shared measurement bridge and
+run contract used by all seven in-scope ecosystems, and an automated conformance
+checker (56 checks). With these in place, five independent implementations of
+ResNet-18 reach test accuracies within \SI{3.6}{\percent} of one another on
+CIFAR-100 after one epoch --- a check the original campaign could not perform,
+because no ecosystem wrote its accuracy to disk.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+The energy cost of deep learning is now a routine object of study, and a natural
+question follows: does the choice of programming language and framework carry an
+energy price? The question is well posed. A practitioner selecting between
+PyTorch, LibTorch, DL4J or an R binding is choosing a whole stack --- a binding
+layer, a data pipeline, a runtime, a toolchain --- and it is plausible that the
+choice shows up in the electricity bill.
+
+This paper is about what it takes to answer that question, and what happens when
+the necessary care is not taken. We take as our object of study a complete
+campaign: ResNet-18 and VGG-16, on Fashion-MNIST, CIFAR-100 and Tiny ImageNet,
+across eight language--framework ecosystems, measured with CodeCarbon on a
+dedicated NVIDIA L40S server, \num{2880} tracked measurement blocks in total. The
+campaign was carefully executed by its authors and reports a coherent story:
+compiled stacks are more efficient, inference and training rank differently, and
+execution time is an unreliable proxy for energy.
+
+We re-analyse that campaign from its raw logs and audit the source of all eight
+implementations. We find that the reported differences are largely produced by
+the measurement apparatus and by implementation drift between the stacks, and
+that the headline conclusions do not survive a common measurement boundary. None
+of the defects we describe is exotic; several are invisible in the data and
+detectable only by reading the code that produced it.
+
+\paragraph{Contributions.}
+\begin{enumerate}\itemsep2pt
+  \item A quantified audit of a real campaign, separating what the data can
+        support from what the instrument produced (Sections~\ref{sec:instrument}
+        and~\ref{sec:implementation}).
+  \item A re-analysis showing that the original conclusions do not hold under a
+        common measurement boundary (Section~\ref{sec:reanalysis}).
+  \item A catalogue of defect classes for energy studies of this shape, each with
+        a measured effect size (Section~\ref{sec:catalogue}).
+  \item A specification, a shared measurement contract implemented by seven
+        ecosystems, and an automated conformance checker
+        (Section~\ref{sec:infrastructure}).
+\end{enumerate}
+
+\paragraph{Scope and honesty about it.}
+This paper does not report a corrected ranking of ecosystems. The corrected
+measurement infrastructure exists and every stack has been verified to run on the
+accelerator and to record its accuracy, but the replicated campaign that would
+produce such a ranking is reported separately (Section~\ref{sec:threats}). We
+consider a ranking produced before the defects below are fixed to be worse than
+no ranking at all, and the point of this paper is to say why.
+
+\section{Background: the campaign under study}
+\label{sec:campaign}
+
+The campaign covers eight language--framework ecosystems: Python with PyTorch,
+TensorFlow and JAX; C++ with LibTorch; Java with Deeplearning4j; R with
+\code{torch}; Rust with \code{tch}; and MATLAB with the Deep Learning Toolbox.
+Two architectures (ResNet-18, VGG-16) are trained on three datasets
+(Fashion-MNIST, CIFAR-100, Tiny ImageNet), all resized to \(32\times32\), for 30
+epochs with Adam, batch size 128, on a single NVIDIA L40S.
+
+Energy is measured with CodeCarbon, one tracker per epoch per phase, giving
+\num{2880} tracked blocks: \num{1440} training and \num{1440} inference. Each
+configuration was executed exactly once; the 30 epochs of a run were treated as
+repeated measurements.
+
+\paragraph{A unit error, and why it matters here.}
+CodeCarbon reports energy in kilowatt-hours. The campaign's tables report the
+same numbers labelled as Joules --- an offset of \(3.6\times10^{6}\). The error
+is verifiable three ways from the data alone: the ratio of the emissions column
+to the energy column is \num{0.3306}, which read as \si{\kilo\watt\hour} gives
+\SI{331}{\gram\per\kilo\watt\hour}, the grid intensity CodeCarbon used; the
+implied mean power read as \si{\kilo\watt\hour} is \SIrange{120}{511}{\watt},
+plausible for this hardware, while read as Joules it is
+\SI{3e-5}{\watt}; and the columns are additive, so all four share one unit. The
+corrected campaign totals are \SI{4.02}{\kilo\watt\hour} and
+\SI{1.33}{\kilo\gram} CO$_2$eq.
+
+We mention this first not because it is the most serious problem --- relative
+rankings are unaffected --- but because it is the only one visible without
+reading the code, and it is the one a reader is most likely to catch.
+
+\input{sections/instrument}
+\input{sections/implementation}
+\input{sections/reanalysis}
+\input{sections/catalogue}
+\input{sections/infrastructure}
+\input{sections/threats}
+
+\section{Related work}
+\label{sec:related}
+
+Cross-language energy comparisons and cross-framework deep learning comparisons
+are both established. Georgiou et al. compare PyTorch and TensorFlow with
+statistical tests, effect sizes, comparable accuracy across frameworks and
+function-level profiling, and report that the energy ranking of deep learning
+frameworks reverses between training and inference. Alizadeh and Castor measure
+the energy and inference time of deep learning runtime infrastructures across
+frameworks and execution providers, and report that efficiency is hard to predict
+and is driven by GPU and CPU usage. Cross-language studies at the level of
+general-purpose benchmarks likewise report that faster execution does not imply
+lower energy.
+
+Our contribution is orthogonal to these. We do not add another ranking; we ask
+what has to be true of an experimental apparatus before any such ranking means
+anything, and we show --- on a real campaign, with measured effect sizes --- how
+far an apparatus can drift while producing entirely plausible numbers. The
+phase-reversal result is a useful illustration: we reproduce it for one ecosystem
+as a pure artefact of evaluation batching and input shape
+(Section~\ref{sec:implementation}).
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+The question of whether language--framework ecosystems differ in energy cost
+remains open, and we think it is worth answering. What we can say is that the
+apparatus needed to answer it is more demanding than it appears.
+
+In the campaign we audited, the instrument was configured five different ways,
+the workload differed between stacks in learning rate, input shape, evaluation
+batching and loader parallelism, and two stacks could have been running on the
+CPU without any recorded evidence either way. Each of these produces plausible
+numbers. Together they produce a plausible story --- one that does not survive a
+common measurement boundary.
+
+The practical lesson is that a cross-ecosystem energy study needs a written
+specification and a mechanism that enforces it, in the same way that a
+performance benchmark needs a warm-up policy. We provide both, and the checker is
+the part we would keep if we could keep only one thing: it is what turns
+``the stacks should be configured the same'' into a claim that fails loudly when
+it stops being true.
+
+\end{document}
