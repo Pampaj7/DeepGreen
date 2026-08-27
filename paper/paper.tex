@@ -1020,6 +1020,19 @@ measurements. On a machine with more installed RAM the same model contributes a
 larger share, which means the reported energy of an identical workload depends
 on how much memory the host happens to have.
 
+\textbf{What the boundary leaves out.} Energy is attributed only to the phases
+each stack brackets, so work a stack does \emph{between} phases --- rebuilding a
+loader, synchronising, reshuffling on the host --- consumes real energy and is
+charged to nobody. If that fraction differed sharply between ecosystems it would
+flatter whichever stack does more of its work outside its own phase boundaries.
+It does differ, and we report it: measured from the first block of a run to the
+last, tracked time is \vCoverageMin\,\% to \vCoverageMax\,\% of the span, with
+\vCoverageWorstEco{} lowest. The comparison is therefore of per-epoch phase
+energy and not of end-to-end job energy, and the two differ by up to a fifth for
+some stacks. We prefer the phase boundary because it is the quantity a
+practitioner can act on, but a study reporting job-level energy would rank these
+ecosystems somewhat differently, and should say which it measured.
+
 \textbf{Does the instrument change the answer?} We recomputed the ecosystem
 ranking of each block under both instruments. They agree in \vRankIdentical{} of
 \vRankBlocks{} blocks. The disagreements are confined to adjacent pairs that the

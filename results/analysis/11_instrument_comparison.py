@@ -115,6 +115,7 @@ def collect() -> pd.DataFrame:
                     "cc_total_j": float(c["energy_consumed"]) * J_PER_KWH,
                     "cc_cpu_power_w": float(c["cpu_power"]),
                     "cc_ram_power_w": float(c["ram_power"]),
+                    "timestamp": str(c["timestamp"]),
                 }
             )
 
@@ -140,6 +141,44 @@ def collect() -> pd.DataFrame:
     df["ratio_total"] = df["cc_total_j"] / df["hw_total_j"]
     df["ram_share_pct"] = 100.0 * df["cc_ram_j"] / df["cc_total_j"]
     return df
+
+
+def measurement_coverage(df: pd.DataFrame) -> pd.DataFrame:
+    """How much of each run actually lies inside a measurement block?
+
+    Energy is attributed only to the phases each stack brackets. Anything a
+    stack does between them -- rebuilding a loader, synchronising, reshuffling
+    on the host -- is real work that consumes real energy and is charged to
+    nobody. If that fraction differed a lot between ecosystems it would bias the
+    comparison in favour of whichever stack does more of its work outside its
+    own phase boundaries, so it has to be reported rather than assumed small.
+
+    Coverage is the tracked time as a fraction of the span from the first block
+    to the last, which excludes one-time start-up and shutdown and isolates the
+    per-epoch gaps.
+    """
+    rows = []
+    for keys, g in df.groupby(["ecosystem", "model", "dataset", "repetition"]):
+        ts = pd.to_datetime(g.timestamp, format="mixed", utc=True)
+        span = (ts.max() - ts.min()).total_seconds()
+        tracked = float(g.duration_hw_s.sum())
+        if span <= 0:
+            continue
+        rows.append({
+            "ecosystem": keys[0], "model": keys[1], "dataset": keys[2],
+            "repetition": keys[3],
+            "span_s": round(span, 1), "tracked_s": round(tracked, 1),
+            "coverage_pct": round(100 * tracked / span, 1),
+        })
+    per_run = pd.DataFrame(rows)
+    return (per_run.groupby("ecosystem")
+            .agg(n_runs=("coverage_pct", "size"),
+                 coverage_pct=("coverage_pct", "mean"),
+                 coverage_min_pct=("coverage_pct", "min"),
+                 untracked_s_per_run=("span_s", "mean"))
+            .assign(untracked_s_per_run=lambda d:
+                    (d.untracked_s_per_run * (1 - d.coverage_pct / 100)).round(1))
+            .round(1).reset_index())
 
 
 def agreement_by(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
@@ -254,6 +293,13 @@ def main() -> None:
     print(dur.to_string(index=False))
     save_table(dur, "v2_instrument_windows",
                "CodeCarbon window vs counter window, per ecosystem and phase")
+
+    cov = measurement_coverage(df)
+    print()
+    print("--- share of each run that lies inside a measured block ---")
+    print(cov.to_string(index=False))
+    save_table(cov, "v2_instrument_coverage",
+               "Tracked time as a share of the span from first block to last")
 
     # -- 2. agreement per ecosystem x phase ---------------------------------
     per_eco = agreement_by(df, ["ecosystem", "phase"])

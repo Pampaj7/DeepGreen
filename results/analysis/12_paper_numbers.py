@@ -98,6 +98,11 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
           num(fv["median window excess, phases longer than 6 s (s)"] * 1000, 0))
     macro("vWindowModelRsq", num(fv["R2 of max(phase, floor)"], 3))
 
+    cov = pd.read_csv(TABLES / "v2_instrument_coverage.csv")
+    macro("vCoverageMin", num(cov.coverage_pct.min(), 0))
+    macro("vCoverageMax", num(cov.coverage_pct.max(), 0))
+    macro("vCoverageWorstEco", SHORT[cov.loc[cov.coverage_pct.idxmin(), "ecosystem"]])
+
     dist = pd.read_csv(TABLES / "v2_instrument_power_distortion.csv")
     sub = dist.set_index("phase_length")
     macro("vPowerUnderstatedSubSecond", num(sub.loc["<1 s", "understated_by"], 1))
