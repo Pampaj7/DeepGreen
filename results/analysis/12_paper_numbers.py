@@ -415,6 +415,44 @@ def industrial_scenario() -> None:
     print("  wrote paper/generated/tab_industrial.tex")
 
 
+# --------------------------------------------------- the audited campaign ----
+def audited_campaign_facts() -> None:
+    """Values the defect catalogue quotes about the earlier campaign.
+
+    These come from 01_data_audit.py rather than from the replication, and they
+    are generated here for the same reason as everything else: the catalogue is
+    an evidentiary table, and a number in it that cannot be traced to a file is
+    exactly the failure the paper is about.
+    """
+    path = TABLES / "audit_measurement_boundary.csv"
+    if not path.exists():
+        return
+    b = pd.read_csv(path)
+    versions = sorted(b.codecarbon.astype(str).unique())
+    macro("vAuditCCVersions", " and ".join(versions))
+    machine = b[b.tracking_mode == "machine"]
+    for v in versions:
+        # Averaged over machine-mode stacks only: the one process-mode stack
+        # reports essentially no RAM term and would drag its version's mean down
+        # for a reason that has nothing to do with the version.
+        g = machine[machine.codecarbon.astype(str) == v]
+        if not len(g):
+            continue
+        host = float(g.mean_cpu_power_w.mean() + g.mean_ram_power_w.mean())
+        tag = "Old" if v == min(versions) else "New"
+        macro(f"vAuditHost{tag}W", num(host, 0))
+
+    process = b[b.tracking_mode == "process"]
+    macro("vAuditRamShareMin", num(machine.ram_energy_pct.min(), 0))
+    macro("vAuditRamShareMax", num(machine.ram_energy_pct.max(), 0))
+    if len(process):
+        macro("vAuditProcessRamSharePct", num(process.ram_energy_pct.iat[0], 3))
+        macro("vAuditProcessStacks", len(process))
+    # a constant CPU power is the tell that the tool fell back to a model
+    macro("vAuditConstantCpuStacks", int((b.cpu_power_distinct == 1).sum()))
+    macro("vAuditStacks", len(b))
+
+
 # -------------------------------------------------------------- convergence --
 def convergence_facts() -> None:
     bm = pd.read_csv(TABLES / "v2_convergence_by_model.csv")
@@ -466,6 +504,7 @@ def main() -> None:
     stats = repeatability_facts()
     energy_facts(stats)
     quality_facts()
+    audited_campaign_facts()
     convergence_facts()
     statistics_facts()
     instrument_table()
