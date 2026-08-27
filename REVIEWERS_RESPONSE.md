@@ -2,16 +2,58 @@
 
 *Deep Green AI: Energy Efficiency of Deep Learning across Language-Framework Ecosystems*
 
-This document records, comment by comment, what was changed in the replication
-package. It distinguishes three outcomes:
+This document records, comment by comment, what was changed. It distinguishes
+three outcomes:
 
 * **FIXED** — resolved in this repository; the artefact is named.
-* **MANUSCRIPT** — the analysis is done here and the numbers are ready, but the
-  change lands in the paper text, which is not in this repository.
-* **REQUIRES RE-EXECUTION** — cannot be answered from the existing logs. The
-  code and protocol are in place; the measurement server must run them.
+* **MANUSCRIPT** — the change lands in the paper text, `paper/paper.tex`.
+* **REQUIRES RE-EXECUTION** — needed a new campaign.
+
+**Status: the replicated campaign has been executed.** Every item previously
+marked *REQUIRES RE-EXECUTION* is now closed with measured numbers, with one
+exception stated below (the workload still does not saturate the accelerator —
+Reviewer 1 comments 2 and 15). The design
+is 7 ecosystems × 2 architectures × 3 datasets × 5 independent interleaved
+repetitions = 210 runs, each block instrumented twice (NVML + RAPL hardware
+counters, and CodeCarbon over the identical window). Raw records are under
+`results/campaign_v2/`; aggregates under `results/revision/tables/`.
 
 Everything below is reproducible with `results/analysis/run_all.sh`.
+
+### What the re-execution changed in the conclusions
+
+| Submitted claim | After re-execution |
+|---|---|
+| Training spread 4.6× (Rust best, Java worst) | 7.8×–19.1× depending on the block, at a common chip-level boundary |
+| Energy reported in Joules | The submitted figures were kilowatt-hours; a factor of 3.6×10⁶ |
+| "Faster is not greener" | Faster *is* greener here (ρ ≈ 1). The contrary result reproduces as an artefact of the estimator's duration floor |
+| Rankings are phase-dependent | Largely phase-consistent once inference is measured rather than estimated |
+| 30 epochs as repeated measurements | 5 independent runs per configuration; median between-run CV 0.46 % |
+| Accuracy not recorded | Recorded per epoch by every stack; convergence within 0.7 pp on Fashion-MNIST |
+| CodeCarbon as sole instrument | Dual instrument; the two agree on energy to 0.5 % over 11,423 blocks |
+
+### The instrument finding
+
+The campaign produced one result about the measurement tool itself that we
+believe is new and that bears on any study using it.
+
+Over every block, CodeCarbon's energy agrees with hardware counters to 0.5 %.
+Accuracy is not the problem. But the `duration` column it writes beside that
+energy is **not the interval the energy was accumulated over**: it is
+`max(phase_duration, ≈3.99 s)`, a relation that accounts for R² = 0.993 of its
+variance. Above about four seconds the two windows coincide to 16 ms; below it,
+the reported duration is a floor. The shortest phase in our campaign takes
+0.12 s and is filed as 3.38 s.
+
+Consequently any power or energy-per-second quantity derived by dividing
+CodeCarbon's energy by CodeCarbon's duration is understated by up to 6.8× for
+sub-second phases and is exact above ten seconds. The bias is a monotone
+function of phase length, so it falls hardest on the fastest ecosystems and on
+the inference phase — which is exactly where a cross-ecosystem comparison lives.
+This is, as far as we can determine, the mechanism behind the submitted
+"faster is not greener" finding.
+
+Reproduce with `results/analysis/11_instrument_comparison.py`.
 
 ---
 
@@ -124,8 +166,8 @@ as a case study throughout, consistent with the abstract.
 
 ### Comment 2 — Workload choice
 
-**MANUSCRIPT + REQUIRES RE-EXECUTION.** Accepted as a limitation of the current
-data and addressed in the protocol. `results/analysis/repetition_protocol.md`
+**MANUSCRIPT; the workload limitation persists and is now quantified.**
+Accepted as a limitation and addressed in the protocol. `results/analysis/repetition_protocol.md`
 §5 requires at least one configuration that actually loads the accelerator —
 native resolution, larger batch, representative arithmetic intensity — and
 requires GPU utilisation to be reported next to energy so that readers can see
@@ -193,9 +235,21 @@ exposed finding 1 above.
 
 ### Comment 5 — No statistical basis; single run; outliers
 
-**Partly FIXED, partly REQUIRES RE-EXECUTION.**
+**CLOSED.** The replicated campaign makes the run the unit of analysis.
+`results/analysis/14_v2_statistics.py` computes Kruskal-Wallis with ε² across
+ecosystems within each block, pairwise Mann-Whitney with Holm correction, and
+Cliff's delta, all on **run totals** — five independent numbers per
+configuration rather than 30 correlated epochs of one. Between-run dispersion is
+now measurable rather than assumed: the median coefficient of variation of
+training energy is 0.46 % and the worst is 1.29 %, so the effects reported are
+comfortably resolved by the design.
 
-*What the existing data supports.* `03_statistics.py` reports Kruskal-Wallis with
+*Outliers.* The submitted analysis had no way to tell an outlier from a
+measurement artefact. It does now: every block carries two independent readings,
+and a value that only one instrument sees is an instrument artefact. The
+sampled-power anomalies below were exactly that.
+
+*What the original data supported.* `03_statistics.py` reports Kruskal-Wallis with
 ε², pairwise Mann-Whitney with Holm correction, and Cliff's delta, and
 `02_main_tables.py` reports medians, IQR, CV and bootstrap intervals. Every one
 of these is labelled with the caveat that the intervals are over the 30 epochs of
@@ -221,15 +275,22 @@ run as the unit. This must be executed on the measurement server.
 
 ### Comment 6 — No accuracy reported (also Reviewer 3, major comment 3)
 
-**FIXED in code, REQUIRES RE-EXECUTION for the numbers.** The reviewer is right
+**CLOSED.** The reviewer is right
 that the code computes accuracy — PyTorch, JAX, TensorFlow, MATLAB and Rust all
 do — and right that it was never persisted. The Python stacks now write
 `metrics.csv` with `train_loss`, `test_loss` and `test_acc` per epoch through
 `tools/deepgreen_bench.py`; the same contract is specified for the other stacks
-in `repetition_protocol.md` §4. `09_campaign_v2.py` computes final accuracy,
-accuracy per kilojoule, and **energy to reach a target accuracy**, which is the
-decision-relevant quantity and does not depend on the arbitrary 30-epoch budget.
-No accuracy-normalised claim is made until that campaign has run.
+in `repetition_protocol.md` §4, and all seven stacks now honour it.
+`09_campaign_v2.py` computes final accuracy, accuracy per kilojoule, and
+**energy to reach a target accuracy**, which is the decision-relevant quantity
+and does not depend on the arbitrary 30-epoch budget.
+
+The measured result: under the same epoch budget all seven ecosystems converge
+to within 0.7 percentage points on Fashion-MNIST (91.0–91.6 %), which is the
+strongest available evidence that they are now running the same experiment. On
+CIFAR-100 they separate by 13.1 points, and there the energy comparison has to
+be read alongside the accuracy reached rather than instead of it — a stack that
+converges more slowly looks efficient precisely because it accomplished less.
 
 ### Comment 7 — Not like-for-like at the implementation level
 
@@ -258,7 +319,7 @@ differences" predicts.
 
 ### Comment 8 — CUDA/cuDNN/precision not held constant
 
-**Partly FIXED, partly REQUIRES RE-EXECUTION.** The confound is real, and the
+**CLOSED, with two documented residuals.** The confound is real, and the
 audit adds one the reviewer did not have: the CodeCarbon version itself differs
 across stacks and dominates the host-energy term. Actions:
 
@@ -272,7 +333,15 @@ across stacks and dominates the host-energy term. Actions:
   `manifest.json` for every run, so the residual differences are reportable
   rather than invisible.
 
-Until re-execution, "C++/LibTorch is most efficient" remains confounded with
+Two divergences survive by construction and are reported in the manuscript
+rather than hidden: DL4J 1.0.0-M2.1 is the last release of its API and links
+CUDA 11.6, so Java cannot join the CUDA 12 group; and R's `torch` cannot switch a
+script module between train and eval mode, so R alone cannot load the shared
+TorchScript module. The manuscript reports the four-stack LibTorch control group
+separately for exactly this reason, so a reader can see how much spread survives
+when the backend is genuinely held fixed.
+
+In the original data, "C++/LibTorch is most efficient" remained confounded with
 "C++/LibTorch has the newest backend and a different CodeCarbon version", and is
 reported as such.
 
@@ -361,13 +430,19 @@ across eight stacks, four of which share a backend.
 
 ### Comment 15 — The workload does not exercise the GPU
 
-**FIXED (analysis), REQUIRES RE-EXECUTION (workload).** Confirmed and quantified.
+**FIXED (analysis); the workload limitation remains open.** Confirmed and quantified.
 Mean GPU power derived from the energy counter is 83–197 W against a 350 W board
 limit — 24–56% — and never approaches the limit in any configuration. GPU energy
 is 30–69% of the measured total; the remainder is host-side.
-`fig_gpu_load.png` and `audit_gpu_load.md` report this per ecosystem and phase,
-and `fig_component_breakdown.png` shows the split. The protocol requires a
-GPU-saturating configuration in the replicated campaign.
+`fig_gpu_load.png` and `audit_gpu_load.md` report this per ecosystem and phase.
+
+**Still open, and stated as such in the manuscript.** The replicated campaign
+runs the same 32×32 workload, so it inherits the limitation: it measures data
+loading and dispatch more than deep learning. We now bound the consequence in a
+known direction rather than leaving it implicit — a saturating workload would
+*compress* the ecosystem spread, because the spread we measure is dominated by
+host-side work. Adding a saturating configuration is the single most useful
+follow-up and is listed first in Future Work.
 
 ---
 
@@ -383,12 +458,19 @@ stored in the replication data — is `01_data_audit.py` and
 
 ### Major comment 2 — No independent run-level repetitions
 
-**Accepted; REQUIRES RE-EXECUTION.** We agree this is not a future-work point.
-Until the replicated campaign runs, every comparative statement in the paper is
-demoted to a descriptive observation about one execution campaign, and the
-within-run intervals are labelled as such wherever they appear. The protocol,
-driver and analysis are in place (`repetition_protocol.md`,
-`scripts/run_campaign.py`, `09_campaign_v2.py`).
+**CLOSED.** We agreed this was not a future-work point, and it is now done.
+Each of the 42 configurations was executed five times as an independent process
+with a distinct seed, **interleaved** rather than run back to back so that drift
+in machine state is spread across conditions instead of aliasing onto whichever
+ecosystem ran last: 210 runs in total. Every interval, test and effect size in
+the revised manuscript is computed across those runs.
+
+The design also answers a question the submitted one could not ask: how precise
+is the apparatus? Median between-run CV is 0.46 % for training and 1.10 % for
+inference. That is low — and worth stating plainly, because low run-to-run
+variance is what made a single-run design look adequate in the first place. It
+is a property of the measurement, not evidence that the measurement is of the
+right thing.
 
 ### Major comment 3 — No accuracy or convergence
 
@@ -427,6 +509,20 @@ are precisely the pairs that disappear once the CodeCarbon host power model is
 held constant, i.e. they are instrument artefacts. RQ3 is rewritten: execution
 time is a good proxy for energy in this workload, and the apparent exceptions
 came from the measurement setup.
+
+**The replicated campaign identifies the mechanism.** The submitted RQ3 used
+CodeCarbon's `duration` column as the time axis. That column is not the interval
+the energy was accumulated over: it is `max(phase_duration, ≈3.99 s)`,
+R² = 0.993. Every phase shorter than four seconds — which is every inference
+phase in the faster stacks, and the training epochs of the fastest — was
+therefore recorded with a *stretched* time and a *correct* energy. That is
+precisely the shape of a "fast but energy-hungry" data point, and it is
+manufactured entirely by the instrument.
+
+Recomputed on counter-bracketed durations, energy and time rank the
+configurations at Spearman ρ ≈ 1 in both phases. `11_instrument_comparison.py`
+reproduces the floor characterisation; `14_v2_statistics.py` reproduces the
+correlations.
 
 Efficiency Index: see Reviewer 1 comment 10.
 
@@ -527,40 +623,39 @@ ecosystems rather than oversights:
 
 ## The revised manuscript
 
-`paper/` contains a rewritten manuscript. It is **not** the submitted study with
-corrected numbers: the original conclusions do not survive a common measurement
-boundary, so presenting them corrected would misrepresent what the data supports.
-It is an instrument and implementation audit — what the campaign actually
-measured, a catalogue of fourteen defect classes with measured effect sizes, and
-the specification and tooling that make the comparison possible. Every number in
-it is traceable to `results/revision/` via `paper/README.md`.
+`paper/paper.tex` is the revised manuscript, in the same Elsevier `cas-dc`
+format as the submission. It is a substantial rewrite rather than a corrected
+version of the original: the measurement apparatus is now part of the
+contribution, RQ4 is added, and every result section is rebuilt on the
+replicated campaign.
 
-It deliberately does not report a corrected ranking of ecosystems, and says so.
+Every quantity the manuscript quotes is **generated**, not transcribed.
+`results/analysis/12_paper_numbers.py` writes `paper/generated/numbers.tex` (a
+`\newcommand` per value) and the result tables; `paper.tex` reads them at build
+time. This is a direct response to how the unit error occurred: a number that no
+author types is a number no author can mislabel.
+
+Figures are regenerated by `results/analysis/13_paper_figures.py`. The four
+submitted figures are replaced by five: the instrument's duration floor and its
+effect on power, energy per ecosystem with genuine between-run intervals, energy
+against accuracy reached, the two instruments against each other, and
+between-run repeatability.
 
 ## What is still outstanding
 
-These cannot be closed from this repository:
-
-1. **Run the replicated campaign** — 5–10 independent repetitions per
-   configuration, with accuracy logged, under the pinned instrument
-   configuration. `scripts/run_campaign.py`, then `09_campaign_v2.py`.
-2. **Add a GPU-saturating workload** so the study speaks to the regime it
-   motivates (Reviewer 1 comments 2 and 15).
-3. **Align CUDA, cuDNN and the LibTorch build** across stacks, at minimum within
-   the four-stack LibTorch control group (Reviewer 1 comment 8).
-3b. ~~**Build and smoke-test the aligned non-Python stacks.**~~ **Done.**
-   Toolchains were provisioned without root and every non-Python stack now
-   builds from these sources: C++ 13/13 targets (including the six `*_imported`
-   ones that did not exist in the submitted package), Java `mvn compile` under
-   JDK 21, Rust `cargo check --bins` clean under tch 0.20, R `parse()` plus a
-   runtime `jit_load` test. MATLAB is out of scope (see above).
-4. **Validate the daemon-based CodeCarbon controller** against in-process
-   CodeCarbon and an external meter (Reviewer 1 comment 13).
-5. **Rewrite the manuscript** against the corrected numbers: units, run counts,
-   carbon, RQ3, dataset scaling, the extrapolation, related work, terminology.
-
-Given finding 2 — that the whole effect reproduces inside a single shared
-backend — the honest reframing is a study of **binding, runtime and toolchain
-overhead at low GPU utilisation**, with the LibTorch group as the controlled
-core and the other four stacks as context. That is a narrower claim than the
-submitted one, and it is one this design can actually support.
+1. **A GPU-saturating workload.** At 32×32 the accelerator runs well below its
+   board power limit, so the campaign measures data loading and dispatch more
+   than deep learning (Reviewer 1 comments 2 and 15). This bounds the absolute
+   figures in a known direction — a saturating workload would compress the
+   spread — and it is stated as such in the manuscript rather than left implicit.
+2. **A wall-meter reference.** We report a chip-level boundary (NVML + RAPL) and
+   decline to extrapolate to whole-system energy. Relating the two needs
+   hardware we do not have.
+3. **Two residual toolchain divergences**, both properties of the ecosystems
+   rather than of the design: DL4J 1.0.0-M2.1 is the last release of its API and
+   links CUDA 11.6, so Java cannot join the CUDA 12 group; and R's `torch`
+   cannot switch a script module between train and eval mode, so R alone cannot
+   load the shared TorchScript module of specification S1.
+4. **MATLAB** remains out of scope. It cannot be brought into conformance with
+   the specification, and including a stack that provably runs a different
+   experiment would reintroduce the confound the design exists to remove.
