@@ -16,6 +16,7 @@ data is present this script explains what is missing and exits cleanly.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -33,12 +34,37 @@ TARGET_ACCURACY = {  # per dataset, chosen well below the achievable ceiling
 }
 
 
+# A run that died part-way leaves its directory behind holding the few blocks it
+# managed. Those are fragments, not small measurements, and averaging them in
+# with complete runs produced ecosystem spreads three orders of magnitude too
+# large. See the same gate in 11_instrument_comparison.py.
+EXPECTED_EPOCHS = int(os.environ.get("DEEPGREEN_EPOCHS", "30"))
+
+
+def _is_complete(run_dir: Path) -> bool:
+    counters = run_dir / "counters.csv"
+    if not counters.exists():
+        return False
+    try:
+        hw = pd.read_csv(counters)
+    except pd.errors.EmptyDataError:
+        return False
+    if hw.empty:
+        return False
+    counts = hw.groupby("phase").epoch.nunique()
+    return all(int(counts.get(ph, 0)) >= EXPECTED_EPOCHS for ph in ("train", "eval"))
+
+
 def collect() -> pd.DataFrame:
     """Join per-epoch CodeCarbon output with per-epoch quality metrics."""
     rows = []
+    skipped = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
         metrics_path = run_dir / "metrics.csv"
         if not metrics_path.exists():
+            continue
+        if not _is_complete(run_dir):
+            skipped.append(run_dir.name)
             continue
         metrics = pd.read_csv(metrics_path)
         for emissions_path in sorted(run_dir.glob("emissions_*.csv")):
@@ -57,6 +83,8 @@ def collect() -> pd.DataFrame:
                 }
             )
             rows.append(rec)
+    if skipped:
+        print(f"excluded {len(skipped)} incomplete run(s): {', '.join(skipped)}")
     if not rows:
         return pd.DataFrame()
 

@@ -73,10 +73,5 @@ R/torch,vgg16,tinyimagenet,Inference,150,1.0007,0.0019,1.0008,0.0002,1.0007,1.11
 R/torch,vgg16,tinyimagenet,Training,150,1.0001,0.0003,1.0001,0.0001,1.0001,1.1026,9.2976
 Rust/tch,resnet18,cifar100,Inference,150,1.009,0.0401,1.017,0.0019,1.0109,1.121,9.8172
 Rust/tch,resnet18,cifar100,Training,150,1.0006,0.0039,1.0019,0.0008,1.0008,1.0769,7.0623
-Rust/tch,resnet18,fashionmnist,Training,4,1.0,0.0,1.0656,0.0074,1.0277,1.2056,14.6986
-Rust/tch,resnet18,tinyimagenet,Training,4,1.3037,0.6073,1.0552,0.0045,1.1766,1.3509,13.1318
 Rust/tch,vgg16,cifar100,Inference,150,1.013,0.0329,1.0139,0.003,1.0131,1.0722,5.514
 Rust/tch,vgg16,cifar100,Training,150,1.0,0.0017,1.0005,0.0007,1.0,1.0523,4.9671
-Rust/tch,vgg16,fashionmnist,Inference,5,1.2501,0.5593,1.1305,0.0048,1.2126,1.3373,9.6847
-Rust/tch,vgg16,fashionmnist,Training,5,1.0,0.0,0.9999,0.0011,1.0,1.0574,5.4298
-Rust/tch,vgg16,tinyimagenet,Training,5,1.3879,0.8673,1.0669,0.0052,1.196,1.3813,13.6579

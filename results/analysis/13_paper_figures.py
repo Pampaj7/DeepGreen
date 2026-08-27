@@ -33,6 +33,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import LogLocator, NullFormatter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import REPO_ROOT  # noqa: E402
@@ -61,15 +62,35 @@ SHORT = {
     "Python/JAX": "JAX", "Cpp/LibTorch": "C++", "C++/LibTorch": "C++",
     "Java/DL4J": "Java", "R/torch": "R", "Rust/tch": "Rust",
 }
-# One colour per ecosystem, held constant across every figure.
+# One colour per ecosystem, held constant across every figure. Chosen so that
+# no two are confusable in greyscale or with the common forms of colour
+# blindness: the first draft put JAX and PyTorch in two greens and R and
+# TensorFlow in two purples, which made the scatter plots unreadable.
 COLOR = {
-    "JAX": "#1b7837", "PyTorch": "#4d9221", "C++": "#2166ac",
-    "Rust": "#d6604d", "TensorFlow": "#8c6bb1", "Java": "#b2182b",
-    "R": "#762a83",
+    "JAX": "#1b7837",         # green
+    "PyTorch": "#f28e2b",     # orange
+    "C++": "#2166ac",         # blue
+    "Rust": "#8c510a",        # brown
+    "TensorFlow": "#7570b3",  # violet
+    "Java": "#d62728",        # red
+    "R": "#17becf",           # cyan
 }
+MARKER = {"JAX": "o", "PyTorch": "s", "C++": "^", "Rust": "D",
+          "TensorFlow": "v", "Java": "P", "R": "X"}
 DATASET = {"fashionmnist": "Fashion-MNIST", "cifar100": "CIFAR-100",
            "tinyimagenet": "Tiny ImageNet"}
 MODEL = {"resnet18": "ResNet-18", "vgg16": "VGG-16"}
+
+
+def tidy_log_x(ax) -> None:
+    """Decade labels only.
+
+    Matplotlib labels log minor ticks when a scatter spans less than a decade,
+    and the labels then overprint each other into an unreadable smear.
+    """
+    ax.xaxis.set_major_locator(LogLocator(base=10))
+    ax.xaxis.set_minor_locator(LogLocator(base=10, subs=tuple(np.arange(2, 10) * 0.1)))
+    ax.xaxis.set_minor_formatter(NullFormatter())
 
 
 def save(fig, stem: str) -> None:
@@ -87,8 +108,9 @@ def fig_window_floor(epochs: pd.DataFrame) -> None:
 
     for eco, g in epochs.groupby("ecosystem"):
         name = SHORT[eco]
-        ax.scatter(g.duration_hw_s, g.duration_cc_s, s=4, alpha=0.35,
-                   color=COLOR[name], label=name, linewidths=0)
+        ax.scatter(g.duration_hw_s, g.duration_cc_s, s=7, alpha=0.45,
+                   color=COLOR[name], label=name, marker=MARKER[name],
+                   linewidths=0)
 
     lim = (0.05, max(epochs.duration_hw_s.max(), epochs.duration_cc_s.max()) * 1.6)
     x = np.geomspace(*lim, 200)
@@ -100,9 +122,11 @@ def fig_window_floor(epochs: pd.DataFrame) -> None:
            xlabel="phase duration, counter-bracketed (s)",
            ylabel="duration reported by CodeCarbon (s)")
     ax.annotate(f"reported $=\\max(\\mathrm{{phase}},\\ {floor:.1f}\\,$s$)$",
-                xy=(0.11, floor * 1.25), fontsize=8.5)
-    ax.annotate("identity", xy=(lim[1] * 0.28, lim[1] * 0.42), fontsize=8.5,
-                color="0.35", rotation=34)
+                xy=(0.9, floor), xytext=(0.075, lim[1] * 0.30), fontsize=8.5,
+                arrowprops=dict(arrowstyle="->", color="0.3", lw=0.8))
+    ax.annotate("identity", xy=(0.30, 0.30), xytext=(0.42, 0.115),
+                fontsize=8.5, color="0.35",
+                arrowprops=dict(arrowstyle="->", color="0.55", lw=0.8))
     ax.legend(markerscale=3, fontsize=7.5, loc="lower right", ncol=2)
     ax.set_title("(a) the reported window has a floor", fontsize=9.5, loc="left")
 
@@ -135,21 +159,33 @@ def fig_energy_ci(stats: pd.DataFrame) -> None:
     blocks = [(m, d) for m in ("resnet18", "vgg16")
               for d in ("fashionmnist", "cifar100", "tinyimagenet")]
 
-    fig, axes = plt.subplots(2, 3, figsize=(10.6, 5.6), sharey="row")
+    # One ecosystem order for all six panels, cheapest overall first. Sorting
+    # each panel independently while sharing the y axis silently mislabels every
+    # panel but the first -- the bars move and the tick labels do not.
+    order = (train.groupby("name").mean_energy_J.median()
+             .sort_values().index.tolist())
+    pos = {name: i for i, name in enumerate(order)}
+
+    fig, axes = plt.subplots(2, 3, figsize=(10.8, 5.8), sharey=True)
     for ax, (model, dataset) in zip(axes.ravel(), blocks):
         g = train[(train.model == model) & (train.dataset == dataset)]
-        g = g.sort_values("mean_energy_J")
-        y = np.arange(len(g))
+        y = [pos[n] for n in g.name]
         err = np.vstack([g.mean_energy_J - g.ci95_lo_J, g.ci95_hi_J - g.mean_energy_J])
-        ax.barh(y, g.mean_energy_J, xerr=err, height=0.66,
+        ax.barh(y, g.mean_energy_J, xerr=err, height=0.7,
                 color=[COLOR[n] for n in g.name],
-                error_kw={"ecolor": "0.25", "lw": 1.0, "capsize": 2.5})
-        ax.set(yticks=y, yticklabels=g.name, xscale="log")
-        ax.invert_yaxis()
+                error_kw={"ecolor": "0.2", "lw": 1.0, "capsize": 2.5})
+        ax.set(yticks=range(len(order)), yticklabels=order, xscale="log",
+               ylim=(len(order) - 0.5, -0.5))
         ax.set_title(f"{MODEL[model]} / {DATASET[dataset]}", fontsize=9, loc="left")
         ax.tick_params(labelsize=8)
+        missing = [n for n in order if n not in set(g.name)]
+        for n in missing:
+            ax.annotate("not measured", xy=(0.02, pos[n]),
+                        xycoords=("axes fraction", "data"),
+                        va="center", fontsize=7, color="0.5", style="italic")
         if len(g):
-            ax.set_xlim(g.mean_energy_J.min() * 0.55, g.mean_energy_J.max() * 2.4)
+            ax.set_xlim(g.mean_energy_J.min() * 0.5, g.mean_energy_J.max() * 2.6)
+        tidy_log_x(ax)
     for ax in axes[1]:
         ax.set_xlabel("training energy per epoch (J, log scale)")
     fig.suptitle("GPU + CPU package, one boundary for every ecosystem; "
@@ -168,12 +204,22 @@ def fig_energy_accuracy(quality: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
     for ax, ds in zip(axes, datasets):
         g = q[q.dataset == ds]
+        # Colour and marker carry the ecosystem; fill carries the architecture,
+        # so a reader can see at a glance that every collapsed run is a VGG-16.
         for name, gg in g.groupby("name"):
-            ax.scatter(gg.train_energy_total_J / 1000.0, gg.final_test_acc_pct,
-                       s=26, color=COLOR[name], label=name, alpha=0.85,
-                       edgecolors="white", linewidths=0.5)
+            for model, face, edge in (("resnet18", COLOR[name], "white"),
+                                      ("vgg16", "none", COLOR[name])):
+                sub = gg[gg.model == model]
+                if not len(sub):
+                    continue
+                ax.scatter(sub.train_energy_total_J / 1000.0, sub.final_test_acc_pct,
+                           s=34, facecolors=face, edgecolors=edge, linewidths=0.9,
+                           marker=MARKER[name], alpha=0.9,
+                           label=name if model == "resnet18" else None)
         # the frontier: nothing to the left of it reaches the same accuracy
-        pts = g[["train_energy_total_J", "final_test_acc_pct"]].dropna()
+        pts = g[g.final_test_acc_pct > {"fashionmnist": 15.0, "cifar100": 1.5,
+                                        "tinyimagenet": 0.75}[ds]]
+        pts = pts[["train_energy_total_J", "final_test_acc_pct"]].dropna()
         pts = pts.sort_values("train_energy_total_J")
         best, fx, fy = -np.inf, [], []
         for e, a in pts.itertuples(index=False):
@@ -185,6 +231,17 @@ def fig_energy_accuracy(quality: pd.DataFrame) -> None:
         ax.set(xscale="log", xlabel="training energy (kJ, log scale)",
                title=DATASET[ds])
         ax.title.set_fontsize(9.5)
+        tidy_log_x(ax)
+        # Runs that collapsed to chance are not points on an energy/quality
+        # trade-off: they spent the full budget and learned nothing. Mark them
+        # rather than let them drag the axis down to zero.
+        chance = {"fashionmnist": 10.0, "cifar100": 1.0, "tinyimagenet": 0.5}[ds]
+        floor_pts = g[g.final_test_acc_pct <= chance * 1.5]
+        if len(floor_pts):
+            ax.axhspan(0, chance * 1.5, color="0.85", zorder=-2)
+            ax.annotate(f"collapsed to chance ({len(floor_pts)} runs)",
+                        xy=(0.5, 0.035), xycoords="axes fraction",
+                        ha="center", fontsize=7.5, color="0.35")
     axes[0].set_ylabel("final test accuracy (%)")
     handles, labels = axes[0].get_legend_handles_labels()
     for ax in axes[1:]:
@@ -194,8 +251,17 @@ def fig_energy_accuracy(quality: pd.DataFrame) -> None:
                 handles.append(hi)
                 labels.append(li)
     order = np.argsort(labels)
-    fig.legend([handles[i] for i in order], [labels[i] for i in order],
-               loc="lower center", ncol=7, fontsize=8.5, bbox_to_anchor=(0.5, -0.09))
+    handles = [handles[i] for i in order]
+    labels = [labels[i] for i in order]
+    from matplotlib.lines import Line2D
+    handles += [Line2D([], [], marker="o", color="0.3", ls="none", ms=6,
+                       label="ResNet-18"),
+                Line2D([], [], marker="o", markerfacecolor="none",
+                       markeredgecolor="0.3", color="0.3", ls="none", ms=6,
+                       label="VGG-16")]
+    labels += ["filled: ResNet-18", "hollow: VGG-16"]
+    fig.legend(handles, labels, loc="lower center", ncol=9, fontsize=8.5,
+               bbox_to_anchor=(0.5, -0.11))
     save(fig, "fig_energy_accuracy")
 
 
@@ -214,6 +280,7 @@ def fig_instrument(epochs: pd.DataFrame) -> None:
            ylabel="CodeCarbon / hardware counters",
            ylim=(0.9, 1.35))
     ax.legend(markerscale=3, fontsize=8, loc="upper right")
+    tidy_log_x(ax)
     ax.set_title("(a) energy: agreement is not the problem", fontsize=9.5, loc="left")
 
     share = epochs.groupby(epochs.ecosystem.map(SHORT)).ram_share_pct.mean().sort_values()
@@ -248,6 +315,51 @@ def fig_repeatability(stats: pd.DataFrame) -> None:
     save(fig, "fig_repeatability")
 
 
+def fig_convergence(conditional: pd.DataFrame, by_eco: pd.DataFrame) -> None:
+    """What the collapsed runs were hiding.
+
+    Comparing cross-ecosystem accuracy before and after excluding the runs that
+    never left chance shows that almost the entire apparent disagreement between
+    stacks was a handful of VGG-16 runs that failed to train.
+    """
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(9.4, 3.5),
+                                  gridspec_kw={"width_ratios": [1.1, 1]})
+
+    c = conditional.copy()
+    c["block"] = c.model.map(MODEL) + "\n" + c.dataset.map(DATASET)
+    c = c.sort_values("raw_spread_pp")
+    idx = np.arange(len(c))
+    ax.barh(idx - 0.19, c.raw_spread_pp, 0.38, color="#bdbdbd",
+            label="all runs")
+    ax.barh(idx + 0.19, c.converged_spread_pp, 0.38, color="#2166ac",
+            label="runs that trained")
+    ax.set(yticks=idx, yticklabels=c.block,
+           xlabel="cross-ecosystem accuracy spread (percentage points)")
+    ax.tick_params(labelsize=7.5)
+    ax.legend(fontsize=8, loc="lower right")
+    ax.set_title("(a) the stacks agree, once the collapses are removed",
+                 fontsize=9.5, loc="left")
+
+    by_eco = by_eco[by_eco.dataset.isin(("cifar100", "tinyimagenet"))]
+    piv = by_eco.pivot_table(index="ecosystem", columns="dataset",
+                             values="n_collapsed", aggfunc="sum").fillna(0)
+    piv.index = [SHORT[e] for e in piv.index]
+    piv = piv.reindex(sorted(piv.index))
+    cols = [c for c in ("cifar100", "tinyimagenet") if c in piv.columns]
+    width = 0.8 / max(len(cols), 1)
+    for k, col in enumerate(cols):
+        ax2.bar(np.arange(len(piv)) + (k - (len(cols) - 1) / 2) * width,
+                piv[col], width, label=DATASET[col],
+                color=["#4393c3", "#b2182b"][k])
+    ax2.set(xticks=np.arange(len(piv)), xticklabels=piv.index,
+            ylabel="VGG-16 runs collapsed (of 5)", ylim=(0, 5.4))
+    ax2.tick_params(labelsize=8)
+    ax2.legend(fontsize=8)
+    ax2.set_title("(b) every ecosystem is susceptible; VGG-16 only",
+                  fontsize=9.5, loc="left")
+    save(fig, "fig_convergence")
+
+
 def main() -> None:
     epochs = pd.read_csv(TABLES / "v2_instrument_epochs.csv")
     stats = pd.read_csv(TABLES / "v2_between_run_statistics.csv")
@@ -258,6 +370,10 @@ def main() -> None:
     fig_energy_accuracy(quality)
     fig_instrument(epochs)
     fig_repeatability(stats)
+
+    conditional = pd.read_csv(TABLES / "v2_convergence_conditional.csv")
+    by_eco = pd.read_csv(TABLES / "v2_convergence_by_ecosystem.csv")
+    fig_convergence(conditional, by_eco)
 
 
 if __name__ == "__main__":

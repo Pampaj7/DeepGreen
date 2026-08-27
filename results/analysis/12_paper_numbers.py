@@ -198,10 +198,9 @@ def write_spread_table(spread: pd.DataFrame) -> None:
         r"\midrule",
     ]
     for _, r in spread.iterrows():
-        lines.append(
-            f"{r.model} & {r.dataset} & {r.best} & {r.best_j:,.0f} & "
-            f"{r.worst} & {r.worst_j:,.0f} ({r.ratio:.1f}$\\times$) \\\\".replace(",", "\\,")
-        )
+        cells = [r.model, r.dataset, r.best, f"{r.best_j:,.0f}", r.worst,
+                 f"{r.worst_j:,.0f} ({r.ratio:.1f}$\\times$)"]
+        lines.append(" & ".join(c.replace(",", "\\,") for c in cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_spread.tex").write_text("\n".join(lines) + "\n")
     print("  wrote paper/generated/tab_spread.tex")
@@ -336,22 +335,60 @@ def industrial_scenario() -> None:
         r"\begin{tabular}{lrrrr}",
         r"\toprule",
         r"\textbf{Ecosystem} & \textbf{Relative energy} & \textbf{Energy (MWh/day)} "
-        r"& \textbf{Cost (\euro)} & \textbf{Delta vs PyTorch (\euro)} \\",
+        r"& \textbf{Cost (\euro/day)} & \textbf{Saving vs PyTorch (\euro/day)} \\",
         r"\midrule",
     ]
     for eco, m in mult.items():
         mwh = baseline_mwh * m
         cost = mwh * EUR_PER_MWH
-        delta = (baseline_mwh - mwh) * EUR_PER_MWH
-        sign = "+" if delta > 0 else ""
+        saving = (baseline_mwh - mwh) * EUR_PER_MWH
         name = SHORT[eco] + (" (baseline)" if eco == "Python/PyTorch" else "")
-        d = "--" if eco == "Python/PyTorch" else f"{sign}{delta:,.0f}".replace(",", "\\,")
-        lines.append(
-            f"{name} & {m:.2f}$\\times$ & {mwh:,.0f} & {cost:,.0f} & {d} \\\\"
-            .replace(",", "\\,"))
+        d = "--" if eco == "Python/PyTorch" else f"{saving:+,.0f}"
+        # Thousands separators are inserted once, at the end, so that a cell
+        # already carrying one is not processed twice.
+        cells = [name, f"{m:.2f}$\\times$", f"{mwh:,.0f}", f"{cost:,.0f}", d]
+        lines.append(" & ".join(c.replace(",", "\\,") for c in cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_industrial.tex").write_text("\n".join(lines) + "\n")
     print("  wrote paper/generated/tab_industrial.tex")
+
+
+# -------------------------------------------------------------- convergence --
+def convergence_facts() -> None:
+    bm = pd.read_csv(TABLES / "v2_convergence_by_model.csv")
+    vgg = bm[bm.model == "vgg16"]
+    res = bm[bm.model == "resnet18"]
+    macro("vCollapsedVgg", int(vgg.n_collapsed.sum()))
+    macro("vCollapsedVggRuns", int(vgg.n_runs.sum()))
+    macro("vCollapsedResnet", int(res.n_collapsed.sum()))
+    macro("vCollapsedResnetRuns", int(res.n_runs.sum()))
+    for ds, tag in (("cifar100", "Cifar"), ("tinyimagenet", "Tiny")):
+        row = vgg[vgg.dataset == ds]
+        if len(row):
+            macro(f"vCollapsePct{tag}", num(row.collapse_pct.iat[0], 0))
+
+    be = pd.read_csv(TABLES / "v2_convergence_by_ecosystem.csv")
+    macro("vCollapseEcosystems",
+          int(be[be.n_collapsed > 0].ecosystem.nunique()))
+
+    cond = pd.read_csv(TABLES / "v2_convergence_conditional.csv")
+    worst = cond.loc[cond.raw_spread_pp.idxmax()]
+    macro("vCondBlockRaw", num(worst.raw_spread_pp, 1))
+    macro("vCondBlockConverged", num(worst.converged_spread_pp, 1))
+    macro("vCondBlockName", f"{MODEL[worst.model]} on {DATASET[worst.dataset]}")
+    macro("vCondSpreadMax", num(cond.converged_spread_pp.max(), 1))
+
+    ht = pd.read_csv(TABLES / "v2_convergence_homogeneity.csv")
+    macro("vCollapseRateMin", num(ht.collapse_pct.min(), 0))
+    macro("vCollapseRateMax", num(ht.collapse_pct.max(), 0))
+    macro("vCollapseRateOverall", num(ht.overall_pct.iat[0], 0))
+    macro("vCollapseHomogeneityP", num(ht.permutation_p.iat[0], 2))
+    macro("vCollapseNeverEcosystems",
+          int((ht.n_collapsed == 0).sum()))
+
+    w = pd.read_csv(TABLES / "v2_convergence_waste.csv").iloc[0]
+    macro("vWastedPct", num(w.wasted_pct, 1))
+    macro("vWastedMJ", num(w.collapsed_energy_MJ, 1))
 
 
 # ----------------------------------------------------------------- ranking --
@@ -367,6 +404,7 @@ def main() -> None:
     stats = repeatability_facts()
     energy_facts(stats)
     quality_facts()
+    convergence_facts()
     statistics_facts()
     instrument_table()
     industrial_scenario()

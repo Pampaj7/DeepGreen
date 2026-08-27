@@ -2,8 +2,8 @@
 
 | quantity                                         |   mean_ratio_or_share |     sd |    p05 |     p95 |
 |:-------------------------------------------------|----------------------:|-------:|-------:|--------:|
-| GPU (NVML counter vs CodeCarbon pynvml sampling) |                1.0047 | 0.0436 | 1      |  1.0063 |
-| CPU package (RAPL counter vs CodeCarbon)         |                1.0073 | 0.0106 | 1.0001 |  1.0302 |
-| GPU + CPU, the measured part                     |                1.0051 | 0.0291 | 1      |  1.0112 |
-| CodeCarbon total incl. modelled RAM              |                1.0846 | 0.0416 | 1.0504 |  1.1307 |
-| RAM share of the CodeCarbon total                |                7.2731 | 2.2562 | 4.7856 | 10.6745 |
+| GPU (NVML counter vs CodeCarbon pynvml sampling) |                1.0044 | 0.0362 | 1      |  1.0063 |
+| CPU package (RAPL counter vs CodeCarbon)         |                1.0072 | 0.0102 | 1.0001 |  1.03   |
+| GPU + CPU, the measured part                     |                1.0048 | 0.0259 | 1      |  1.0109 |
+| CodeCarbon total incl. modelled RAM              |                1.0842 | 0.0386 | 1.0504 |  1.1305 |
+| RAM share of the CodeCarbon total                |                7.2654 | 2.245  | 4.7856 | 10.6252 |

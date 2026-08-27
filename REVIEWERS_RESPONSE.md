@@ -32,6 +32,45 @@ Everything below is reproducible with `results/analysis/run_all.sh`.
 | Accuracy not recorded | Recorded per epoch by every stack; convergence within 0.7 pp on Fashion-MNIST |
 | CodeCarbon as sole instrument | Dual instrument; the two agree on energy to 0.5 % over 11,423 blocks |
 
+### The finding that justifies the reviewers' insistence on repetitions
+
+Reviewer 3's major comment 2 asked for independent run-level repetitions.
+Executing them produced a result neither we nor the reviewers anticipated, and
+it is the clearest possible vindication of the request.
+
+**VGG-16 does not always train.** In 12 of 90 VGG-16 runs the network converges
+to *exactly* chance accuracy — 1.00 % on CIFAR-100 (100 classes), 0.50 % on
+Tiny ImageNet (200 classes) — and stays there for all 30 epochs, having consumed
+the full energy budget while learning nothing. ResNet-18 never does this
+(0 of 95). Neither does it on Fashion-MNIST. VGG-16 as shipped has no batch
+normalisation, and a plain 16-layer network under Adam at 1e-4 over many classes
+can settle into predicting one class; the initialisation decides whether it
+does.
+
+It appears in four ecosystems independently (Java 5/10, TensorFlow 4/10,
+C++ 2/10, PyTorch 1/10) and never in two (JAX 0/10, R 0/10). That spread is
+*not* statistically distinguishable from a common rate at this sample size
+(permutation test, p = 0.10), so we report susceptibility as a property of the
+recipe and explicitly decline to rank ecosystems by robustness — a chi-square
+test on the same table gives p = 0.017, which is exactly the kind of
+small-count over-confidence the reviewers were right to guard against.
+
+Two consequences:
+
+1. **It is the strongest evidence that the specification worked.** On VGG-16 /
+   CIFAR-100 the cross-ecosystem accuracy spread is 20.2 percentage points over
+   all runs and **1.3 points** over the runs that trained. Almost the entire
+   apparent disagreement between stacks was collapsed runs, not different
+   computations.
+2. **It silently breaks fixed-budget energy comparison.** 11.7 % of the
+   campaign's energy — 5.1 MJ — was spent on runs that learned nothing. An
+   ecosystem that draws unlucky initialisations looks equally expensive and much
+   less accurate. With one run per configuration, the published number is
+   whichever outcome that seed produced, and nothing in the energy data
+   distinguishes the two cases.
+
+Reproduce with `results/analysis/15_convergence.py`.
+
 ### The instrument finding
 
 The campaign produced one result about the measurement tool itself that we

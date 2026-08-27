@@ -14,5 +14,5 @@
 | Python/TensorFlow | Training  | 900 |   64.002 |  53.744 |  160.22  |
 | R/torch           | Inference | 900 |    0.113 |   0.018 |    0.197 |
 | R/torch           | Training  | 900 |    0.024 |   0.008 |    0.063 |
-| Rust/tch          | Inference | 305 |  594.624 | 377.956 | 3898.18  |
-| Rust/tch          | Training  | 318 |  142.943 | 506.128 | 3281.27  |
+| Rust/tch          | Inference | 300 |  551.718 | 166.848 |  837.02  |
+| Rust/tch          | Training  | 300 |   41.438 |  42.563 |  100.541 |

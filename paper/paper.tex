@@ -174,6 +174,15 @@ We compare two convolutional architectures (ResNet-18 and VGG-16) across \vEcosy
 \textbf{Results.}
 The design yields \vRuns{} runs and \vBlocks{} doubly instrumented measurement blocks. Between-run repeatability is high: the median coefficient of variation of training energy is \vCVTrainMedian\,\%. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block, while final accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST --- the differences are energetic, not qualitative. The two instruments agree on energy to \vCCmeasDisagreementPct\,\% over the whole campaign, so the difficulty with software estimation lies elsewhere than accuracy: the duration CodeCarbon reports beside each energy figure is not the duration the energy was accumulated over, but $\max(\text{phase},\ \vWindowFloorS\,\text{s})$, a relation that explains $R^2 = \vWindowModelRsq$ of its variance. Any power or energy--time analysis built on that field therefore understates power by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases while being exact above ten seconds --- a bias that falls precisely on the fastest ecosystems and the inference phase.
 
+Replication also exposed a failure a single-run design cannot see: VGG-16
+converges to exactly chance accuracy in \vCollapsedVgg{} of \vCollapsedVggRuns{}
+runs and never trains, consuming \vWastedPct\,\% of the campaign's energy for
+nothing, in \vCollapseEcosystems{} ecosystems independently and never for
+ResNet-18. Excluding those runs collapses the cross-ecosystem accuracy spread on
+\vCondBlockName{} from \vCondBlockRaw{} to \vCondBlockConverged{} percentage
+points --- so almost all apparent disagreement between stacks was runs that
+failed to train, not stacks computing different things.
+
 \textbf{Conclusions.}
 Ecosystem selection materially affects the energy profile of DL applications, but the size and even the direction of that effect depend on decisions in the measurement apparatus that are invisible in the resulting data. We report the corrected comparison together with the specification, the shared measurement contract, the conformance checker and the raw dual-instrument records needed to audit it.
 \end{abstract}
@@ -207,6 +216,18 @@ A cross-ecosystem energy comparison, however, rests on two premises that are rar
 We therefore treat the apparatus as part of the contribution rather than as a preliminary. Three commitments follow. \emph{(i)} A written experiment specification states what ``the same experiment'' means across stacks --- model, optimisation, data pipeline, backend, measurement and replication --- and 56 automated checks enforce it against the source code, so that a divergence fails a check instead of quietly changing a number. \emph{(ii)} Energy is read from hardware counters, NVML's accumulated-energy register for the accelerator and the RAPL package-energy counters for the CPU, with CodeCarbon running over the same window as a second, independent instrument; every block therefore carries two readings that can be held against each other. \emph{(iii)} Each configuration is executed as \vRepetitions{} independent, interleaved runs with distinct seeds, so that the run rather than the epoch is the unit of analysis, and every ecosystem records per-epoch test accuracy, so that energy can be normalised by the quality actually reached rather than assumed equal.
 
 Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report are genuine. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. The ecosystem effect is real, it is large, and it is energetic rather than qualitative.
+
+Replication earned its cost in a way we did not anticipate. VGG-16 fails to
+train at all in \vCollapsedVgg{} of \vCollapsedVggRuns{} runs --- converging to
+exactly chance accuracy and staying there for the full epoch budget --- in
+\vCollapseEcosystems{} of the \vEcosystems{} ecosystems independently, and never
+once for ResNet-18. Those runs consume \vWastedPct\,\% of the campaign's energy
+and produce nothing, and they are invisible in energy data alone. They also
+account for almost all of the apparent accuracy disagreement between stacks:
+excluding them takes the cross-ecosystem spread on \vCondBlockName{} from
+\vCondBlockRaw{} to \vCondBlockConverged{} percentage points. A design with one
+run per configuration reports whichever of the two outcomes its single seed
+produced.
 
 The two instruments agree on \emph{energy} to \vCCmeasDisagreementPct\,\% over \vBlocks{} blocks, which relocates the difficulty with software-based estimation. What does not agree is time: the duration CodeCarbon reports beside each energy figure is not the interval the energy was accumulated over but $\max(\text{phase},\ \vWindowFloorS\,\text{s})$, a relation accounting for $R^2 = \vWindowModelRsq$ of its variance. Power derived by dividing the one field by the other is therefore understated by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases and is exact above ten seconds --- a bias that lands squarely on the fastest ecosystems and on the inference phase, which is to say on precisely the comparisons such a study exists to make.
 
@@ -800,6 +821,61 @@ Figure~\ref{fig:energy_accuracy} plots the two together. Ranking ecosystems by
 accuracy per kilojoule rather than by energy alone puts \vEffBest{} ahead of
 \vEffWorst{} by \vEffRatio$\times$ --- a different quantity from the energy
 ratio, and the one a practitioner choosing a stack actually faces.
+
+\subsubsection{Runs that consume the budget and learn nothing}
+\label{subsubsec:collapse}
+
+Replicating each configuration surfaced something a single run cannot show.
+VGG-16 does not always train. In \vCollapsedVgg{} of \vCollapsedVggRuns{}
+VGG-16 runs the network converges to \emph{exactly} chance accuracy --- 1/100 on
+CIFAR-100, 1/200 on Tiny ImageNet --- and stays there for all 30 epochs, having
+consumed the full energy budget while learning nothing.
+ResNet-18 never does this: \vCollapsedResnet{} of \vCollapsedResnetRuns{} runs.
+Neither architecture does it on Fashion-MNIST.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_convergence.png}
+    \caption{(a) Cross-ecosystem accuracy spread per block, over all runs and
+    over only the runs that trained. (b) VGG-16 runs that collapsed to chance,
+    out of five per cell.}
+    \label{fig:convergence}
+\end{figure*}
+
+The pattern points at the recipe rather than at any ecosystem. VGG-16 as
+shipped carries no batch normalisation, and a plain sixteen-layer network
+initialised randomly and driven by Adam at $10^{-4}$ over a hundred or two
+hundred classes can settle into predicting a single class; whether it does is
+decided by the initialisation. The collapse appears in \vCollapseEcosystems{}
+ecosystems independently, and \vCollapseNeverEcosystems{} never exhibit it.
+Per-ecosystem rates range from \vCollapseRateMin\,\% to \vCollapseRateMax\,\%
+against an overall \vCollapseRateOverall\,\%, but with ten susceptible runs per
+ecosystem that spread is not distinguishable from chance (permutation test,
+$p = \vCollapseHomogeneityP$). We therefore report the susceptibility as a
+property of the recipe and leave open whether ecosystems differ in rate ---
+they plausibly do, since each framework initialises weights with its own scheme
+and its own generator, but resolving it needs more repetitions than an energy
+study can usually afford.
+
+Two consequences matter here.
+
+\textbf{It is the strongest evidence that the specification worked.} On
+\vCondBlockName{} the cross-ecosystem accuracy spread is \vCondBlockRaw{}
+percentage points over all runs and \vCondBlockConverged{} points over the runs
+that trained (Figure~\ref{fig:convergence}a). Almost the entire apparent
+disagreement between stacks was a handful of runs that failed to train, not a
+difference in what the stacks compute. No block exceeds \vCondSpreadMax{} points
+once collapses are excluded.
+
+\textbf{It breaks fixed-budget energy comparison, invisibly.} A collapsed run
+costs full energy and produces nothing: \vWastedMJ~MJ, or \vWastedPct\,\% of the
+campaign's total, was spent on runs that learned nothing. An ecosystem that drew
+unlucky initialisations looks equally expensive and much less accurate; one that
+drew lucky ones looks efficient. With a single run per configuration --- the
+design this study replaces --- the reported number is whichever outcome that one
+initialisation produced, and nothing in the energy data distinguishes the two
+cases. This is why we report accuracy alongside energy rather than assuming a
+fixed budget delivers fixed quality.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ1 Findings: Impact of Ecosystems on Training Energy Efficiency}]
 \small

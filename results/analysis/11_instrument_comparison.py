@@ -35,6 +35,16 @@ from common import J_PER_KWH, REPO_ROOT, save_table  # noqa: E402
 
 CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
 
+# A run that died part-way leaves a directory behind, with a counters.csv
+# holding the handful of blocks it managed before the crash. Twenty of the
+# campaign's runs did exactly that, and their partial totals -- 16 J against a
+# neighbouring stack's 300 kJ -- are not small measurements of the same thing,
+# they are fragments of a run that never happened. Including them silently
+# produced ecosystem spreads of 20,000x. Completeness is therefore a gate, not a
+# judgement call: a run counts only if it recorded every epoch of both phases.
+EXPECTED_EPOCHS = int(__import__("os").environ.get("DEEPGREEN_EPOCHS", "30"))
+PHASES = ("train", "eval")
+
 
 def parse_run_name(name: str) -> dict:
     """``Rust-tch_resnet18_fashionmnist_rep3`` -> its four fields."""
@@ -49,7 +59,8 @@ def parse_run_name(name: str) -> dict:
 
 def collect() -> pd.DataFrame:
     """One row per (run, phase, epoch) with both instruments side by side."""
-    rows = []
+    rows: list[dict] = []
+    incomplete: list[tuple[str, dict]] = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
         counters_path = run_dir / "counters.csv"
         if not counters_path.exists():
@@ -59,6 +70,16 @@ def collect() -> pd.DataFrame:
         except pd.errors.EmptyDataError:
             continue
         if hw.empty:
+            continue
+
+        # -- completeness gate -------------------------------------------
+        counts = hw.groupby("phase").epoch.nunique()
+        missing = [ph for ph in PHASES
+                   if int(counts.get(ph, 0)) < EXPECTED_EPOCHS]
+        if missing:
+            incomplete.append(
+                (run_dir.name,
+                 {ph: int(counts.get(ph, 0)) for ph in PHASES}))
             continue
 
         meta = parse_run_name(run_dir.name)
@@ -96,6 +117,13 @@ def collect() -> pd.DataFrame:
                     "cc_ram_power_w": float(c["ram_power"]),
                 }
             )
+
+    if incomplete:
+        print(f"excluded {len(incomplete)} incomplete run(s) "
+              f"(fewer than {EXPECTED_EPOCHS} epochs in a phase):")
+        for name, counts in incomplete:
+            print(f"    {name}: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+        print()
 
     if not rows:
         print(f"No campaign data under {CAMPAIGN_DIR}. Run scripts/run_campaign.py first.")
