@@ -1024,9 +1024,9 @@ On counter-bracketed durations, energy and execution time rank ecosystems almost
 identically ($\rho = \vRhoTrain$ training, $\vRhoInfer$ inference): within this
 workload, faster \emph{is} greener. The contrary finding is reproducible as an
 instrument artefact --- the duration field of a widely used software estimator
-has a floor of about \vWindowFloorS\,s, which inflates the apparent runtime of
-short phases by up to \vShortestPhaseFactor$\times$ while leaving their energy
-correct.
+adds a constant \vWindowConstS\,\si{\second} to any phase shorter than about
+\vWindowThresholdS\,\si{\second}, inflating the apparent runtime of the shortest
+by up to \vShortestPhaseFactor$\times$ while leaving their energy correct.
 \end{tcolorbox}
 
 \subsection{RQ4: How much of this is the apparatus?}
@@ -1363,8 +1363,8 @@ Unit mislabelling &
 Energy reported in \si{\kilo\watt\hour} under a \si{\joule} label; a factor of \(3.6\times10^{6}\) &
 yes \\
 \addlinespace
-Reported duration is a floor &
-\(\max(\text{phase},\ \vWindowFloorS\,\text{s})\); power understated \vPowerUnderstatedSubSecond$\times$ below one second, exact above ten &
+Reported duration is not the accumulation window &
+Phase \(+\ \vWindowConstS\,\)s below \(\vWindowThresholdS\,\)s, phase above it; power understated \vPowerUnderstatedSubSecond$\times$ below one second, exact above ten &
 no \\
 \addlinespace
 Modelled term inside a measured total &
@@ -1582,10 +1582,10 @@ corresponds to no physical boundary, and its value depends on the host's memory
 configuration rather than on the workload.
 
 The estimator's reported duration is a second construct threat, and the sharper
-of the two: it is $\max(\text{phase},\ \vWindowFloorS\,\text{s})$ rather than the
-accumulation window, so any power or energy--time quantity derived from it is
-biased as a function of phase length. We use counter-bracketed durations
-throughout for this reason.
+of the two: below about \vWindowThresholdS\,\si{\second} it is the phase plus a
+constant \vWindowConstS\,\si{\second} rather than the accumulation window, so any
+power or energy--time quantity derived from it is biased as a function of phase
+length. We use counter-bracketed durations throughout for this reason.
 
 \textbf{External Validity.}
 We studied two convolutional architectures and three image classification
@@ -1618,13 +1618,23 @@ is inflated. Every interval and test reported here is computed on
 interleaved rather than executed consecutively so that machine-state drift is
 spread across conditions instead of aliasing onto one ecosystem.
 
-Five repetitions is a small sample for a rank test, and we have preferred
-effect sizes (Cliff's delta) and Holm-corrected pairwise comparisons over
-unadjusted p-values accordingly. Between-run variability is low --- a median
-coefficient of variation of \vCVTrainMedian\,\% for training energy --- which
-makes the design well powered for the effect sizes we report, and we note that
-low variance is a statement about the measurement rather than a guarantee that
-the measurement is of the right thing.
+Five repetitions is a small sample for a rank test, and we have preferred effect
+sizes (Cliff's delta) and Holm-corrected pairwise comparisons over unadjusted
+p-values accordingly. Between-run variability is low --- a median coefficient of
+variation of \vCVTrainMedian\,\% for training energy --- which makes the design
+well powered for the effect sizes we report, and we note that low variance is a
+statement about the measurement rather than a guarantee that the measurement is
+of the right thing.
+
+Where the sample is genuinely too small we say so rather than reach. The VGG-16
+collapse rates of Section~\ref{subsubsec:collapse} range from
+\vCollapseRateMin\,\% to \vCollapseRateMax\,\% across ecosystems, and a
+$\chi^2$ test on that table returns $p = 0.017$ --- which would license a claim
+that ecosystems differ in robustness. The expected cell counts are far too small
+for that approximation; a permutation test on the same data gives
+$p = \vCollapseHomogeneityP$. We report the permutation result and make no such
+claim. The difference between the two is exactly the kind of small-sample
+over-confidence a reader is entitled to be warned about.
 
 Finally, the twenty Rust runs on Fashion-MNIST and Tiny ImageNet were executed
 in a separate, later time window than the rest of the campaign, after a defect
@@ -1663,9 +1673,9 @@ Third --- and this is the finding we did not expect --- the apparatus determines
 more of the answer than the ecosystems do, in one specific and correctable way.
 Over \vBlocks{} doubly instrumented blocks, a widely used software estimator
 agrees with hardware energy counters to \vCCmeasDisagreementPct\,\% on energy.
-But the duration it reports beside that energy is a floor of about
-\vWindowFloorS\,s rather than the interval the energy was accumulated over, so
-power derived from the two fields is understated by up to
+But the duration it reports beside that energy is the phase plus a constant
+\vWindowConstS\,\si{\second}, not the interval the energy was accumulated over,
+so power derived from the two fields is understated by up to
 \vPowerUnderstatedSubSecond$\times$ for short phases and exact for long ones.
 Recomputed on measured durations, energy and time rank ecosystems at
 $\rho = \vRhoTrain$: in this workload, faster \emph{is} greener, and the widely
