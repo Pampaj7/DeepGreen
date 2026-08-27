@@ -59,12 +59,17 @@ def collect() -> pd.DataFrame:
     """Join per-epoch CodeCarbon output with per-epoch quality metrics."""
     rows = []
     skipped = []
+    no_metrics = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
         metrics_path = run_dir / "metrics.csv"
-        if not metrics_path.exists():
-            continue
         if not _is_complete(run_dir):
             skipped.append(run_dir.name)
+            continue
+        if not metrics_path.exists():
+            # Energy without quality is still energy. Dropping such a run here
+            # removed two whole configurations from the energy tables as well,
+            # silently, because two Rust binaries never called log_metric.
+            no_metrics.append(run_dir.name)
             continue
         metrics = pd.read_csv(metrics_path)
         for emissions_path in sorted(run_dir.glob("emissions_*.csv")):
@@ -85,6 +90,10 @@ def collect() -> pd.DataFrame:
             rows.append(rec)
     if skipped:
         print(f"excluded {len(skipped)} incomplete run(s): {', '.join(skipped)}")
+    if no_metrics:
+        print(f"!! {len(no_metrics)} complete run(s) have energy but no metrics.csv, "
+              f"so they are absent from the quality analysis: "
+              f"{', '.join(sorted(no_metrics))}")
     if not rows:
         return pd.DataFrame()
 

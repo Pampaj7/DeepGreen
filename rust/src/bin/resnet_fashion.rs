@@ -128,6 +128,13 @@ fn main() {
 
         stop_tracker();
 
+
+        // Outside the tracked block: writing the metric must not be measured.
+
+        let test_loss = if test_steps > 0 { test_loss_sum / test_steps as f64 } else { f64::NAN };
+
+        rust::emissions::log_metric(epoch, total_loss / steps as f64, test_loss, acc);
+
     }
 
     shutdown_tracker_daemon();

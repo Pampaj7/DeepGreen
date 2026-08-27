@@ -153,6 +153,18 @@ def run() -> list[Result]:
                          expect=False,
                          detail_ok="the loader owns the pipeline"))
 
+    # S5 requires every stack to persist per-epoch quality, and "every" has to
+    # be checked per binary. Two of the six Rust binaries printed accuracy to
+    # stdout and never called log_metric, so their runs carried valid energy and
+    # no quality at all -- and the analysis, which keys on metrics.csv, dropped
+    # them from the *energy* tables too. Two of forty-two configurations went
+    # missing from the results without anything failing.
+    for _bin in ("resnet_cifar100", "resnet_fashion", "resnet_tiny",
+                 "vgg_cifar100", "vgg_fashion", "vgg_tiny"):
+        r.append(check_regex("Rust/tch", f"S5 {_bin} persists quality metrics",
+                             glob_read(f"rust/src/bin/{_bin}.rs"),
+                             r"log_metric\("))
+
     # ---------------- S3: input scaling ------------------------------------
     r.append(check_regex("Rust/tch", "S3 normalisation gated off by default",
                          glob_read("rust/src/datasets/*.rs"), r"crate::normalize_inputs\(\)"))
