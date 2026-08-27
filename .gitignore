@@ -1,16 +1,40 @@
 ### IDE ###
-# VSCode
 .vscode/
-build/
-
-# JetBrains
 .idea/
-
-
-### Java ###
 /.metadata/
+
+### Build output ###
+# The submitted package had "0.0**rust/target/", a malformed pattern that
+# matched nothing, so 1557 Rust build artifacts were tracked.
+rust/target/
+cpp/build*/
+cpp/tools/libtorch/
+cpp/tools/json_reader/
+Java/deepgreen-dl4j/target/
+**/__pycache__/
+*.pyc
+
+### Environments ###
+.venv*/
+venv/
+.Rproj.user/
+
+### Generated artefacts (reproducible; do not commit) ###
+# Shared TorchScript modules: regenerate with
+#   python3 scripts/export_torchscript_models.py
+models/*.pt
+# Datasets: regenerate with dataloader/*.py
+data/*_png/
+data/cifar-100-python*
+data/FashionMNIST/
+data/tiny-imagenet-200*
+# Replicated-campaign output
+results/campaign_v2/
+# Model checkpoints
+checkpoints/
+**/checkpoints/
+*.pt
+# Rust VarStore checkpoints, written next to the binary that produced them
+*.ot
+!models/MANIFEST.txt
 **.h5
-
-
-### Other Files ###
-0.0**rust/target/
