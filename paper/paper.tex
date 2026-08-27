@@ -1062,14 +1062,15 @@ accuracy, and on this platform, over this workload, with both counters
 available, accuracy is not the problem.
 
 That single figure hides where it comes from, and the structure matters more
-than the average. CodeCarbon samples at a fixed interval ---
-\vSamplingIntervalS\,s in our configuration --- and when a block is long
-relative to that interval the two instruments are reading the same accumulating
-counters: above \SI{30}{\second} they agree to \vAgreeLongPct\,\%. When a block
-is shorter than the sampling interval there is nothing to accumulate, the
-estimator interpolates from sampled power, and the mean error rises to
-\vAgreeShortPct\,\% with a worst case of \vAgreeShortWorstPct\,\%. The visible
-structure in Figure~\ref{fig:instrument}a is that transition.
+than the average. Agreement is a function of block length: above
+\SI{30}{\second} the two instruments agree to \vAgreeLongPct\,\%, and below one
+second the mean error rises to \vAgreeShortPct\,\% with a worst case of
+\vAgreeShortWorstPct\,\%. The transition sits at the sampling interval we
+configured, \vSamplingIntervalS\,\si{\second}, which is consistent with the
+estimator accumulating counter deltas when it has samples to accumulate and
+interpolating from sampled power when it does not --- though we can only observe
+the behaviour from outside, not the mechanism. The visible structure in
+Figure~\ref{fig:instrument}a is that transition.
 
 The practical rule this implies is simple and, as far as we know, not stated
 anywhere: a measurement block must be several times the instrument's sampling
