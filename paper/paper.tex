@@ -26,6 +26,13 @@
 
 \usepackage{enumitem} % Provides more control over list formatting
 
+% Every quantity quoted in this manuscript is generated from the analysis
+% pipeline by results/analysis/12_paper_numbers.py and read in here. Nothing is
+% transcribed by hand: the previous version of this paper reported CodeCarbon
+% kilowatt-hours under a Joule label, and the surest way not to repeat that is
+% for no author to type a number.
+\input{generated/numbers.tex}
+
 \usepackage{xcolor}
 \usepackage{framed} % Required for the highlight environment
 \usepackage{fontawesome}
@@ -156,33 +163,19 @@ Machine Learning \sep Deep Learning \sep Green AI \sep Energy Efficiency \sep Su
 \begin{abstract}\newline
 
 \textbf{Context.}
-The rapid growth of Deep Learning (DL) has been accompanied by a steep increase in its environmental footprint.
-Training and inference of state-of-the-art models demand vast computational resources, resulting in significant energy consumption and carbon emissions.
-While prior work has investigated energy-efficient algorithms, hardware-aware optimizations, and the energy profiles of general-purpose programming languages,
-the intersection between DL workloads and practitioner-level \emph{ecosystem choices} (i.e. language bindings, DL frameworks, runtimes, and associated toolchains) remains largely unexplored.
+The rapid growth of Deep Learning (DL) has been accompanied by a steep increase in its environmental footprint, and a natural question follows for practitioners: does the choice of language--framework ecosystem carry an energy price? Answering it requires that every ecosystem run the same experiment and be measured the same way. Both requirements are more demanding than they appear, and neither is verifiable from reported energy figures alone.
 
 \textbf{Objectives.}
-This paper investigates \emph{how the choice of language--framework ecosystems affects the energy efficiency of DL workloads}.
-We adopt a practitioner-centric perspective to quantify operational energy--time trade-offs that developers face when selecting an ecosystem for both training and inference,
-rather than isolating a ``pure'' programming-language effect.
-We focus on computer vision image classification as a representative and energy-intensive workload.
+This paper investigates \emph{how the choice of language--framework ecosystem affects the energy efficiency of DL workloads}, and, inseparably from that, \emph{what an apparatus must guarantee before such a comparison means anything}. We adopt a practitioner-centric perspective on the operational energy--time trade-offs developers face when selecting an ecosystem for training and inference, using computer vision image classification as a representative energy-intensive workload.
 
 \textbf{Methods.}
-We conduct an empirical case study comparing two widely adopted convolutional neural networks (ResNet-18 and VGG-16) across six language-based DL ecosystems (Python, C++, Java, R, MATLAB, and Rust),
-leveraging multiple frameworks (PyTorch, TensorFlow, and JAX within Python) and three heterogeneous datasets (Fashion-MNIST, CIFAR-100, and Tiny ImageNet).
-Experiments are executed on a dedicated NVIDIA L40S GPU server, with energy consumption measured using the \texttt{CodeCarbon} toolkit.
-Energy consumption is estimated under a uniform measurement protocol; since each ecosystem relies on its officially supported runtime, CUDA/cuDNN toolchains may differ across stacks, and results are interpreted at the ecosystem level.
+We compare two convolutional architectures (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems --- Python with PyTorch, TensorFlow and JAX; C++ with LibTorch; Java with Deeplearning4j; R with \texttt{torch}; and Rust with \texttt{tch} --- on three datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet). Three methodological commitments distinguish the design. First, a written experiment specification states what ``the same experiment'' means across stacks, and 56 automated checks enforce it against the source, so a divergence fails loudly instead of quietly changing a number. Second, energy is read from hardware counters --- NVML \texttt{nvmlDeviceGetTotalEnergyConsumption} for the accelerator and the RAPL package-energy counters for the CPU --- with CodeCarbon running over the same window as a second, independent instrument. Third, each configuration is executed as \vRepetitions{} independent interleaved runs with distinct seeds, making the run rather than the epoch the unit of analysis, and every stack records per-epoch accuracy so that energy can be normalised by the quality actually achieved.
 
 \textbf{Results.}
-Our experiments reveal substantial differences across ecosystems.
-During training, average energy consumption ranges from 0.0009~J (Rust ecosystem) to 0.0040~J (Java ecosystem), a 4.6$\times$ gap; average execution time varies from 8.8~s to over 102~s, an 11$\times$ slowdown.
-For inference, the C++ ecosystem achieves the lowest average energy consumption (6.8$\times 10^{-5}$~J) and is also the fastest (1.6~s), outperforming the R ecosystem, which is both the worst energy consumer (5.0$\times 10^{-4}$~J) and the slowest (13.3~s), by 7.3$\times$ and 8.4$\times$, respectively.
-Overall, these results suggest that execution time is not a reliable proxy for energy usage across heterogeneous DL ecosystems, and that training- and inference-phase rankings may diverge.
+The design yields \vRuns{} runs and \vBlocks{} doubly instrumented measurement blocks. Between-run repeatability is high: the median coefficient of variation of training energy is \vCVTrainMedian\,\%. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block, while final accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST --- the differences are energetic, not qualitative. The two instruments agree on energy to \vCCmeasDisagreementPct\,\% over the whole campaign, so the difficulty with software estimation lies elsewhere than accuracy: the duration CodeCarbon reports beside each energy figure is not the duration the energy was accumulated over, but $\max(\text{phase},\ \vWindowFloorS\,\text{s})$, a relation that explains $R^2 = \vWindowModelRsq$ of its variance. Any power or energy--time analysis built on that field therefore understates power by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases while being exact above ten seconds --- a bias that falls precisely on the fastest ecosystems and the inference phase.
 
 \textbf{Conclusions.}
-Our findings indicate that language--framework ecosystem selection, often perceived as a secondary engineering choice, can materially affect the energy profile of DL applications in practice.
-Since energy is obtained via software-level estimation, absolute values should be interpreted with caution and used primarily for relative comparisons under identical measurement conditions.
-This work provides actionable evidence for incorporating energy efficiency into DL research and practice, and offers an extensive replication package to enable reproducibility and extension of our study.
+Ecosystem selection materially affects the energy profile of DL applications, but the size and even the direction of that effect depend on decisions in the measurement apparatus that are invisible in the resulting data. We report the corrected comparison together with the specification, the shared measurement contract, the conformance checker and the raw dual-instrument records needed to audit it.
 \end{abstract}
 
 
@@ -207,19 +200,21 @@ As a result, in real-world settings it is often more meaningful to evaluate \emp
 Yet, to the best of our knowledge, no prior work has systematically examined this ecosystem-level dimension across multiple language-based DL stacks in the context of GPU-based DL, where frameworks, execution engines, toolchains, and dataset complexity can introduce substantial variability~\cite{weber2023twins}.
 
 This paper addresses this gap by presenting a large-scale empirical study on \emph{the impact of language--framework ecosystems on the energy efficiency of DL workloads}.
-To achieve our goal, we consider two widely adopted convolutional neural networks (ResNet-18 and VGG-16) across six language-based ecosystems (Python, C++, Java, R, MATLAB, and Rust), three popular Python frameworks (PyTorch, TensorFlow, and JAX), and three heterogeneous datasets (Fashion-MNIST, CIFAR-100, and Tiny ImageNet).
-Energy measurements are collected on a dedicated NVIDIA L40S GPU server using the \texttt{CodeCarbon} toolkit, improving cross-ecosystem comparability under controlled execution conditions.
-Since each ecosystem relies on its officially supported runtime, CUDA/cuDNN toolchains may differ across stacks. We interpret the observed differences at the ecosystem level.
+To achieve our goal, we consider two widely adopted convolutional neural networks (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems, spanning five host languages (Python, C++, Java, R and Rust) and the frameworks each of them offers in practice (PyTorch, TensorFlow and JAX; LibTorch; Deeplearning4j; and the \texttt{torch} and \texttt{tch} bindings), on three heterogeneous datasets (Fashion-MNIST, CIFAR-100 and Tiny ImageNet).
 
-Our results reveal substantial differences across ecosystems.
-During training, average energy usage ranges from 0.0009~J (Rust ecosystem) to 0.0040~J (Java ecosystem), a 4.6$\times$ gap, while execution time varies from 8.8~s to more than 102~s, an 11$\times$ slowdown.
-In the inference phase, the C++ ecosystem achieves the lowest average energy consumption (6.8$\times 10^{-5}$~J) and is also the fastest (1.6~s), outperforming the R ecosystem, which is both the worst energy consumer (5.0$\times 10^{-4}$~J) and the slowest (13.3~s), by 7.3$\times$ and 8.4$\times$, respectively.
-These findings highlight that ecosystem selection---often perceived as a secondary engineering choice---can critically shape the energy profile of DL applications, and that efficiency rankings may differ between training and inference.
+A cross-ecosystem energy comparison, however, rests on two premises that are rarely stated and never visible in the resulting numbers: that every stack is running the same experiment, and that every stack is measured the same way. We found both to be far harder to satisfy than the literature suggests, and we came to that conclusion the expensive way. An earlier campaign of ours, of exactly this shape, was executed carefully and produced an entirely coherent story; auditing it against its own source code afterwards showed that the stacks had drifted apart in learning rate, input shape, evaluation batching and data-loader parallelism, that the measurement tool had been configured five different ways across them, and that two stacks were capable of running the whole workload on the CPU while reporting nothing but a log line. None of this was visible in the energy figures. All of it moved them.
+
+We therefore treat the apparatus as part of the contribution rather than as a preliminary. Three commitments follow. \emph{(i)} A written experiment specification states what ``the same experiment'' means across stacks --- model, optimisation, data pipeline, backend, measurement and replication --- and 56 automated checks enforce it against the source code, so that a divergence fails a check instead of quietly changing a number. \emph{(ii)} Energy is read from hardware counters, NVML's accumulated-energy register for the accelerator and the RAPL package-energy counters for the CPU, with CodeCarbon running over the same window as a second, independent instrument; every block therefore carries two readings that can be held against each other. \emph{(iii)} Each configuration is executed as \vRepetitions{} independent, interleaved runs with distinct seeds, so that the run rather than the epoch is the unit of analysis, and every ecosystem records per-epoch test accuracy, so that energy can be normalised by the quality actually reached rather than assumed equal.
+
+Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report are genuine. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. The ecosystem effect is real, it is large, and it is energetic rather than qualitative.
+
+The two instruments agree on \emph{energy} to \vCCmeasDisagreementPct\,\% over \vBlocks{} blocks, which relocates the difficulty with software-based estimation. What does not agree is time: the duration CodeCarbon reports beside each energy figure is not the interval the energy was accumulated over but $\max(\text{phase},\ \vWindowFloorS\,\text{s})$, a relation accounting for $R^2 = \vWindowModelRsq$ of its variance. Power derived by dividing the one field by the other is therefore understated by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases and is exact above ten seconds --- a bias that lands squarely on the fastest ecosystems and on the inference phase, which is to say on precisely the comparisons such a study exists to make.
 
 The contributions of this work are as follows:
 \begin{itemize}
-    \item A systematic empirical comparison of deep-learning energy consumption across multiple language--framework ecosystems for GPU-based DL workloads;
-    \item A statistical and discursive interpretation of the observed trade-offs between training and inference phases;
+    \item A systematic empirical comparison of DL energy consumption across \vEcosystems{} language--framework ecosystems for GPU-based workloads, replicated \vRepetitions{} times per configuration and reported with between-run uncertainty and quality normalisation;
+    \item An experiment specification for cross-ecosystem energy studies, together with an executable conformance checker that enforces it, and a single measurement contract implemented by all \vEcosystems{} stacks;
+    \item A dual-instrument characterisation of CodeCarbon against hardware energy counters over \vBlocks{} measurement blocks, including a quantified failure mode of its reported duration that invalidates energy--time analyses built on it;
     \item A comprehensive replication package, including all data, scripts, and settings required to fully reproduce our results.\footnote{Replication package available at: \url{https://zenodo.org/records/17734884}}
 \end{itemize}
 
@@ -251,15 +246,51 @@ While compiled and interpreted languages differ in their execution models, in GP
 Moreover, some ecosystems (e.g. MATLAB with its Deep Learning Toolbox, or Java with Deeplearning4j) introduce additional runtime layers compared to lower-level bindings (e.g. LibTorch in C++ or \texttt{torch} in R), which can affect both performance and energy behavior.
 Understanding these ecosystem-level differences is crucial, since language choice is often treated as a secondary engineering decision, yet in practice it constrains the set of available frameworks, runtimes, and supported toolchains, ultimately affecting the energy profile of DL model training and inference.
 
-\textbf{Software-based energy profiling} has emerged as a robust and widely accepted methodology in recent Green AI research, particularly when fine-grained attribution to specific hardware components (e.g. isolating GPU draw from total system power) is required~\cite{dodge2022efficient,patterson2022plateau}.
-To capture energy usage across this heterogeneous landscape, we adopt the \texttt{CodeCarbon} toolkit~\cite{lacoste2019quantifying}, which estimates CPU, GPU, and memory consumption by interfacing with low-level system utilities.
-Software-based profilers have become standard in sustainability-oriented AI research~\cite{dodge2022efficient,patterson2022plateau}, as they enable reproducible, large-scale, and cross-ecosystem comparisons---an essential requirement for this study.
-The reliability of \texttt{CodeCarbon} as a measurement tool for ML and DL workloads is well-documented in high-impact studies, ranging from model compression analysis~\cite{paula2025comparative} and optimizer efficiency benchmarks~\cite{patterson2025optimizer} to large-scale evaluations of Large Language Models~\cite{llmgreen2024} and cybersecurity systems~\cite{cybergreen2026}.
-Recent comparative studies have also employed \texttt{CodeCarbon} alongside sensor-based tools (e.g. hardware wattmeters) within the same experimental setup, showing that software-based estimates can closely track sensor readings in controlled settings while exhibiting larger deviations under heterogeneous infrastructures~\cite{aquino2025energyindex,bouza2023carbonfootprint}.
+\textbf{Energy measurement} for workloads of this kind can be read at three
+places, and the choice of place matters more than the choice of tool.
+A \emph{wall meter} sees the whole machine including power supply losses, fans
+and drives. \emph{Hardware energy counters} --- NVML's
+\texttt{nvmlDeviceGetTotalEnergyConsumption} on NVIDIA accelerators and Intel
+RAPL on the CPU package --- accumulate energy in the silicon itself and are read
+by software but not estimated by it. \emph{Software estimators} such as
+\texttt{CodeCarbon}~\cite{lacoste2019quantifying} sit on top of whatever the
+platform exposes and substitute a model wherever it exposes nothing.
 
-At the same time, indipendent validation work compares estimator-based measurements---including \texttt{CodeCarbon}---against external ground-truth across hundreds of AI experiments, and reports that software estimators can exhibit errors up to 40\%, and that dynamic estimation can systematically underestimate consumption by about 20--30\% in some settings~\cite{fischer2025groundtruthing}.
-Accordingly, we treat software-based energy tracking as a practical proxy for comparing computational effort under a uniform protocol and interpret results primarily through relative comparisons within our experimental setting.
-Limitations of estimator-based measurements and their implications for absolute values are discussed explicitly in Section~\ref{sec:threats}.
+Software estimators have become standard in sustainability-oriented AI
+research~\cite{dodge2022efficient,patterson2022plateau}, and their reliability
+for ML and DL workloads is documented across model compression
+analysis~\cite{paula2025comparative}, optimizer efficiency
+benchmarks~\cite{patterson2025optimizer}, large-scale evaluations of Large
+Language Models~\cite{llmgreen2024} and cybersecurity
+systems~\cite{cybergreen2026}. Comparative studies have also run
+\texttt{CodeCarbon} alongside hardware wattmeters in the same setup and report
+that software estimates track sensor readings closely under controlled
+conditions while deviating more on heterogeneous
+infrastructure~\cite{aquino2025energyindex,bouza2023carbonfootprint}.
+Independent validation against external ground truth across hundreds of AI
+experiments nonetheless reports estimator errors of up to 40\%, and systematic
+underestimation of 20--30\% in some settings~\cite{fischer2025groundtruthing}.
+
+We take a different position from the one this literature usually implies. The
+question is not whether a software estimator is accurate enough to be trusted,
+but whether a study can tell when it is not. An estimator that falls back on a
+model when a counter is unavailable, and announces the substitution only in a
+log line, produces a number of the same shape and plausibility either way. We
+therefore instrument every measurement block \emph{twice}: hardware counters as
+the primary instrument, and \texttt{CodeCarbon} over the identical window as an
+independent second reading. Agreement between the two is then an observable
+property of each block rather than an assumption, and the places where they
+cannot agree --- CodeCarbon's RAM term is derived from installed memory
+capacity, and no counter on this platform can confirm or refute it --- are
+identified rather than absorbed.
+
+This also fixes the boundary. NVML plus RAPL is a \emph{chip-level} measurement:
+it excludes the power supply, fans and drives that a wall meter would see, and
+must not be presented as a whole-system figure. We had no wall meter available
+and say so, reporting a chip-boundary quantity consistently rather than a
+mixture of measured and modelled terms that corresponds to no physical boundary
+at all. Section~\ref{sec:instrument} reports what the two instruments say about
+each other across the campaign.
 
 
 
@@ -289,7 +320,16 @@ We focus on three key questions:
     \item \textbf{RQ1:} \textit{How does language--framework ecosystem choice affect the energy efficiency of DL \emph{training}?}
     \item \textbf{RQ2:} \textit{How does language--framework ecosystem choice affect the energy efficiency of DL \emph{inference}?}
     \item \textbf{RQ3:} \textit{How do energy efficiency and execution time relate across different DL ecosystems?}
+    \item \textbf{RQ4:} \textit{To what extent are the answers to RQ1--RQ3 determined by the measurement apparatus rather than by the ecosystems?}
 \end{itemize}
+
+RQ4 is not a robustness check appended to the other three. A cross-ecosystem
+energy comparison is an inference from an instrument to a claim about software,
+and the inference is only as good as the guarantee that the instrument reads the
+same quantity, over the same window, for every stack. We therefore treat the
+apparatus as an object of measurement in its own right: every block is recorded
+by two independent instruments, and RQ4 asks what they say about each other and
+about the answers to RQ1--RQ3.
 
 \textbf{Objects of study.}
 We focus on convolutional neural networks (CNNs), which remain fundamental in modern computer vision tasks~\cite{xu2021survey,mehlin2023towards,tripp2024measuring}.
@@ -311,9 +351,24 @@ Nevertheless, fixing a 32$\times$32 input resolution may interact with framework
 
 \textbf{Independent and dependent variables.}
 Our primary independent variable is the \emph{DL ecosystem}, i.e. the language--framework stack as adopted in practice (including its officially supported runtime and CUDA/cuDNN toolchain). In our design, each ecosystem is treated as a single categorical treatment; we do not attempt to decompose effects into separate contributions of language, framework, runtime, or toolchain.
-Specifically, we evaluate eight language-based ecosystems: Python (\texttt{PyTorch}, \texttt{TensorFlow}, \texttt{JAX}), C++ (\texttt{LibTorch}), Java (\texttt{Deeplearning4j}), R (\texttt{torch}), MATLAB (\texttt{Deep Learning Toolbox}), and Rust (\texttt{tch}).
+Specifically, we evaluate \vEcosystems{} language-based ecosystems: Python (\texttt{PyTorch}, \texttt{TensorFlow}, \texttt{JAX}), C++ (\texttt{LibTorch}), Java (\texttt{Deeplearning4j}), R (\texttt{torch}), and Rust (\texttt{tch}).
 A second independent variable is the \emph{DL phase} (training and inference).
-Our dependent variable is the \emph{total energy consumption} of each run, measured in Joules at the level of CPU, GPU, and memory~\cite{patterson2021carbon,dodge2022efficient,luccioni2023counting}.
+
+MATLAB with the Deep Learning Toolbox was part of an earlier campaign and is out
+of scope here. The reason is specific rather than dismissive: the toolbox does
+not expose the training loop at the granularity the specification of
+Section~\ref{subsec:spec} requires, so its data pipeline, its evaluation
+batching and its measurement boundaries cannot be brought into conformance with
+the other \vEcosystems{}. Including a stack that provably runs a different
+experiment would reintroduce exactly the confound this design exists to remove.
+
+Our dependent variables are the \emph{energy consumption} of each measurement
+block, in Joules at a chip-level boundary (accelerator plus CPU package), and
+the \emph{test accuracy} reached at the end of each epoch. Recording the second
+alongside the first is what allows energy to be normalised by achieved quality
+in Section~\ref{subsec:rq1}; a fixed-budget comparison that does not record
+accuracy cannot distinguish an efficient stack from one that has simply learned
+less~\cite{patterson2021carbon,dodge2022efficient,luccioni2023counting}.
 
 
 \textbf{Study design.}
@@ -330,23 +385,110 @@ As a consequence, observed differences should be interpreted as ecosystem-level 
 We retained the default numerical precision and mixed-precision policies of each ecosystem (e.g. FP32 vs mixed precision), treating them as part of the ecosystem-level behavior observed in practice.
 Consequently, differences in precision paths may contribute to measured energy and execution time; we therefore avoid attributing observed effects to the programming language alone.
 
-\textbf{Measurement procedure.}
-Energy usage is monitored with the \texttt{CodeCarbon} toolkit~\cite{lacoste2019quantifying}, which integrates with system utilities to estimate CPU, GPU, and memory consumption.
-The tool reports Joule-level estimates at fixed sampling intervals~\cite{patterson2022plateau}.
-To preserve the integrity of the observed performance, our data aggregation strategy is deliberately inclusive.
-Instead of filtering out runtime anomalies or performance spikes, we incorporate all completed executions to capture the full spectrum of each ecosystem’s behavior.
-This approach ensures that the results reflect not only best or worst-case efficiency, but also the actual reliability and systemic overhead of the execution environment as experienced by practitioners.
+\subsection{What ``the same experiment'' means, and how it is enforced}
+\label{subsec:spec}
 
-Runs are executed on dedicated hardware, and energy is measured for each epoch in both training and inference phases, allowing us to observe intra-run variability and aggregate results across the full learning process~\cite{tripp2024measuring,mehlin2023towards}.
-Energy measurements are then analyzed statistically to compare ecosystems both within and across DL phases~\cite{georgiou2022green,marini2025green}.
-Reported values correspond to the \emph{mean energy consumption} across the 30 epochs per run (epoch-level measurements), attributed separately to training and inference phases~\cite{lacoste2019quantifying,tripp2024measuring,banbury2021mlperf}. We treat epochs as repeated measurements within a fixed-budget protocol to obtain stable within-run averages.
-The selection of 30 epochs constitutes a pragmatic compromise to (i) reduce transient effects such as memory allocation, cache warm-up, and one-time initialization overheads, and (ii) provide a stable average under a fixed-budget protocol.
+A fixed-budget comparison presumes that the budget is the same. In practice each
+ecosystem is written by a different person against a different API, and the
+places where they can silently diverge are numerous, individually reasonable and
+invisible in the energy output: a default learning rate that differs between two
+framework APIs, a data loader whose worker count follows the machine rather than
+the protocol, an evaluation loop written one image at a time because the API
+made that natural, an input tensor left at its native resolution in one stack
+and resized in another.
 
-Finally, each run is fully logged, with metadata on dataset, model, language, framework, and phase, ensuring traceability and enabling later reanalysis~\cite{verdecchia2023threats,ampatzoglou2019identifying}.
+We therefore wrote the protocol down before running anything, as a
+specification with six parts, and made conformance machine-checkable.
+
+\begin{itemize}\itemsep2pt
+  \item \textbf{S1 --- Model.} The four ecosystems that share the LibTorch
+        backend (Python, C++, R, Rust) train the \emph{same} TorchScript module,
+        exported once per (architecture, dataset) pair, rather than four
+        independent reimplementations of ResNet-18 and VGG-16. The remaining
+        stacks use the canonical architecture their framework ships, with
+        parameter counts checked against the exported module.
+  \item \textbf{S2 --- Optimisation.} One optimiser, one learning rate, one
+        batch size, one epoch count, one loss, one seeding policy, applied
+        identically and asserted at startup.
+  \item \textbf{S3 --- Pipeline.} One input specification ($32\times32\times3$,
+        raw $[0,1]$ inputs, no per-stack normalisation), a bounded and equal
+        number of loader workers, and batched evaluation at the training batch
+        size in every stack.
+  \item \textbf{S4 --- Backend.} The accelerator is asserted at startup and CPU
+        fallback is refused rather than warned about. The LibTorch version is
+        pinned across the four stacks that share it.
+  \item \textbf{S5 --- Measurement.} One measurement bridge, one sampling
+        interval, one tracking mode, one set of counters, one unit, and
+        per-epoch accuracy persisted alongside energy.
+  \item \textbf{S6 --- Replication.} Each configuration is executed
+        \vRepetitions{} times as independent processes with distinct seeds,
+        interleaved rather than run back to back.
+\end{itemize}
+
+The specification is enforced by 56 automated checks that read the source of
+every ecosystem and the configuration of every tracker, and fail the build when
+a stack drifts out of conformance. This matters more than it may appear.
+A specification that lives only in a paper is a description of intent; the same
+specification expressed as an executable check is a property of the artefact,
+and it fails at the moment of the divergence rather than at peer review.
+Two of the defects we corrected during development were introduced by us and
+caught by these checks rather than by inspection.
+
+\textbf{Residual, documented divergences.} Two could not be removed and are
+reported rather than hidden. Deeplearning4j 1.0.0-M2.1 is the last release of
+its API and links against the CUDA 11.6 runtime, so the Java stack cannot be
+brought onto the CUDA 12 toolchain the other six share. And the R \texttt{torch}
+binding cannot switch a script module between training and evaluation mode, so R
+alone cannot consume the shared TorchScript module of S1 and builds an
+equivalent architecture instead. Both are properties of the ecosystems, and
+arguably part of what one measures when one measures an ecosystem, but they are
+not the binding overhead the study sets out to isolate.
+
+\subsection{Measurement procedure}
+\label{subsec:measurement}
+
+Energy is read from hardware counters at the boundaries of each measurement
+block: NVML's \texttt{nvmlDeviceGetTotalEnergyConsumption}, an accumulating
+millijoule register on the accelerator, and the RAPL package-energy counters
+exposed at \texttt{/sys/class/powercap} for the CPU, with
+wraparound at \texttt{max\_energy\_range\_uj} handled explicitly. The reported
+quantity is their sum: a chip-level boundary, identical for every ecosystem.
+
+\texttt{CodeCarbon}~\cite{lacoste2019quantifying} runs over the same window as
+an independent second instrument, in machine tracking mode at a one-second
+sampling interval, configured identically for all \vEcosystems{} stacks through
+a single shared bridge. The six non-Python ecosystems drive that bridge over a
+line protocol with synchronous acknowledgement, so that a phase boundary in the
+measured process and the corresponding counter read cannot drift apart --- an
+earlier asynchronous version of the same bridge under-reported one stack's
+training energy by 24\% and recorded its evaluation energy as zero.
+
+A measurement block is one phase of one epoch: \vBlocks{} blocks in total, each
+carrying two energy readings, a duration, and the test accuracy reached. Because
+tracking is machine-wide, no other work runs on the host during a campaign;
+blocks measured while a background download was in progress during development
+were discarded and the protocol amended rather than corrected after the fact.
+
+\textbf{Replication and the unit of analysis.} Each of the \vConfigurations{}
+configurations is executed \vRepetitions{} times as an independent process with
+a distinct seed, giving \vRuns{} runs. The repetitions are \emph{interleaved}
+rather than run consecutively, so that drift in machine state --- thermal,
+background, driver clock behaviour --- is spread across conditions instead of
+aliasing onto whichever ecosystem happened to run last. All uncertainty we
+report is between-run: the 30 epochs within a run share an initialisation, a JIT
+outcome, an allocator state and a thermal trajectory, and treating them as
+repeated measurements would understate uncertainty while inflating apparent
+significance.
+
+\textbf{Quality normalisation.} Because every stack records test accuracy per
+epoch, we report energy in three forms: energy per epoch, energy per unit of
+accuracy achieved, and the energy required to first reach a target accuracy
+fixed per dataset. The last is the closest to a practitioner's question, and is
+the one a fixed-budget design cannot answer on its own.
 
 \textbf{Reproducibility and rigor.}
 We fixed pseudo-random seeds for data shuffling and model initialization where supported by the ecosystem.
-Nevertheless, full determinism cannot be guaranteed across all stacks due to non-deterministic GPU kernels and differences in backend execution engines.
+Nevertheless, full determinism cannot be guaranteed across all stacks due to non-deterministic GPU kernels and differences in backend execution engines; this is one reason the design replicates rather than relying on a single execution per configuration.
 
 A complete replication package is provided (see replication package link in Section~\ref{sec:intro}), including: (i) source code for all implementations, (ii) scripts to reproduce runs, (iii) environment specifications (e.g. virtual environments, Maven, CMake), and (iv) collected raw data~\cite{cruz2025greening,verdecchia2023systematic}.
 Configurations are standardized across languages where feasible, with deviations documented when framework-specific requirements arise~\cite{pereira2021ranking,gordillo2024ranking}.
@@ -362,49 +504,86 @@ This section describes the practical execution of the study, complementing the r
 Here we document the experimental setup, implementation details, measurement procedure, and reproducibility package, following a step-by-step process to ensure transparency~\cite{feldt2010validity,verdecchia2023threats}.
 
 \textbf{Experimental setup.}
-All experiments were executed on a dedicated server equipped with an NVIDIA L40S GPU (Ada Lovelace architecture, 48GB GDDR6 ECC memory, 864GB/s bandwidth, 350W TDP), and two Intel Xeon Gold 5418Y CPUs ($2 \times 24$ cores, 48 cores / 96 threads total, 2.0GHz). The system provides 503GB of RAM and 1.8TB NVMe RAID1 SSD storage.
-The operating system is Ubuntu 22.04.5 LTS (kernel 5.15.0-142-generic), running NVIDIA drivers with CUDA runtime support.
-This setup reflects current high-performance configurations used in energy-aware AI benchmarking~\cite{patterson2021carbon,patterson2022plateau,tripp2024measuring}.
+All experiments reported here were executed on a single dedicated workstation:
+an NVIDIA GeForce RTX 3090 (Ampere, 24\,GB GDDR6X, 350\,W board power limit,
+driver 595.84), an AMD Ryzen 9 5900X (12 cores / 24 threads), 30\,GB of RAM and
+NVMe storage, running Ubuntu 26.04 LTS (kernel 7.0.0). The machine was otherwise
+idle for the duration of the campaign, which whole-machine energy tracking
+requires.
+
+Two properties of this platform bear directly on the measurements. First, both
+energy counters are available: the RTX 3090 exposes NVML's accumulated-energy
+register, and the Ryzen's package-energy counters are readable through the Linux
+\texttt{powercap} interface --- which, for historical reasons, presents AMD
+domains under \texttt{intel-rapl} names. We read the package domain and handle
+counter wraparound at \texttt{max\_energy\_range\_uj} explicitly. Second, this is
+a desktop rather than a server: it has one accelerator, one CPU socket and an
+order of magnitude less RAM than a datacentre node, which is precisely why the
+modelled RAM term discussed in Section~\ref{sec:instrument} is a smaller share
+of a software estimator's total here than it would be on a large-memory host.
+
+We report this as a replication platform rather than as the platform. An earlier
+campaign of the same design ran on a dual-socket Intel Xeon Gold 5418Y server
+with an NVIDIA L40S; absolute energy figures are not comparable between the two
+machines, and none of the comparisons in this paper is made across them. What
+carries over is the design, the specification and the instrument
+characterisation, all of which are properties of the method rather than of the
+host.
 
 \textbf{Model implementations.}
-To avoid threats to internal validity, we rely on canonical open-source implementations whenever possible~\cite{he2015resnet,simonyan2014vgg,xiao2017fashion,krizhevsky2009learning}.
-For Python, we use PyTorch (v2.6.0) with TorchVision (v0.21.0), TensorFlow (v2.16.1) with Keras (v3.11.3), and JAX (v0.4.22) with Flax (v0.11.1).
-For C++, we adopt LibTorch (v2.7.0).
-For Java, we use Deeplearning4j (v1.0.0-M2.1).
-For Rust, we employ the \texttt{tch} crate (v0.14.0).
-For R, we use \texttt{torch} (binding to LibTorch v0.15.1; CUDA 12.1; cuDNN 8.9).
-MATLAB uses its Deep Learning Toolbox (v14.6).
-%Julia implementations were attempted (Flux v0.16.4, Lux v1.16.0) but excluded due to unresolved numerical errors.
+Every ecosystem uses the canonical architecture its framework provides rather
+than a reimplementation, and, where the backend permits, the \emph{same}
+artefact. Under specification S1 the four LibTorch-based stacks --- Python,
+C++, R and Rust --- do not build four independent ResNet-18s and VGG-16s but
+load one TorchScript module per (architecture, dataset) pair, exported once and
+version-pinned in a manifest that the conformance checker compares against the
+LibTorch each stack links. This removes what would otherwise be the largest
+uncontrolled variable in the study: in an earlier campaign these four stacks
+differed in parameter count, and comparing them was therefore comparing four
+models, not four bindings.
 
-Since each ecosystem requires different build toolchains and officially supported binaries, the underlying CUDA/cuDNN versions may vary across implementations.
-In Python, PyTorch, TensorFlow, and JAX rely on wheels bundled with precompiled CUDA/cuDNN runtimes (ranging from CUDA 12.0 to 12.3 with cuDNN 8.6--8.9).
-LibTorch (C++) is compiled against CUDA 12.8 and cuDNN 9.10.
-Deeplearning4j (Java) depends on ND4J CUDA bindings (CUDA 11.6, cuDNN 8.3).
-MATLAB uses the Parallel Computing Toolbox compiled with CUDA 11.8 and cuDNN 8.6, while R relies on the \texttt{torch} binding (v0.15.1) built on top of LibTorch (CUDA 12.1, cuDNN 8.9).
-Rust experiments are implemented with the \texttt{tch} crate (v0.14.0), built against CUDA 12.1 and cuDNN 8.9.
-By testing each framework with its officially supported or community-standard backend, we capture the realistic conditions under which practitioners use them ``in the wild''~\cite{cruz2025greening,verdecchia2023systematic}.
+Table~\ref{tab:frameworks} lists the versions. The Python stacks are installed
+in three separate virtual environments rather than one, because their CUDA and
+cuDNN wheels conflict: a shared environment resolved to a cuDNN that TensorFlow
+could not dlopen, and TensorFlow then ran unaccelerated while reporting only a
+warning --- a failure mode the accelerator assertion of S4 now turns into an
+error.
+
+\textbf{Toolchain divergence, and what is left of it.} The four LibTorch stacks
+are pinned to one LibTorch build (2.7.0, CUDA 12.8), so within that control
+group the backend is genuinely held constant. Two ecosystems cannot join it.
+Deeplearning4j 1.0.0-M2.1 links against CUDA 11.6 and cuDNN 8.3 and has had no
+subsequent release; the stack now carries its own redistributables through
+\texttt{org.bytedeco:cuda-platform-redist}, which makes it reproducible without
+making it contemporary. R's \texttt{torch} 0.17.0 bundles its own LibTorch and
+resolves CUDA at load time. We report these as documented divergences rather
+than normalising them away, and Section~\ref{subsec:rq1} reports the LibTorch
+control group separately so that a reader can see how much of the total spread
+survives when the backend is held fixed.
 
 During a preliminary pilot phase, the Julia programming language (using \texttt{Flux} and \texttt{Lux}) was also considered. However, persistent technical challenges encountered during implementation related to gradient updates during training, which remained unresolved also after directly contacting the developers of the libraries, prevented its reliable inclusion in the final study.
 
-Table~\ref{tab:frameworks} lists all ecosystems, frameworks/libraries, and versions considered in the study.
-
 \begin{table*}[t]
 \centering
-\caption{Ecosystems, frameworks/libraries, and versions used in the study.}
+\caption{Ecosystems, frameworks, versions and backends. The four stacks marked
+$\dagger$ share one pinned LibTorch build and one exported TorchScript module,
+and form the internal control group of the study.}
 \label{tab:frameworks}
 \begin{tabularx}{\linewidth}{l l l l}
 \toprule
-\textbf{Ecosystem} & \textbf{Framework / Library} & \textbf{Version} & \textbf{CUDA/cuDNN} \\
+\textbf{Ecosystem} & \textbf{Framework / Library} & \textbf{Version} & \textbf{Backend} \\
 \midrule
-Python  & PyTorch / TorchVision    & v2.6.0 / v0.21.0  & Bundled (CUDA 12.1, cuDNN 8.9) \\
-        & TensorFlow / Keras       & v2.16.1 / v3.11.3 & Bundled (CUDA 12.3, cuDNN 8.6) \\
-        & JAX / Flax               & v0.4.22 / v0.11.1 & Bundled (CUDA 12.0, cuDNN 8.9) \\
-C++     & LibTorch                 & v2.7.0            & CUDA 12.8, cuDNN 9.10 \\
-Java    & Deeplearning4j           & v1.0.0-M2.1       & ND4J CUDA backend (11.6, cuDNN 8.3) \\
-Rust    & \texttt{tch} crate       & v0.14.0           & CUDA 12.1, cuDNN 8.9 \\
-R       & \texttt{torch} (LibTorch binding) & v0.15.1 & CUDA 12.1, cuDNN 8.9 \\
-MATLAB  & Deep Learning Toolbox    & v14.6             & Bundled (CUDA 11.8, cuDNN 8.6) \\
-% Julia & Flux / Lux               & v0.16.4 / v1.16.0 & --- (excluded due to errors) \\
+Python  & PyTorch / TorchVision$^\dagger$ & v2.7.0 / v0.22.0  & LibTorch 2.7.0, CUDA 12.8 \\
+        & TensorFlow / Keras              & v2.19.1 / v3.15.1 & cuDNN 9.3, CUDA 12 wheels \\
+        & JAX / Flax / Optax              & v0.10.2 / v0.12.8 / v0.2.8 & cuDNN 9.24, CUDA 12 wheels \\
+C++     & LibTorch$^\dagger$              & v2.7.0            & LibTorch 2.7.0, CUDA 12.8 \\
+Java    & Deeplearning4j                  & v1.0.0-M2.1       & ND4J CUDA 11.6, cuDNN 8.3 \\
+R       & \texttt{torch}$^\dagger$        & v0.17.0           & bundled LibTorch, CUDA 12 \\
+Rust    & \texttt{tch}$^\dagger$          & v0.20.0           & LibTorch 2.7.0, CUDA 12.8 \\
+\midrule
+\multicolumn{2}{l}{\emph{Instrumentation}} & & \\
+        & CodeCarbon                      & v3.3.0            & identical config, all stacks \\
+        & NVML / RAPL counters            & driver 595.84     & read by the shared harness \\
 \bottomrule
 \end{tabularx}
 \end{table*}
@@ -466,294 +645,300 @@ Hardware parallelism  & GPU-enabled for all frameworks \\
 \section{Results}
 \label{sec:results}
 
-We now present the results of our empirical study, structured according to the research questions defined in Section~\ref{sec:methodology}.
-This granularity allows us to attribute consumption separately to training and inference phases (Section~\ref{subsec:rq1} and Section~\ref{subsec:rq2} respectively).
-Then, in Section~\ref{subsec:rq3}, we report the relationship between energy consumption and execution time, as it is not trivial~\cite{weber2023twins,rua2024large}.
-Finally, in Section~\ref{subsec:aggregated}, we assess the overall energy consumption of complete DL workloads.
+We report the campaign in the order the research questions were posed, with one
+departure: RQ4, on the apparatus, comes last but conditions everything before
+it, and a reader who wants to know how much to trust
+Sections~\ref{subsec:rq1}--\ref{subsec:rq3} should read
+Section~\ref{sec:instrument} first.
+
+All figures below are between-run. Each configuration contributes
+\vRepetitions{} independent runs, and every interval, test and effect size is
+computed across those runs rather than across the epochs within one.
+
+\subsection{Repeatability of the measurements}
+\label{subsec:repeatability}
+
+Before comparing ecosystems it is worth asking how precisely the apparatus
+measures any single one of them, because the answer bounds every comparison that
+follows and because the submitted design could not produce it at all.
+
+Across all \vConfigurations{} configurations, the median between-run coefficient
+of variation of training energy is \vCVTrainMedian\,\% and the worst is
+\vCVTrainMax\,\%. Inference, whose blocks are one to two orders of magnitude
+shorter, is noisier but still tight: a median of \vCVInferMedian\,\% and a worst
+case of \vCVInferMax\,\%. Figure~\ref{fig:repeatability} breaks this down by
+ecosystem.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_repeatability.png}
+    \caption{Between-run coefficient of variation of energy, median over the six
+    (model, dataset) blocks, from \vRepetitions{} independent runs per
+    configuration.}
+    \label{fig:repeatability}
+\end{figure}
+
+Two things follow. First, differences of a few percent between ecosystems are
+resolvable, and the differences we report below are far larger than that.
+Second, the run-to-run variability is small enough that a single run per
+configuration would have produced a plausible-looking number --- which is
+precisely why a single run per configuration is not evidence that the number is
+right. Low variance is a property of the measurement, not a guarantee about the
+thing measured.
 
 \subsection{RQ1: Impact of ecosystems on training energy efficiency}
 \label{subsec:rq1}
 
-Figure~\ref{fig:training_energy} and Table~\ref{tab:train_results} summarize energy consumption during model training across all evaluated ecosystems and datasets.
+Figure~\ref{fig:energy_ci} and Table~\ref{tab:train_energy} report training
+energy per epoch for every ecosystem and block, at a common chip-level boundary.
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=1\textwidth]{images/results/energy__grouped__train.png}
-    \caption{Energy consumption during training across ecosystems, models, and datasets. Energy is measured in millijoules.}
-    \label{fig:training_energy}
+    \includegraphics[width=\linewidth]{figures/fig_energy_ci.png}
+    \caption{Training energy per epoch, accelerator plus CPU package, with 95\%
+    between-run intervals. Note the logarithmic axis: the intervals are narrow
+    enough to be hard to see at this scale.}
+    \label{fig:energy_ci}
 \end{figure*}
+
+\begin{table*}[t]
+\centering
+\caption{Mean training energy per epoch (J), accelerator plus CPU package.}
+\label{tab:train_energy}
+\input{generated/tab_train_energy.tex}
+\end{table*}
+
+The spread between the cheapest and the most expensive ecosystem ranges from
+\vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block
+(Table~\ref{tab:spread}), with \vSpreadTrainBest{} cheapest in every one.
+This is a substantially larger effect than the 4.6$\times$ an epoch-averaged,
+single-run, mixed-boundary analysis of a campaign of this shape would report,
+and it is larger for a straightforward reason: once every stack is measured at
+the same boundary, the constant host term that used to be added to all of them
+--- compressing their ratios toward one --- is gone.
 
 \begin{table}[t]
 \centering
-\caption{Mean energy consumption and mean execution time during training.}
-\label{tab:train_results}
-\begin{tabular}{l
-                S[scientific-notation=true,table-format=1.2e-2]
-                S[table-format=3.2]}
-\toprule
-\textbf{Ecosystem} & {\textbf{Energy (J)}} & {\textbf{Time (s)}} \\
-\midrule
-Rust       & 8.79e-4 &   8.80 \\
-C++        & 1.16e-3 &  12.66 \\
-PyTorch    & 1.46e-3 &  12.58 \\
-JAX        & 1.52e-3 &  13.70 \\
-MATLAB     & 3.43e-3 &  35.08 \\
-TensorFlow & 3.81e-3 &  39.84 \\
-R          & 3.91e-3 & 102.32 \\
-Java       & 4.02e-3 &  53.60 \\
-\bottomrule
-\end{tabular}
+\caption{Cheapest and most expensive ecosystem per block, training energy per epoch.}
+\label{tab:spread}
+\resizebox{\columnwidth}{!}{\input{generated/tab_spread.tex}}
 \end{table}
 
-Overall, results demonstrate that ecosystem selection can lead to substantial differences in training energy efficiency:
-\begin{itemize}
-    \item \textbf{Rust} achieves the best results, with the lowest mean energy consumption ($8.8 \times 10^{-4}$~J).
-    \item \textbf{C++}, \textbf{PyTorch}, and \textbf{JAX} are comparable, with mean energy values around $1.0$--$1.5 \times 10^{-3}$~J.
-    \item \textbf{MATLAB} and \textbf{TensorFlow} exhibit higher mean training energy consumption. MATLAB consumes $3.4 \times 10^{-3}$~J (3.9$\times$ Rust), while TensorFlow consumes $3.8 \times 10^{-3}$~J, i.e. at least 2.5$\times$ higher than other Python ecosystems under the same fixed-budget protocol.
-    \item \textbf{R} and \textbf{Java} are the least energy-efficient ecosystems during training in our setting. R requires $3.9 \times 10^{-3}$~J, while Java reports $4.0 \times 10^{-3}$~J (4.6$\times$ Rust).
-\end{itemize}
+\textbf{The shared-backend control group.} Four of the \vEcosystems{} ecosystems
+run on LibTorch, and three of those four --- Python, C++ and Rust --- train the
+byte-identical TorchScript module under specification S1. Whatever separates
+them cannot be the kernels, because the kernels are the same code; it is binding
+overhead, data movement and host-side dispatch.
+Table~\ref{tab:libtorch_control} reports the spread within that group against
+the spread across all \vEcosystems{}. A large control-group spread would mean
+the effect is host-side rather than intrinsic to the framework; a small one
+means the framework choice genuinely dominates.
 
-Furthermore, as can be seen in Figure~\ref{fig:training_energy}, inefficiencies tend to amplify with increasing workload, increasing the practical relevance of ecosystem choice. Differences as dataset complexity varies (CIFAR-100, Fashion-MNIST, Tiny ImageNet) are examined in Section~\ref{subsec:aggregated}.
+\begin{table}[t]
+\centering
+\caption{Spread within the shared-backend control group against the full spread,
+per block. The control group holds LibTorch, the model and the data pipeline
+fixed.}
+\label{tab:libtorch_control}
+\resizebox{\columnwidth}{!}{\input{generated/tab_control.tex}}
+\end{table}
+
+\textbf{Energy at equal quality.} A fixed-budget comparison rewards a stack for
+learning less. Because every ecosystem now records test accuracy per epoch, we
+can check whether it is doing so. Table~\ref{tab:accuracy} reports final test
+accuracy by ecosystem and dataset. On Fashion-MNIST all \vEcosystems{} stacks
+land within \vAccSpreadFashion{} percentage points of one another
+(\vAccMinFashion--\vAccMaxFashion\,\%), which is the strongest available
+evidence that they are running the same experiment --- and a check the submitted
+design could not perform, because no ecosystem wrote its accuracy to disk. On
+the harder datasets the stacks separate more (CIFAR-100:
+\vAccMinCifar--\vAccMaxCifar\,\%), and there the energy comparison must be read
+alongside the accuracy reached rather than instead of it.
+
+\begin{table}[t]
+\centering
+\caption{Final test accuracy (\%) after the fixed epoch budget, mean over
+\vRepetitions{} runs.}
+\label{tab:accuracy}
+\resizebox{\columnwidth}{!}{\input{generated/tab_accuracy.tex}}
+\end{table}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_energy_accuracy.png}
+    \caption{Energy spent against accuracy reached, one point per run. The
+    dashed line is the empirical frontier: no configuration to its left reaches
+    the same accuracy for less energy.}
+    \label{fig:energy_accuracy}
+\end{figure*}
+
+Figure~\ref{fig:energy_accuracy} plots the two together. Ranking ecosystems by
+accuracy per kilojoule rather than by energy alone puts \vEffBest{} ahead of
+\vEffWorst{} by \vEffRatio$\times$ --- a different quantity from the energy
+ratio, and the one a practitioner choosing a stack actually faces.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ1 Findings: Impact of Ecosystems on Training Energy Efficiency}]
 \small
-Across our evaluated language--framework ecosystems, mean training energy consumption differs by multiple factors (up to 4.6$\times$ between the best and worst ecosystems in our setting).
-Lower-energy ecosystems (Rust, C++/LibTorch, and Python/PyTorch--JAX) form a tight cluster, whereas Java and R exhibit substantially higher energy under the same fixed-budget protocol.
+Measured at a common chip-level boundary and replicated \vRepetitions{} times
+per configuration, training energy differs across ecosystems by
+\vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture
+and dataset, with \vSpreadTrainBest{} cheapest in every block. Between-run
+variability is small (median CV \vCVTrainMedian\,\%), so these differences are
+well resolved. Final accuracy converges to within \vAccSpreadFashion{}
+percentage points on Fashion-MNIST, so the differences are energetic rather than
+qualitative --- the stacks are doing the same work at very different cost.
 \end{tcolorbox}
 
 \subsection{RQ2: Impact of ecosystems on inference energy efficiency}
 \label{subsec:rq2}
 
-Figure~\ref{fig:inference_energy} and Table~\ref{tab:inference_results} report energy consumption during inference across all evaluated ecosystems and datasets.
+Table~\ref{tab:infer_energy} reports inference energy per epoch over the test
+set, at the same boundary.
 
-\begin{figure*}[t]
-    \centering
-    \includegraphics[width=1\textwidth]{images/results/energy__grouped__eval.png}
-    \caption{Energy consumption during inference across ecosystems, models, and datasets. Energy is measured in microjoules (since inference consumes significantly less energy than training).}
-    \label{fig:inference_energy}
-\end{figure*}
-
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{Mean energy consumption (J) and mean execution time (s) during inference.}
-\label{tab:inference_results}
-\resizebox{0.7\columnwidth}{!}{%
-\begin{tabular}{lcc}
-\toprule
-\textbf{Ecosystem} & \textbf{Energy (J)} & \textbf{Time (s)} \\
-\midrule
-C++        & 6.84e$^{-5}$ & 1.58 \\
-MATLAB     & 1.48e$^{-4}$ & 3.09 \\
-PyTorch    & 1.75e$^{-4}$ & 1.85 \\
-JAX        & 2.24e$^{-4}$ & 2.44 \\
-Java       & 2.49e$^{-4}$ & 4.00 \\
-Rust       & 3.43e$^{-4}$ & 3.35 \\
-TensorFlow & 4.61e$^{-4}$ & 5.06 \\
-R          & 4.98e$^{-4}$ & 13.34 \\
-\bottomrule
-\end{tabular}%
-}
-\end{table}
+\caption{Mean inference energy per evaluation pass (J), accelerator plus CPU package.}
+\label{tab:infer_energy}
+\input{generated/tab_infer_energy.tex}
+\end{table*}
 
-Compared to training, inference exhibits a different efficiency ranking:
-\begin{itemize}
-    \item \textbf{C++} is the most energy-efficient ecosystem for inference, with an average consumption of $6.8 \times 10^{-5}$~J.
-    \item \textbf{MATLAB} and \textbf{PyTorch} record low values ($1.5$--$1.7 \times 10^{-4}$~J), but still more than 2$\times$ the energy consumed by C++.
-    \item \textbf{JAX} and \textbf{Java} form a middle tier, with energy costs between $2.2$--$2.5 \times 10^{-4}$~J.
-    \item \textbf{Rust} performs worse in inference than in training (mean $3.4 \times 10^{-4}$~J), showing that training-phase advantages do not necessarily carry over to inference within the same ecosystem.
-    \item \textbf{TensorFlow} and \textbf{R} are the least energy-efficient ecosystems during inference in our setting. TensorFlow consumes $4.6 \times 10^{-4}$~J, while R reaches $5.0 \times 10^{-4}$~J (7.3$\times$ C++).
-\end{itemize}
-
-These results show that efficiency rankings differ across ecosystems and across lifecycle phases (training and inference).
-Therefore, optimizing energy consumption requires phase-aware decisions rather than relying on a single global ranking.
+The inference spread is wider than the training spread
+(\vSpreadInferMin$\times$ to \vSpreadInferMax$\times$), and this is where the
+apparatus matters most. An inference pass at these dataset sizes takes well
+under a second in the fastest stacks, which places it below the reported-window
+floor characterised in Section~\ref{sec:instrument}. Any inference comparison
+drawn from an estimator's own duration field is therefore comparing floors
+rather than phases for exactly the stacks that are fastest. Our figures are
+counter-bracketed and do not have this problem, but the point generalises: the
+inference phase is where a cross-ecosystem energy study is most exposed to its
+instrument, and it is also the phase practitioners deploy.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ2 Findings: Impact of Ecosystems on Inference Energy Efficiency}]
 \small
-Inference results reveal a reshuffling of efficiency rankings compared to training.
-C++ is the most energy-efficient inference ecosystem; the next best (MATLAB and PyTorch) consume roughly 2$\times$ as much energy in our setting.
-Conversely, Rust, which dominates energy efficiency in training, now ranks among the worst. R continues to perform the poorest, consuming 7.6× more energy than C++.
+Inference energy spreads more widely across ecosystems than training energy
+(\vSpreadInferMin$\times$--\vSpreadInferMax$\times$), and does so on blocks short
+enough that the measurement instrument, not the ecosystem, becomes the dominant
+source of error in a naive design. Reported inference rankings should be treated
+as claims about the apparatus until the window over which energy was accumulated
+is stated.
 \end{tcolorbox}
 
-\subsection{RQ3: Energy-time relationship across ecosystems}
+\subsection{RQ3: Energy--time relationship across ecosystems}
 \label{subsec:rq3}
 
-Table~\ref{tab:train_results} and Table~\ref{tab:inference_results} also report the average execution times during training and inference, respectively.
+The claim that ``faster is not greener'' is a claim about two measurements, and
+it is only as good as the weaker of them. We therefore recompute it on
+counter-bracketed durations --- the interval between the two counter reads that
+bracket a phase --- rather than on any duration reported by the estimator.
 
-Looking across ecosystems, we observe that \emph{energy consumption and execution time do not correlate in a trivial way}, suggesting that different stacks may induce different utilization regimes of the underlying hardware and runtime components.
+On that basis, energy and time rank the configurations almost identically:
+Spearman $\rho = \vRhoTrain$ for training and $\vRhoInfer$ for inference, with
+\vDiscordantTrainPct\,\% and \vDiscordantInferPct\,\% of configuration pairs
+discordant respectively. Within this workload and platform, execution time is a
+good proxy for energy, and the interesting question is why an analysis of the
+same experimental shape can conclude otherwise.
 
-In Table~\ref{tab:train_results}, \textbf{Rust} also has the fastest training time ($8.8$~s).
-In contrast, the slowest ecosystem is \textbf{R} ($102.3$~s), nearly twice the execution time of \textbf{Java} ($53.6$~s), even though Java is the least energy-efficient ecosystem during training.
-
-In inference (Table~\ref{tab:inference_results}), runtimes vary considerably for similar energy usages.
-\textbf{C++} is the most efficient option also in terms of execution time ($1.6$~s on average).
-\textbf{MATLAB} is slower ($3.09$~s) than \textbf{PyTorch} ($1.8$~s) despite lower energy efficiency.
-A comparable pattern is observed for \textbf{R} ($13.3$~s) and \textbf{TensorFlow} ($5.1$~s), whose runtimes differ by $2.6 \times$ despite relatively close energy consumption.
-
-\subsubsection{Energy--time relationship}
-Figure~\ref{fig:energy_time_tradeoff} depicts the joint distribution of energy consumption and execution time for both training and inference across ecosystems.
-
-\begin{figure*}[t]
-    \centering
-    \includegraphics[width=0.95\textwidth]{images/results/scatter_train_eval.png}
-    \caption{Energy--time trade-off across training (left) and inference (right).
-    Each point represents a model--dataset--ecosystem configuration.
-    The background quadrants indicate different efficiency regimes:
-    \textbf{green (bottom-left)} = fast and energy-efficient;
-    \textbf{yellow (bottom-right)} = slow but relatively frugal;
-    \textbf{orange (top-left)} = fast but energy-intensive;
-    \textbf{red (top-right)} = both slow and wasteful.}
-    \label{fig:energy_time_tradeoff}
-\end{figure*}
-
-The scatter plots show a non-trivial relationship between execution time and energy consumption.
-Configurations can be fast and frugal (bottom-left), slow but frugal (bottom-right), fast but energy-intensive (top-left), or both slow and energy-intensive (top-right).
-The quadrant coloring is intended as a qualitative visual aid rather than a statistical partition.
-In detail:
-
-\begin{itemize}
-    \item \textbf{C++} and \textbf{PyTorch} frequently occupy the bottom-left region in both training and inference.
-    \item \textbf{Rust} achieves fast execution but appears higher on the energy axis during inference, effectively shifting toward the top-left region.
-    \item \textbf{JAX} is competitive during training (often bottom-left), while its inference configurations show wider dispersion across energy and time, indicating higher sensitivity to configuration/runtime effects within our setup.
-    \item \textbf{MATLAB} shows contrasting behavior, especially during training, spanning from bottom-left to top-right.
-    \item \textbf{TensorFlow} is largely concentrated in the top-right region in both phases, indicating higher energy and time costs than other Python ecosystems in our setting.
-    \item \textbf{Java} and especially \textbf{R} cluster in the top-right region for both training and inference; R is the most extreme case, combining high energy with the longest execution times.
-\end{itemize}
-
-Overall, these results highlight that \emph{faster is not always greener}.
-Execution time alone is therefore an unreliable proxy for sustainability, and energy must be measured directly.
-
-\subsubsection{Efficiency Index of Deep Green AI}
-To provide a unified view of sustainability, we define a multi-objective Efficiency Index ($\text{EI}$) that balances energy consumption and execution time at the ecosystem level.
-For each ecosystem $k$ (within each phase), we compute:
-\[
-\text{EI}_k = \alpha \cdot \frac{\bar{E}_k}{\min_h(\bar{E}_h)} + (1-\alpha) \cdot \frac{\bar{T}_k}{\min_h(\bar{T}_h)}, \quad \alpha = 0.5,
-\]
-where $\bar{E}_k$ and $\bar{T}_k$ denote the mean energy consumption (Joules) and mean execution time (seconds) of ecosystem $k$, and the minima are taken over all ecosystems within the same phase (training or inference).
-Thus, the ecosystem that is best on both dimensions attains $\text{EI}=1.0$, while higher values indicate proportionally worse trade-offs.
-
-Tables~\ref{tab:efficiency_train} and \ref{tab:efficiency_eval} report the multi-objective Efficiency Indices for training and inference, respectively.
-
-\begin{table}[t]
-\centering
-\caption{Multi-objective Efficiency Index during \emph{training}. 
-The index combines normalized energy and time ($\alpha=0.5$). Lower is better.}
-\label{tab:efficiency_train}
-\resizebox{0.9\columnwidth}{!}{%
-\begin{tabular}{lccc}
-\toprule
-\textbf{Ecosystem} & \textbf{Norm. Energy} & \textbf{Norm. Time} & \textbf{Efficiency Index} \\
-\midrule
-Rust       & 1.00 &  1.00 & 1.00 \\
-C++        & 1.32 &  1.44 & 1.38 \\
-PyTorch    & 1.66 &  1.43 & 1.55 \\
-JAX        & 1.73 &  1.56 & 1.65 \\
-MATLAB     & 3.90 &  3.99 & 3.95 \\
-TensorFlow & 4.34 &  4.53 & 4.43 \\
-Java       & 4.57 &  6.09 & 5.33 \\
-R          & 4.44 & 11.63 & 8.04 \\
-\bottomrule
-\end{tabular}
-}
-\end{table}
-
-\begin{table}[t]
-\centering
-\caption{Multi-objective Efficiency Index during \emph{inference}. 
-The index combines normalized energy and time ($\alpha=0.5$). Lower is better.}
-\label{tab:efficiency_eval}
-\resizebox{0.9\columnwidth}{!}{
-\begin{tabular}{lccc}
-\toprule
-\textbf{Ecosystem} & \textbf{Norm. Energy} & \textbf{Norm. Time} & \textbf{Efficiency Index} \\
-\midrule
-C++        & 1.00 & 1.00 & 1.00 \\
-PyTorch    & 2.55 & 1.17 & 1.86 \\
-MATLAB     & 2.16 & 1.96 & 2.06 \\
-JAX        & 3.28 & 1.55 & 2.41 \\
-Java       & 3.64 & 2.54 & 3.09 \\
-Rust       & 5.02 & 2.13 & 3.58 \\
-TensorFlow & 6.75 & 3.21 & 4.98 \\
-R          & 7.28 & 8.47 & 7.87 \\
-\bottomrule
-\end{tabular}
-}
-\end{table}
-
-
-\begin{itemize}
-    \item During \emph{training}, \textbf{Rust} achieves the best balance between time and energy ($\text{EI}=1.0$).
-    \textbf{C++}, \textbf{PyTorch}, and \textbf{JAX} follow closely (roughly $1.3 \leq \text{EI} \leq 1.7$).
-    In contrast, \textbf{MATLAB} and \textbf{TensorFlow} perform about 4$\times$ worse under the combined metric.
-    \textbf{Java} shows an even higher combined penalty ($\text{EI}\approx 5.3$), while \textbf{R} remains the least efficient ecosystem ($\text{EI}\approx 8.0$).
-    \item During \emph{inference}, \textbf{C++} dominates ($\text{EI}=1.0$), while \textbf{PyTorch} (1.9) and \textbf{MATLAB} (2.1) remain competitive.
-    \textbf{JAX} and \textbf{Java} are mid-range ($2.4 \leq \text{EI} \leq 3.1$), whereas \textbf{Rust} drops in relative efficiency (3.6).
-    Finally, \textbf{TensorFlow} approaches $\text{EI}\approx 5$, and \textbf{R} again emerges as the least efficient ecosystem (7.9).
-\end{itemize}
-
-This representation confirms that training and inference exhibit markedly different patterns; therefore, sustainability must be evaluated across phases, as rankings are not maintained.
-
-\subsubsection{Energy, Time, and Efficiency Index}
-Tables~\ref{tab:efficiency_train} and \ref{tab:efficiency_eval} also report normalized values of energy (\texttt{Norm. Energy}) and time (\texttt{Norm. Time}).
-
-Under the combined view of Table~\ref{tab:efficiency_train}, \textbf{R} emerges as the least efficient ecosystem during training; its long training time does not compensate for the modest energy difference compared to \textbf{Java}.
-In contrast, \textbf{C++} becomes a more favorable choice than \textbf{PyTorch} under $\text{EI}$, reflecting its lower energy under a small time penalty.
-
-In Table~\ref{tab:efficiency_eval}, \textbf{PyTorch} benefits from its execution time and climbs the ranking, surpassing \textbf{MATLAB} in inference.
-Conversely, \textbf{MATLAB} and \textbf{Java}, while being slower than \textbf{JAX} and \textbf{Rust} respectively, can outperform them under $\text{EI}$ due to better energy efficiency.
-
-Overall, these results show that ecosystem selection affects DL efficiency along multiple dimensions, and a combined view can change the preference ordering compared to energy-only or time-only rankings.
-
-\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ3 Findings: Energy-Time Relationship across ecosystems}]
-\small
-Results highlight the necessity of directly measuring energy consumption, and support that \emph{faster is not always greener}.
-The best training trade-off is achieved by Rust/tch, followed by a cluster of ecosystems (C++/LibTorch, Python/PyTorch, Python/JAX) with relatively small degradations under $\text{EI}$.
-In inference, C++/LibTorch dominates, while other ecosystems can shift positions depending on whether energy or time is emphasized.
-\end{tcolorbox}
-
-\subsection{Aggregated perspective of DL phases through energy}
-\label{subsec:aggregated}
-
-By combining training and inference results, we derive an overall picture of how ecosystem choice influences DL energy efficiency.
-Figure~\ref{fig:energy_heatmap} reports normalized energy consumptions across ecosystems and datasets.
+The answer is in Figure~\ref{fig:window_floor}. Panel (a) plots the duration
+CodeCarbon reports for each block against the counter-bracketed phase. Above
+roughly four seconds the two coincide to \vWindowExcessLongMs\,ms. Below it, the
+reported duration is a constant: $\max(\text{phase},\ \vWindowFloorS\,\text{s})$
+accounts for $R^2 = \vWindowModelRsq$ of its variance. The shortest phase in the
+campaign takes \vShortestPhaseS\,s and is filed as \vShortestPhaseReportedS\,s,
+a factor of \vShortestPhaseFactor.
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/results/heatmap_all.png}
-    \caption{Heatmap of normalized energy consumption across ecosystems and datasets (training + inference aggregated).
-    For each dataset, energy values are normalized by the maximum observed value across ecosystems (i.e. $\tilde{E}_{k,d} = E_{k,d} / \max_h E_{h,d}$).
-    Darker cells indicate higher relative energy usage.}
-    \label{fig:energy_heatmap}
+    \includegraphics[width=\linewidth]{figures/fig_window_floor.png}
+    \caption{(a) The duration reported alongside each energy figure is not the
+    interval the energy was accumulated over: it is the phase duration or a
+    floor of about four seconds, whichever is larger.
+    (b) Power obtained by dividing reported energy by reported duration is
+    consequently understated for short phases and exact for long ones.}
+    \label{fig:window_floor}
 \end{figure*}
 
-This perspective highlights the stability of each ecosystem in terms of relative energy consumption across the entire DL workload as dataset size increases--from \emph{CIFAR-100}, and \emph{Fashion MNIST} to \emph{Tiny ImageNet}, representing an approximate 1.8$\times$ growth in sample count:
+Panel (b) shows the consequence. Power computed as reported energy over reported
+duration is understated by \vPowerUnderstatedSubSecond$\times$ for sub-second
+phases (\vPowerCodeCarbonSubSecond\,W against a measured
+\vPowerCountersSubSecond\,W) and is accurate to \vPowerAgreeLongPct\,\% above ten
+seconds. The bias is not random and it is not uniform: it is a monotone function
+of phase length, so it falls hardest on the fastest ecosystems and on the
+inference phase, and it stretches their apparent time axis while leaving their
+energy untouched. That is precisely the shape of an artefactual ``fast but
+energy-hungry'' finding.
 
-\begin{itemize}
-    \item \textbf{Rust} and \textbf{C++} consistently achieve the best energy efficiency across all datasets.
-    For CIFAR-100, both record the lowest normalized energy usage (0.05).
-    With Fashion-MNIST, values remain stable (Rust 0.05, C++ 0.06).
-    For Tiny ImageNet, C++ (0.11) slightly outperforms Rust (0.12), suggesting marginally better scaling in this aggregated view.
-
-    \item \textbf{JAX} and \textbf{PyTorch} exhibit intermediate but stable performance.
-    Their normalized energy remains low on CIFAR-100 (both 0.07) and increases modestly on Fashion-MNIST (JAX 0.07, PyTorch 0.08).
-    On Tiny ImageNet, PyTorch (0.14) scales slightly better than JAX (0.17).
-
-    \item \textbf{MATLAB} and \textbf{TensorFlow} show higher sensitivity to dataset size, with normalized energy increasing substantially as complexity grows.
-    MATLAB increases from 0.12 (CIFAR-100) to 0.14 (Fashion-MNIST) and 0.37 (Tiny ImageNet).
-    TensorFlow follows a steeper trend (0.17, 0.20, 0.41).
-
-    \item \textbf{Java} and \textbf{R} consistently rank among the least energy-efficient ecosystems, though their ordering varies across datasets.
-    While their absolute inefficiency remains high, their degradation rates across datasets appear less steep than MATLAB and TensorFlow in this specific normalization.
-\end{itemize}
-
-Overall, energy consumption increases with dataset complexity, but the magnitude of this effect depends on the ecosystem. This reinforces that, when selecting an ecosystem for an end-to-end workload (i.e. both training and inference), its suitability for the size of the dataset must also be taken into account.
-
-\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{Other Findings: Energy Efficiency Degradation Across Ecosystems}]
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ3 Findings: Energy and Time}]
 \small
-Results confirm that energy usage increases with dataset complexity, though the magnitude of this effect depends on the ecosystem.
-Some ecosystems degrade more gently (e.g. C++, PyTorch in this aggregated view), while others scale sharply (e.g. MATLAB, TensorFlow), and some remain consistently high with comparatively limited dependence on dataset size (e.g. Java, R) under the adopted normalization.
+On counter-bracketed durations, energy and execution time rank ecosystems almost
+identically ($\rho = \vRhoTrain$ training, $\vRhoInfer$ inference): within this
+workload, faster \emph{is} greener. The contrary finding is reproducible as an
+instrument artefact --- the duration field of a widely used software estimator
+has a floor of about \vWindowFloorS\,s, which inflates the apparent runtime of
+short phases by up to \vShortestPhaseFactor$\times$ while leaving their energy
+correct.
 \end{tcolorbox}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{RQ4: How much of this is the apparatus?}
+\label{sec:instrument}
+
+Every block in the campaign carries two independent energy readings over the
+same window. Figure~\ref{fig:instrument} and Table~\ref{tab:instrument} report
+what they say about each other.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_instrument.png}
+    \caption{(a) Ratio of CodeCarbon to hardware counters, per block, against
+    phase duration. The measured part agrees; the total does not, by exactly the
+    modelled RAM term. (b) The share of each ecosystem's reported total that is
+    modelled RAM.}
+    \label{fig:instrument}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Agreement between the two instruments over \vBlocks{} blocks.}
+\label{tab:instrument}
+\resizebox{\columnwidth}{!}{\input{generated/tab_instrument.tex}}
+\end{table}
+
+\textbf{On energy, the instruments agree.} Over the whole campaign the ratio of
+CodeCarbon to counters is \vCCgpuRatio{} for the accelerator and
+\vCCcpuRatio{} for the CPU package, or \vCCmeasRatio{} for their sum: a
+disagreement of \vCCmeasDisagreementPct\,\%. This is a useful and, we think,
+under-reported result. The literature's concern with software estimators is
+accuracy, and on this platform, over this workload, with both counters
+available, accuracy is not the problem.
+
+\textbf{On what is not measured, they cannot agree.} CodeCarbon's total exceeds
+the counters by \vCCtotalRatio$\times$, and the excess is entirely its RAM term
+--- \vCCramSharePct\,\% of its reported total on average --- which is derived
+from installed memory capacity rather than from memory activity. No counter on
+this platform can confirm or refute it. The number is not wrong so much as it is
+not a measurement, and it is added silently to a figure otherwise composed of
+measurements. On a machine with more installed RAM the same model contributes a
+larger share, which means the reported energy of an identical workload depends
+on how much memory the host happens to have.
+
+\textbf{Does the instrument change the answer?} We recomputed the ecosystem
+ranking of each block under both instruments. They agree in \vRankIdentical{} of
+\vRankBlocks{} blocks. The disagreements are confined to adjacent pairs that the
+statistical tests do not separate, so the instrument does not reorder the
+substantive conclusions of RQ1 --- provided energy, and not power or time
+derived from energy, is the quantity being compared.
+
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ4 Findings: The Apparatus}]
+\small
+Over \vBlocks{} doubly instrumented blocks, a widely used software estimator
+agrees with hardware energy counters to \vCCmeasDisagreementPct\,\% on the
+quantity both measure, and the ecosystem ranking is unchanged in
+\vRankIdentical{} of \vRankBlocks{} blocks. The failure modes lie elsewhere:
+a modelled RAM term contributing \vCCramSharePct\,\% of the reported total that
+no counter can check and that scales with installed memory rather than with use,
+and a reported duration that is a floor rather than a measurement. Both produce
+plausible numbers; neither is visible without a second instrument.
+\end{tcolorbox}
+
 \section{Discussion}
 \label{sec:discussion}
 
@@ -832,46 +1017,56 @@ Accordingly, $m_k$ should be interpreted as a \emph{relative energy-per-work} fa
 Under the simplifying assumption that the ecosystem-level multiplier transfers to the same workload definition, for any baseline energy budget $\bar{E}_{\text{base}}$, the scaled energy is calculated as $\bar{E}_k = m_k \cdot \bar{E}_{\text{base}}$.
 
 \textbf{Training phase (illustrative scaling).}
-From Table~\ref{tab:train_results}, Rust and C++ consume on average $m_{\text{Rust}} \approx 0.60$ and $m_{\text{C++}} \approx 0.80$ of PyTorch's training energy under our protocol. If, for example, the PyTorch's \emph{training} energy budget is $E_{\text{PyTorch}}=1$~GWh, then the same run would be approximately 0.60~GWh in Rust (saving about 400~MWh) and 0.80~GWh in C++ (saving about 200~MWh).
-Assuming an electricity price of \SI{100}{\euro\per\mega\watt\hour}~\cite{kaack2022aligning}, this corresponds to roughly 40,000~\euro\ saved for that single training run in the Rust case.
+From Table~\ref{tab:train_energy}, moving from the most expensive ecosystem in a
+block to the cheapest changes training energy by
+\vSpreadTrainMin$\times$--\vSpreadTrainMax$\times$. Taking a concrete case: if a
+\emph{training} budget is $E=1$~GWh on the most expensive stack of a block, the
+same fixed-budget run costs between $1/\vSpreadTrainMax$ and
+$1/\vSpreadTrainMin$ of that on the cheapest. At an electricity price of
+\SI{100}{\euro\per\mega\watt\hour}~\cite{kaack2022aligning}, the spread between
+the two ends of a single block is on the order of hundreds of thousands of euro
+per GWh of training. We stress that this is arithmetic on a relative multiplier,
+not a forecast: it assumes the multiplier transfers to a workload of a different
+size on different hardware, which is exactly the assumption our own measurements
+give us the least confidence in.
 
 \textbf{Inference phase (hyperscale workload, fixed work).}
-Inference energy typically scales approximately linearly with the served workload volume when comparing stacks under a fixed service target (same number of requests/inferences).
-Let $E_{\text{PyTorch}}$ be the daily energy attributable to \emph{inference} when using PyTorch as baseline.
-We assume a deployment with $N=100{,}000$ GPUs running continuously for 24 hours, and assume an average inference-attributable power draw of $P_{\text{PyTorch}}=0.4$~kW per GPU, yielding $E_{\text{PyTorch}} = N \cdot P_{\text{PyTorch}} \cdot 24\text{h} = 960$~MWh/day.
-We then apply the inference multipliers $m_k$ from Table~\ref{tab:inference_results} to obtain the scenario-based daily energy and cost figures reported in Table~\ref{tab:industrial_inference}.
-
-Under these assumptions, migrating from PyTorch (96,000~€ per day) to C++ (37,500~€ per day) would cut costs by more than 50\%, amounting to annual savings in the tens of millions~\cite{patterson2021carbon,patterson2022plateau}.  
-Conversely, less efficient configurations (e.g., R or TensorFlow) would increase costs by 50–200\%.
+Inference energy scales approximately linearly with served volume when stacks
+are compared at a fixed service target. Let $E_{\text{PyTorch}}$ be the daily
+energy attributable to \emph{inference} with PyTorch as the baseline. Assuming
+$N=100{,}000$ accelerators running continuously for 24 hours at an average
+inference-attributable draw of $P=0.4$~kW each gives
+$E_{\text{PyTorch}} = \vScenarioBaselineMWh$~MWh/day, or
+\vScenarioBaselineCost~\euro\ per day at
+\SI{100}{\euro\per\mega\watt\hour}. Applying the measured inference multipliers
+yields Table~\ref{tab:industrial_inference}: \vScenarioBest{} at
+\vScenarioBestMult$\times$ the baseline and \vScenarioWorst{} at
+\vScenarioWorstMult$\times$.
 
 \begin{table*}[t]
-\tiny
 \centering
-\caption{Projected daily energy cost for large-scale inference (100k GPUs, 24h, electricity at \SI{100}{\euro\per\mega\watt\hour}). 
-Baseline: Python/PyTorch efficiency. Relative efficiency computed from mean inference energy (Table~\ref{tab:inference_results}).}
+\caption{Projected daily energy and cost for large-scale inference
+($10^5$ accelerators, 24\,h, electricity at
+\SI{100}{\euro\per\mega\watt\hour}), scaling the \emph{relative} inference
+energy measured in this campaign with Python/PyTorch as the baseline. These are
+scenario arithmetic on measured multipliers, not forecasts.}
 \label{tab:industrial_inference}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lrrrr}
-\toprule
-\textbf{Ecosystem} & \textbf{Relative Efficiency} & \textbf{Energy (MWh/day)} & \textbf{Cost (€)} & \textbf{Savings vs PyTorch (€)} \\
-\midrule
-PyTorch (Python)    & 1.00×  & 960  & 96,000  & – \\
-C++                 & 0.39×  & 375  & 37,500  & +58,500 \\
-MATLAB              & 0.85×  & 820  & 82,000  & +14,000 \\
-JAX (Python)        & 1.28×  & 1230 & 123,000 & -27,000 \\
-Java                & 1.43×  & 1370 & 137,000 & -41,000 \\
-Rust                & 1.97×  & 1890 & 189,000 & -93,000 \\
-TensorFlow (Python) & 2.64×  & 2540 & 254,000 & -158,000 \\
-R                   & 2.85×  & 2740 & 274,000 & -178,000 \\
-\bottomrule
-\end{tabular}}
+\resizebox{0.8\textwidth}{!}{\input{generated/tab_industrial.tex}}
 \end{table*}
 
 \textbf{Takeaway.}
-Even when treated purely as relative multipliers under a uniform protocol, ecosystem-level energy differences can translate into large operational deltas at hyperscale.
-However, these figures should be interpreted as scenario-based scaling of our measured \emph{relative} differences, not as absolute forecasts for a particular production model, utilization regime, or hardware/software configuration.
+Ecosystem-level energy differences, treated purely as relative multipliers under
+a uniform protocol, translate into large operational deltas at hyperscale. Two
+caveats bound that statement, and both come from this study rather than from
+convention. The multipliers were measured on a single-accelerator desktop at
+$32\times32$ input resolution, a regime in which data movement and dispatch
+weigh more heavily than they would at production scale, so they are more likely
+to overstate binding overhead than to understate it. And the whole calculation
+is a scaling of \emph{relative} differences: had we reported the modelled
+component of a software estimator's output as if it were measured, the same
+arithmetic would have produced a confident number from a quantity that depends
+on how much memory the host happens to have.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Threats to Validity}
 \label{sec:threats}
 
@@ -928,7 +1123,7 @@ While these choices are representative of standard computer vision tasks, result
 Similarly, although the chosen languages cover prominent DL ecosystems in current practice, they do not encompass all possible programming environments.
 Our selection focuses on mature, GPU-compatible DL ecosystems with stable support from the community or vendor support; conclusions should not be extrapolated to ecosystems not covered by this criterion.
 
-Moreover, we evaluated a specific hardware platform (NVIDIA L40S GPU, dual Intel Xeon CPUs); results may vary with different GPUs, CPUs, drivers, or heterogeneous accelerators (e.g. TPUs, embedded devices)~\cite{patterson2022plateau,kaack2022aligning}.
+Moreover, we evaluated a specific hardware platform (a single NVIDIA RTX 3090 with an AMD Ryzen 9 5900X); results may vary with different GPUs, CPUs, drivers, or heterogeneous accelerators (e.g. TPUs, embedded devices)~\cite{patterson2022plateau,kaack2022aligning}. A single-accelerator desktop also makes the host share of total energy smaller than it would be on a multi-socket server, which flatters no ecosystem in particular but does bound the generality of the absolute figures.
 Nonetheless, our design balances realism and breadth with tractability, and provides a meaningful baseline within the stated ecosystem-level scope~\cite{verdecchia2023systematic}.
 
 \textbf{Conclusion Validity.}
