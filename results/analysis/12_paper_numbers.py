@@ -261,6 +261,12 @@ def statistics_facts() -> None:
     macro("vPairsLargePct",
           num(100 * (pw.magnitude == "large").mean(), 0))
 
+    pc = pd.read_csv(TABLES / "v2_stats_phase_consistency.csv")
+    macro("vPhaseRhoMin", num(pc.spearman_rho.min(), 2))
+    macro("vPhaseRhoMax", num(pc.spearman_rho.max(), 2))
+    macro("vPhaseSameBest", int(pc.same_best.sum()))
+    macro("vPhaseBlocks", len(pc))
+
     ct = pd.read_csv(TABLES / "v2_stats_libtorch_control.csv")
     macro("vCtrlSpreadMin", num(ct.spread_libtorch.min(), 1))
     macro("vCtrlSpreadMax", num(ct.spread_libtorch.max(), 1))

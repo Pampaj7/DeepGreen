@@ -596,33 +596,53 @@ Input preprocessing includes resizing all images to $32 \times 32$ pixels, with 
 These settings reflect canonical practices in the community while ensuring comparability across implementations~\cite{banbury2021mlperf,pereira2021ranking}.
 
 \textbf{Measurement.}
-Energy usage is monitored with the \texttt{CodeCarbon} toolkit (v3.0.4)~\cite{lacoste2019quantifying}.
-While \texttt{CodeCarbon} natively supports emission and energy tracking, we extended its usage with a custom \emph{daemon-based controller} to ensure robustness, reproducibility, and fine-grained attribution~\cite{dodge2022efficient}.
-Specifically, a lightweight Python daemon listens for \texttt{START}, \texttt{STOP}, and \texttt{EXIT} commands, dynamically instantiating or terminating \texttt{CodeCarbon} trackers.
-This design decouples the monitoring process from model execution, preventing crashes or logging interference across ecosystems~\cite{weber2023twins,rua2024large}.
+Each phase of each epoch is bracketed by two counter reads --- NVML's
+accumulated-energy register and the CPU package RAPL counter --- and is
+simultaneously tracked by \texttt{CodeCarbon} v3.3.0~\cite{lacoste2019quantifying}
+over the identical window. The two instruments are started and stopped by the
+same code path, so their windows cannot drift apart.
 
-All runs are executed in isolation on the server to avoid interference from external workloads.
-Energy consumption is logged at epoch granularity, and logs are enriched with metadata including dataset, model, ecosystem identifier (language + framework/library), and DL phase (training vs inference), ensuring full traceability~\cite{ampatzoglou2019identifying,verdecchia2023threats}.
+The six non-Python ecosystems drive the instrumentation through a single shared
+bridge: a Python process that accepts \texttt{START}, \texttt{STOP},
+\texttt{METRIC} and \texttt{EXIT} over a line protocol, reads the counters, and
+acknowledges each command before the measured process proceeds. The
+acknowledgement is not incidental. An earlier, asynchronous version of the same
+bridge allowed a phase boundary in the measured process to run ahead of the
+corresponding counter read, which under-reported one stack's training energy by
+24\% and recorded its evaluation energy as exactly zero --- a value that looks
+like a bug only if someone thinks to look at it.
 
-Separate trackers are started and stopped for the training and evaluation phases of each epoch, enabling precise allocation of energy consumption to workload stages rather than reporting aggregate totals~\cite{tripp2024measuring,mehlin2023towards}.
-This daemonized setup provides a more reliable and fine-grained view of energy consumption trends across heterogeneous experimental conditions~\cite{georgiou2022green,marini2025green}.
+Running the bridge out of process also isolates the measured stack from the
+instrument: a crash in the tracker cannot take down a six-hour training run, and
+the tracker's own CPU cost is attributed to the machine total rather than
+silently to the workload. All runs execute in isolation on an otherwise idle
+host, as whole-machine tracking requires, and each block is logged with dataset,
+model, ecosystem, repetition, seed, phase, epoch, both energy readings, the
+duration and the test accuracy reached.
 
 \textbf{Reproducibility.}
-To ensure transparency, a comprehensive replication package accompanies this study (see replication package link in Section~\ref{sec:intro}).
-It includes:
+A comprehensive replication package accompanies this study (see the link in
+Section~\ref{sec:intro}). Beyond source code, automation scripts, per-ecosystem
+environment specifications and raw logs, it contains three artefacts specific to
+this design:
 \begin{enumerate}[label=(\roman*)]
-    \item \textbf{Source code} for all implementations, adapted where necessary from canonical open-source repositories;
-    \item \textbf{Automation scripts} to reproduce training and inference runs, ensuring identical hyperparameters across ecosystems;
-    \item \textbf{Environment specifications}, tailored to each ecosystem: \texttt{virtualenv}/\texttt{conda} for Python, Maven for Java, CMake for C++, \texttt{renv} for R, Live Scripts for MATLAB, and Cargo for Rust;
-    \item \textbf{Raw energy logs} and metadata for every run, enabling reanalysis and statistical validation~\cite{basili1994gqm,feldt2010validity}.
+    \item the \textbf{experiment specification} of Section~\ref{subsec:spec},
+          written before the campaign and versioned with it;
+    \item the \textbf{conformance checker}, 56 executable checks that read the
+          source of every ecosystem and the configuration of every tracker, and
+          fail when a stack drifts out of specification;
+    \item the \textbf{dual-instrument records}: every block's counter reading
+          and estimator reading side by side, which is what makes the analysis
+          of Section~\ref{sec:instrument} reproducible rather than anecdotal.
 \end{enumerate}
-Configurations are standardized across ecosystems where feasible, with deviations (e.g. CUDA/cuDNN toolchains; see Table~\ref{tab:frameworks}) explicitly documented.
-This package enables replication, validation, and extension of our results under heterogeneous hardware or software conditions~\cite{sjoberg2023construct,verdecchia2023threats}.
-The scripts used to download and convert the datasets are available in the \texttt{dataloader} module of our replication repository.\footnote{Available at: \url{https://zenodo.org/records/17734884}}
+Every number in this manuscript is generated from those records by the analysis
+pipeline and injected into the source at build time; none is transcribed.
 
 \begin{table}[t]
 \centering
-\caption{Hyperparameter configuration used across all experiments.}
+\caption{Hyperparameter configuration, identical across all ecosystems and
+enforced by the conformance checks of specification S2 rather than by
+convention.}
 \label{tab:hyperparams}
 \begin{tabular}{l l}
 \toprule
@@ -635,7 +655,11 @@ Learning rate         & $1 \times 10^{-4}$ \\
 Loss function         & Cross-entropy \\
 Input resolution      & $32 \times 32$ (all datasets) \\
 Input channels        & 3 (grayscale datasets expanded) \\
-Hardware parallelism  & GPU-enabled for all frameworks \\
+Accelerator           & asserted at startup; CPU fallback refused \\
+Data loader workers   & 2, bounded and equal in every stack \\
+Input normalisation   & none; raw $[0,1]$ inputs everywhere \\
+Evaluation            & batched at the training batch size \\
+Independent runs      & \vRepetitions{} per configuration, interleaved \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -946,60 +970,116 @@ Our study highlights that the energy efficiency of DL workloads is not only a ma
 In this section, we interpret the results in light of their broader implications, and discuss lessons learned for different stakeholders.
 
 \subsection{Interpretation of Results}
-The experiments reveal three main insights.
 
-\textbf{Phase-dependent rankings.}
-First, our results show that efficiency rankings are phase-dependent: ecosystems that are highly efficient during training are not necessarily the most efficient during inference.
-In our setting, the Rust ecosystem attains the lowest mean energy consumption during training, whereas during inference the C++ ecosystem dominates, and Rust does not retain its training advantage.
-This indicates that optimizations (and overheads) can manifest differently across lifecycle phases, motivating phase-aware decisions rather than a single global ranking.
+\textbf{The ecosystem effect is large, and it is not about the kernels.}
+Under a common measurement boundary, the same architecture trained on the same
+data for the same number of epochs costs between \vSpreadTrainMin$\times$ and
+\vSpreadTrainMax$\times$ more energy on one ecosystem than another. Three of the
+stacks in that comparison execute a byte-identical TorchScript module, so
+whatever separates them is not kernel quality: it is the binding, the data
+pipeline, and how much host-side work each stack does per unit of accelerator
+work. That is an encouraging finding, because host-side overhead is the kind of
+thing an ecosystem maintainer can fix.
 
 \textbf{Ecosystem-level overheads amplify with workload scale.}
-Second, we observed that higher-consumption ecosystems (e.g. TensorFlow, Java, R in our experiments) exhibit substantially higher energy usage under the same fixed-budget protocol, and that differences tend to become more pronounced as workload complexity increases.
-While the exact causes cannot be isolated in a black-box study (they may include runtime layers, input pipelines, execution engines, backend kernel selection, and toolchain differences), the practical implication is clear: ecosystem overheads can become a first-order term at larger scales.
-Accordingly, these results should be interpreted as \emph{ecosystem-level} effects rather than attributed to the programming language alone.
+The absolute gap widens with dataset size and with model depth, so the practical
+relevance of the choice grows exactly where energy matters most. The mechanism
+cannot be isolated in a black-box study --- runtime layers, input pipelines,
+execution engines and toolchains all differ --- and we therefore report these as
+ecosystem-level effects rather than attributing them to a programming language.
 
-\textbf{Energy--time divergence.}
-Third, our data reveals a clear \emph{energy--time divergence}: faster execution does not guarantee lower energy consumption.
-This reinforces previous warnings against using execution time as a proxy for energy in sustainability evaluations~\cite{weber2023twins,cruz2025greening}.
-Taken together, the results suggest that energy usage is shaped not only by runtime, but by how each ecosystem exercises the full stack (framework execution, scheduling/compilation, libraries, and toolchain) under realistic conditions.
+\textbf{Rankings are largely phase-consistent, contrary to what an
+estimator-based analysis suggests.} Recomputed on counter-bracketed energy,
+training and inference rank the ecosystems alike in
+\vPhaseSameBest{} of \vPhaseBlocks{} blocks, with Spearman correlations between
+\vPhaseRhoMin{} and \vPhaseRhoMax. This matters because the opposite claim ---
+that the phases rank differently and so demand phase-aware stack selection ---
+is a natural conclusion to draw from estimator output, and we can now say why:
+inference blocks in this workload are short enough to fall under the
+reported-window floor of Section~\ref{sec:instrument}, so an inference ranking
+derived from an estimator's own duration is partly a ranking of floors. We do
+not claim phase-dependence never occurs; we claim that establishing it requires
+an instrument whose window is known.
+
+\textbf{Faster \emph{is} greener, here.} On measured durations, energy and time
+rank configurations at $\rho = \vRhoTrain$ (training) and $\vRhoInfer$
+(inference). This contradicts a well-established finding in cross-language
+energy work~\cite{weber2023twins,rua2024large,pereira2021ranking}, and we want
+to be careful about the scope of the contradiction. Those studies largely
+concern CPU-bound general-purpose benchmarks, where a language can trade
+instruction count against memory traffic and shift the energy-per-second
+substantially. In a GPU-bound DL workload the accelerator dominates and runs
+near a narrow band of power, so time and energy are nearly proportional almost
+by construction. The interesting result is not that we disagree, but that a
+study of this exact shape can produce either answer depending on which of two
+fields of the same CSV it treats as the duration.
+
+\textbf{Quality must be measured, not assumed.} Under a fixed epoch budget the
+stacks converge to within \vAccSpreadFashion{} percentage points on
+Fashion-MNIST but separate by \vAccSpreadCifar{} points on CIFAR-100. Any
+efficiency claim on the harder datasets that does not report accuracy alongside
+energy is comparing stacks that did different amounts of learning. This is not a
+subtle correction: an ecosystem that converges more slowly looks efficient
+precisely because it accomplished less.
 
 \subsection{Implications for Stakeholders}
 Our findings carry different implications for different communities:
 
 \begin{itemize}
- \item \textbf{Researchers:} Our results reinforce the need to treat energy as a primary evaluation metric, complementing accuracy and runtime~\cite{schwartz2020green,verdecchia2023systematic,cruz2025greening}.
- Neglecting energy, or using runtime as its proxy, can lead to misleading conclusions about efficiency, especially when comparing heterogeneous ecosystems.
+ \item \textbf{Researchers:} energy should be reported alongside accuracy, and
+ both should be reported alongside the measurement boundary. Our stronger
+ recommendation is procedural: a cross-stack study needs a written specification
+ and a mechanism that enforces it. We found that every divergence we eventually
+ corrected had produced a plausible number first, and that inspection did not
+ catch them --- executable checks did.
 
- \item \textbf{Practitioners:} Developers face phase-specific trade-offs.
- In our results, the most energy-efficient ecosystem for training is not the most efficient for inference, implying that "one stack for everything" can be suboptimal when workloads are inference-heavy or training-heavy.
- In practice, ecosystem choice must balance \emph{environmental sustainability} (i.e. energy/time efficiency under the target phase mix) with \emph{organizational sustainability} (i.e. developer skill sets, tooling, long-term maintainability).
- Notably, some widely adopted ecosystems can also be competitive in efficiency in our setting (e.g. PyTorch), but this should not be assumed as a general rule across hardware and toolchains~\cite{georgiou2022green,marini2025green}. 
+ \item \textbf{Practitioners:} ecosystem choice has a first-order effect on
+ energy, and in this workload the same choice serves both phases, so the
+ ``one stack for training, another for serving'' complexity is not obviously
+ warranted. Efficiency must nonetheless be weighed against maintainability,
+ hiring, library availability and time to delivery; a \vSpreadTrainMax$\times$
+ energy gap is not a mandate when the cheaper stack has a tenth of the
+ ecosystem around it.
 
- \item \textbf{Framework designers:} The results highlight that efficiency stems from the \emph{ecosystem} as a whole (kernels, runtime engines, data pipeline, and toolchain compatibility), not from the surface language alone.
- Therefore, delivering sustainable DL tooling requires attention to end-to-end stack engineering (and reproducible profiling) rather than focusing solely on API design.
- Our pilot attempt to include Julia, which we excluded due to persistent technical issues, illustrates a pragmatic barrier: without sufficient ecosystem stability, potential benefits (including energy efficiency) remain difficult to realize in practice.
+ \item \textbf{Framework designers:} efficiency stems from the ecosystem as a
+ whole, and the largest recoverable gaps we observe are in host-side work
+ --- data loading, dispatch and binding overhead --- rather than in kernels.
+ We would also ask for one specific thing from measurement tooling: report the
+ interval over which energy was accumulated, and fail rather than substitute a
+ model when a counter is unavailable. An instrument that refuses to run is more
+ useful than one that quietly estimates.
 
- \item \textbf{Policy makers and funding agencies:} AI efficiency is a multifaceted construct involving trade-offs between accuracy, speed, energy, dataset complexity, and lifecycle phase.
- We caution against adopting any single metric (including our Efficiency Index) as a target (Goodhart's Law).
- Instead, policy should promote transparency via multi-dimensional reporting (e.g. separate energy/time for training and inference, accuracy, hardware/software stack details, and toolchain versions) to ensure results are comparable and auditable~\cite{henderson2020systematic,dodge2022efficient,kaack2022aligning}.
+ \item \textbf{Policy makers and funding agencies:} AI efficiency is
+ multi-dimensional, and we caution against adopting any single metric as a
+ target (Goodhart's Law). Reporting requirements should ask for the measurement
+ boundary and the replication count, not only the number: a figure without
+ either is not auditable, and our own experience is that unauditable figures are
+ wrong more often than not.
 \end{itemize}
 
 \subsection{AI Requires Explicit Energy Measurement}
 \label{sec:explicit_measurement}
 
-Our results show that ecosystem selection is not a neutral engineering choice, but a factor that can shift deep learning energy consumption by multiple factors in our setting (up to about 4.6$\times$ during training and 7.3$\times$ during inference, depending on the compared ecosystems).
-This study provides repeated empirical evidence that \textbf{faster is not always greener}, and that sustainable AI requires explicit measurement of energy, not just accuracy or runtime~\cite{weber2023twins,cruz2025greening,schwartz2020green}.
+Ecosystem selection is not a neutral engineering choice: it shifts DL energy
+consumption by a factor that is large, reproducible and, in the case of
+host-side overhead, addressable. That is the substantive result.
 
-Furthermore, our findings highlight that efficiency is not only about designing efficient models at a conceptual level, but also about delivering implementations that preserve this efficiency in practice.
-Our \emph{black-box evaluation} of off-the-shelf ecosystems is intentional: it reveals differences that would be obscured by hand-tuned or ad-hoc reimplementations, and mirrors how practitioners use frameworks \emph{in vivo}, supporting external validity~\cite{feldt2010validity,ampatzoglou2019identifying,sjoberg2023construct,verdecchia2023threats}.
-We also observed that dataset complexity can amplify inefficiencies, meaning sustainability evaluations must consider scaling effects rather than relying on small workloads alone~\cite{tripp2024measuring,banbury2021mlperf}.
+The methodological result is that establishing it is harder than it looks. Every
+defect we found in building this study produced numbers of the right order of
+magnitude, in the right units, with plausible relative ordering. A learning rate
+that differs between two framework APIs, an evaluation loop written one image at
+a time, a linker dropping a CUDA dependency so that a binary runs on the CPU, an
+estimator reporting a floor where a duration belongs --- none of these announce
+themselves in the data. They are detectable only by a second instrument, an
+executable specification, or a quality metric that the study happened to record.
 
-Finally, we provide a comprehensive replication package and a fine-grained dataset of our results.
-This resource offers concrete evidence and a baseline for framework designers and researchers to diagnose inefficiencies and guide the development of more energy-aware DL ecosystems~\cite{lacoste2019quantifying,verdecchia2023systematic}.
+We therefore make the artefacts as important as the findings. The specification,
+the shared measurement contract, the conformance checker and the raw
+dual-instrument records are all in the replication package, and the manuscript's
+numbers are generated from them rather than transcribed. A reader who doubts a
+figure in this paper can regenerate it; a reader who doubts the apparatus can
+run the checks.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{An Industrial Simulation of Deep Green AI Large-Scale Impact}
 \label{sec:scenario}
 
@@ -1070,132 +1150,230 @@ on how much memory the host happens to have.
 \section{Threats to Validity}
 \label{sec:threats}
 
-As with any empirical study, our work is subject to several threats to validity. In this section we outline the main risks and the measures we adopted to mitigate them, following the classification into internal, construct, external, and conclusion validity~\cite{feldt2010validity,ampatzoglou2019identifying,wyrich2024evidence}. Threats are reported by considering those that might have most deeply \emph{affected} our results, and by acknowledging common pitfalls that may arise while discussing them~\cite{verdecchia2023threats}.
+As with any empirical study, our work is subject to threats to validity. We
+group them conventionally, and note where a threat that would ordinarily be
+speculative is one we can quantify from the data.
 
 \textbf{Internal Validity.}
-A primary threat concerns the execution environment.
-Experiments were run on a dedicated high-performance server (cf. Section~\ref{sec:execution}); despite efforts to minimize background processes, residual system activity (e.g. operating system daemons) may still have influenced energy measurements~\cite{verdecchia2023threats}.
-We mitigated this risk by isolating workloads and monitoring runs under comparable conditions.
+Whole-machine energy tracking means any concurrent work contaminates a
+measurement. The host was otherwise idle for the duration of the campaign; the
+blocks measured during development while a package download was running were
+discarded rather than corrected, and the protocol amended to forbid it. We
+report this because it is an easy mistake to make and an invisible one to
+inherit.
 
-Another internal threat stems from the use of multiple frameworks and toolchains, each relying on different CUDA and cuDNN versions due to compatibility constraints.
-For instance, the required CUDA versions in our study ranged from 11.6 (for Java's Deeplearning4j) to 12.8 (for C++'s LibTorch), with corresponding variations in cuDNN libraries (see our replication package for a complete dependency list).
-Such heterogeneity can affect both runtime efficiency and energy usage~\cite{patterson2021carbon,marini2025green}, potentially favoring ecosystems with more up-to-date backends.
-Although not controlled, this variability reflects the reality practitioners encounter ``in the wild''~\cite{sjoberg2023construct}.
-Accordingly, we interpret our results as differences between language--framework ecosystems (including their officially supported runtimes and toolchains), and we avoid attributing the observed effects to the programming language alone.
+Toolchain heterogeneity remains. CUDA versions across the \vEcosystems{} stacks
+range from 11.6 (Deeplearning4j, whose final release predates CUDA 12) to 12.8
+(the pinned LibTorch shared by four ecosystems). This is not fully controlled and
+cannot be: an ecosystem is partly defined by the toolchain it supports. What we
+have changed is that it is now \emph{bounded}. The four LibTorch stacks are
+pinned to one build, so the control group of Table~\ref{tab:libtorch_control}
+isolates binding overhead from backend differences, and a reader can see how
+much of the total spread survives that isolation.
 
-Implementation choices represent another source of internal threats.
-We deliberately avoided ad-hoc optimizations and advanced engineering techniques, preferring instead to configure models and frameworks in ways that closely resemble how a practitioner or applied researcher would use them~\cite{verdecchia2023systematic}.
-Specifically, we maintained uniform hyperparameters across all ecosystems.
-While we acknowledge that certain ecosystems might benefit from different configurations, we adopt uniform hyperparameters as a controlled fixed-budget comparison across ecosystems (same recipe and number of epochs), which does not guarantee convergence equivalence across frameworks.
-Moreover, introducing hyperparameter tuning would introduce a significant \emph{confounding variable}, making it difficult to discern whether differences stem from the ecosystem itself or from the tuning process.
+Implementation drift between stacks was the dominant internal threat in studies
+of this shape, and it is the one this design attacks directly. Under
+specification S1 the LibTorch-based ecosystems train the same exported module
+rather than four reimplementations; S2 and S3 fix the optimisation and the data
+pipeline; and 56 automated checks verify all of it against the source. Two
+defects introduced during development were caught by those checks rather than by
+review. We do not claim the specification is complete --- only that a
+divergence outside it now has to survive an executable check rather than an
+author's attention.
 
-Another example is data loading and preprocessing.
-In some community repositories for C++ and Rust we observed unconventional strategies, such as pre-loading the entire dataset into memory to accelerate training.
-While effective in reducing runtime, this approach diverges from standard practice and introduces bias.
-To preserve comparability, we enforced consistent high-level data loading constraints and standardized final layers to match dataset classes.
-Nevertheless, data-loading and preprocessing are not identical across ecosystems (e.g. thread scheduling, host-to-device transfer patterns, and memory allocation strategies), and such differences may contribute to the measured energy and time.
-In all cases, we relied on official library implementations or community-accepted baselines~\cite{banbury2021mlperf,tripp2024measuring}.
-Some outliers may remain (e.g. MATLAB occasionally exhibited anomalous behavior), and we acknowledge that implementation-level variability may have influenced results.
-Finally, all datasets were downloaded and stored locally, avoiding network access or web-based loaders that could introduce additional overhead.
-
-GPU-side runtime effects can also introduce additional uncontrolled variability, such as thermal throttling, framework-specific JIT compilation or graph compilation effects.
-We partially mitigated this by running on dedicated hardware and averaging measurements over multiple epochs; however, we cannot fully exclude that early-epoch warm-up effects (e.g. memory allocator initialization, autotuning) affect phase-specific measurements.
+Accelerator placement was verified rather than assumed. Every harness asserts
+the device at startup and refuses to fall back to the CPU. This is not
+hypothetical: linking a Rust binary against a CUDA LibTorch produces, by default,
+a binary that runs entirely on the CPU, because \texttt{--as-needed} drops the
+\texttt{torch\_cuda} dependency that no Rust symbol references. Nothing in the
+energy data distinguishes that case from a correct one except its magnitude.
 
 \textbf{Construct Validity.}
-A primary threat to construct validity concerns the operationalization of our target construct, ``sustainability''.
-In this work, we used \textbf{energy consumption} (measured in Joules) as its primary proxy.
-As argued in Section~\ref{sec:background}, we selected this metric over derived alternatives (e.g. carbon footprint) because it is a direct and reproducible measure of computational effort, less affected by confounding variables such as the grid's energy mix or the geographic location of the server.
+Our construct is energy at a stated boundary, not ``sustainability''. We report
+accelerator plus CPU-package energy read from hardware counters: a chip-level
+boundary that excludes power supply, fans and drives. We had no wall meter and
+therefore do not report a whole-system figure, and we would emphasise that a
+chip-boundary number must not be compared with a wall-meter number from another
+study.
 
-A secondary threat concerns the accuracy of measuring this proxy.
-Energy consumption was operationalized using the \texttt{CodeCarbon} toolkit~\cite{lacoste2019quantifying}.
-While \texttt{CodeCarbon} leverages NVIDIA’s NVML and system profilers, a potential threat is the reliance on software-level sampling rather than external hardware power meters~\cite{patterson2022plateau,cruz2025greening}.
-We extended \texttt{CodeCarbon} with a custom daemon to obtain fine-grained, phase-specific measurements (training and inference); nevertheless, absolute values may not perfectly reflect actual power draw.
-Although the tracker runs out-of-process and the server was dedicated, we cannot fully exclude minor interference effects (e.g. sampling overhead or scheduling interactions), which we treat as a limitation common to software-based profiling.
-Therefore, we primarily interpret measurements as supporting \emph{relative comparisons} under an identical measurement protocol, rather than as precise absolute ground-truth energy values.
-Recent validation work comparing estimator-based measurements against external ground-truth reports that established estimation approaches can exhibit errors up to 40\%, and that dynamic estimation can systematically underestimate consumption by about 20--30\% in some settings~\cite{fischer2025groundtruthing}.
+The more interesting construct threat is one we can measure. A software
+estimator's output is a mixture of measured and modelled terms, and the mixture
+is not stated in the output. Over \vBlocks{} blocks, CodeCarbon agrees with the
+counters to \vCCmeasDisagreementPct\,\% on the terms both measure, while its
+total exceeds them by \vCCtotalRatio$\times$ --- the difference being a RAM term
+derived from installed capacity, \vCCramSharePct\,\% of the reported total here
+and necessarily larger on a large-memory host. A figure of that construction
+corresponds to no physical boundary, and its value depends on the host's memory
+configuration rather than on the workload.
 
-Finally, minor adaptations to model implementations (e.g. modifying final classification layers or adopting community loaders) could have introduced variability, potentially confounding the construct.
-We mitigated this risk by documenting all changes and ensuring they were minimal and aligned with community practice~\cite{mehlin2023towards,verdecchia2023systematic}.
+The estimator's reported duration is a second construct threat, and the sharper
+of the two: it is $\max(\text{phase},\ \vWindowFloorS\,\text{s})$ rather than the
+accumulation window, so any power or energy--time quantity derived from it is
+biased as a function of phase length. We use counter-bracketed durations
+throughout for this reason.
 
 \textbf{External Validity.}
-Our study focused on two convolutional architectures (ResNet-18 and VGG-16) and three image classification datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet).
-While these choices are representative of standard computer vision tasks, results may not generalize to other model families (e.g. transformers, large language models) or other domains (e.g. speech recognition, tabular learning)~\cite{strubell2019energy,patterson2021carbon}.
-Similarly, although the chosen languages cover prominent DL ecosystems in current practice, they do not encompass all possible programming environments.
-Our selection focuses on mature, GPU-compatible DL ecosystems with stable support from the community or vendor support; conclusions should not be extrapolated to ecosystems not covered by this criterion.
+We studied two convolutional architectures and three image classification
+datasets at $32\times32$ resolution; results may not generalise to other model
+families, to transformers, or to higher-resolution workloads, where the balance
+between accelerator work and host-side work is different --- and, given that
+host-side work is where we locate most of the observed spread, likely more
+favourable to the slower ecosystems than what we report.
 
-Moreover, we evaluated a specific hardware platform (a single NVIDIA RTX 3090 with an AMD Ryzen 9 5900X); results may vary with different GPUs, CPUs, drivers, or heterogeneous accelerators (e.g. TPUs, embedded devices)~\cite{patterson2022plateau,kaack2022aligning}. A single-accelerator desktop also makes the host share of total energy smaller than it would be on a multi-socket server, which flatters no ecosystem in particular but does bound the generality of the absolute figures.
-Nonetheless, our design balances realism and breadth with tractability, and provides a meaningful baseline within the stated ecosystem-level scope~\cite{verdecchia2023systematic}.
+The workload also does not saturate the accelerator. At this resolution and
+these dataset sizes the GPU runs well below its board power limit for much of
+each epoch, so the campaign measures data loading and dispatch more than it
+measures deep learning. This bounds the generality of the absolute figures in a
+specific direction: a saturating workload would compress the ecosystem spread.
+
+The platform is a single-accelerator desktop rather than a datacentre node,
+which makes the host share of total energy smaller than it would be on a
+multi-socket server. And MATLAB, present in an earlier campaign of this design,
+is out of scope here because it cannot be brought into conformance with the
+specification; readers should not read its absence as a result about MATLAB.
 
 \textbf{Conclusion Validity.}
-Variability in results could arise from stochastic effects of DL training (e.g. random initialization, non-deterministic GPU operations)~\cite{weber2023twins}.
-We mitigated this by standardizing hyperparameters and using fixed seeds where supported, though some frameworks may not guarantee full determinism.
+The submitted analyses of studies of this shape --- including an earlier one of
+our own --- treat the epochs of a single run as repeated measurements. They are
+not independent: epochs within a run share an initialisation, a JIT outcome, an
+allocator state and a thermal trajectory, so the effective sample size per
+configuration is one, confidence intervals are far too narrow and significance
+is inflated. Every interval and test reported here is computed on
+\vRepetitions{} independent runs per configuration, and all \vRuns{} runs were
+interleaved rather than executed consecutively so that machine-state drift is
+spread across conditions instead of aliasing onto one ecosystem.
 
-A specific threat to statistical fairness concerns the presence of outliers or abnormal execution cycles in certain ecosystems.
-We report arithmetic means over the collected measurements to summarize average behavior under our protocol; however, averages can be sensitive to anomalous execution cycles, and robust estimators (e.g. medians/trimmed means) are left for future work.
-Since runtime anomalies (e.g. memory management spikes or non-optimal garbage collection) correspond to real energy consumption that users would incur, their inclusion provides a more faithful and transparent estimation of the total impact.
+Five repetitions is a small sample for a rank test, and we have preferred
+effect sizes (Cliff's delta) and Holm-corrected pairwise comparisons over
+unadjusted p-values accordingly. Between-run variability is low --- a median
+coefficient of variation of \vCVTrainMedian\,\% for training energy --- which
+makes the design well powered for the effect sizes we report, and we note that
+low variance is a statement about the measurement rather than a guarantee that
+the measurement is of the right thing.
 
-Moreover, while differences in mean energy consumption are substantial in our setting (e.g. up to about 4.6$\times$ in training and 7.3$\times$ in inference between best and worst ecosystems), smaller differences should be interpreted with caution.
-In addition, while we average measurements over epochs, epochs within the same run are not statistically independent; therefore, treating epoch-level measurements as independent samples would inflate statistical confidence.
-Additional independent run-level repetitions per configuration would strengthen statistical inference and are left for future work.
+Finally, the twenty Rust runs on Fashion-MNIST and Tiny ImageNet were executed
+in a separate, later time window than the rest of the campaign, after a defect
+in that stack's image loader was corrected. They are therefore not interleaved
+with the other ecosystems, and machine-state drift between the two windows is
+not controlled for them. Given the between-run coefficients of variation we
+observe, we expect this to be small relative to the effects reported, but it is
+a real asymmetry in an otherwise interleaved design and we flag it rather than
+absorb it.
 
-In summary, while several threats to validity remain, we believe the precautions adopted---dedicated hardware, consistent hyperparameters (as a fixed-budget recipe), standardized data handling where feasible, phase-specific tracking, and reliance on official or community-accepted implementations---support the robustness and practical relevance of our findings, within the stated ecosystem-level scope~\cite{verdecchia2023threats}.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper presented a case study on the impact of \emph{language--framework ecosystems} on the energy efficiency of \emph{Deep Learning (DL) workloads}, focusing on \emph{computer vision} image classification.
-We conducted a systematic experimental campaign across six language-based ecosystems (Python, C++, Java, R, MATLAB, and Rust), eight frameworks/libraries, and three datasets of increasing complexity~\cite{banbury2021mlperf}.
-Energy consumption was monitored at fine granularity, enabling separate analyses of training and inference phases~\cite{lacoste2019quantifying,patterson2021carbon}.
+This paper presented an empirical study of how \emph{language--framework
+ecosystems} affect the energy efficiency of \emph{Deep Learning} workloads,
+across \vEcosystems{} ecosystems, two convolutional architectures and three
+datasets, replicated \vRepetitions{} times per configuration and instrumented
+twice per measurement block.
 
-Our results highlight three key findings.
-First, ecosystem selection can substantially shift operational efficiency in our setting, with gaps reaching about \textbf{11$\times$} in execution time during training and about \textbf{7.3$\times$} in energy consumption during inference (and about \textbf{4.6$\times$} in energy during training).
-Importantly, these differences should be interpreted at the ecosystem level (framework execution engines, runtimes, and toolchains), rather than attributed to the programming language alone.
+Three findings stand out.
 
-Second, training and inference phases exhibit markedly different efficiency rankings across ecosystems.
-This underscores the need to evaluate both lifecycle stages separately---a critical consideration for industrial scenarios and a recurring theme in Green AI research~\cite{cruz2025greening,mehlin2023towards}.
+First, ecosystem selection substantially shifts operational efficiency: at a
+common chip-level boundary, training the same model on the same data costs
+between \vSpreadTrainMin$\times$ and \vSpreadTrainMax$\times$ more energy on one
+ecosystem than another, with between-run variability of order
+\vCVTrainMedian\,\%. Because three of the ecosystems compared execute a
+byte-identical TorchScript module, this gap is not kernel quality: it is
+binding overhead, data movement and host-side dispatch --- which is to say it is
+addressable by the people who maintain these stacks.
 
-Third, our results repeatedly demonstrate that execution time and energy usage do not always correlate.
-This reveals a non-trivial energy--time trade-off and supports our central finding that \textit{faster does not imply greener}, confirming similar warnings from related software engineering domains~\cite{weber2023twins,verdecchia2023systematic}.
+Second, the effect is energetic and not qualitative. All \vEcosystems{} stacks
+converge to within \vAccSpreadFashion{} percentage points on Fashion-MNIST under
+the same epoch budget. They are doing the same work at very different cost.
 
-Overall, these findings stress that ecosystem selection---often treated as a secondary engineering decision---can have significant sustainability implications~\cite{schwartz2020green,verdecchia2023systematic,kaack2022aligning}.
-For practitioners, this suggests that energy-aware ecosystem choices can yield substantial savings at scale, especially when the expected phase mix (training- and inference-heavy) is made explicit~\cite{patterson2022plateau,cruz2025greening}.
-For researchers, our study motivates further investigation of the intersection between Green AI and software engineering practices, with an emphasis on reproducible ecosystem-level benchmarking and phase-aware evaluation~\cite{schwartz2020green,verdecchia2023systematic,cruz2025greening}.
+Third --- and this is the finding we did not expect --- the apparatus determines
+more of the answer than the ecosystems do, in one specific and correctable way.
+Over \vBlocks{} doubly instrumented blocks, a widely used software estimator
+agrees with hardware energy counters to \vCCmeasDisagreementPct\,\% on energy.
+But the duration it reports beside that energy is a floor of about
+\vWindowFloorS\,s rather than the interval the energy was accumulated over, so
+power derived from the two fields is understated by up to
+\vPowerUnderstatedSubSecond$\times$ for short phases and exact for long ones.
+Recomputed on measured durations, energy and time rank ecosystems at
+$\rho = \vRhoTrain$: in this workload, faster \emph{is} greener, and the widely
+reported contrary result is reproducible here as an instrument artefact.
 
+We draw a procedural conclusion from that. A cross-ecosystem energy study needs
+a written specification, a mechanism that enforces it, and a second instrument
+--- for the same reason that a performance benchmark needs a stated warm-up
+policy. Every defect we corrected in building this study produced a plausible
+number first. The specification, the shared measurement contract, the 56-check
+conformance checker and the raw dual-instrument records are part of the
+replication package, and every figure in this paper is generated from them.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Future Work}
 \label{sec:future}
 
-Building on this study, several promising directions remain open.
+Several directions remain open.
 
-First, our analysis can be extended to more diverse model families beyond CNNs, such as transformers and multimodal architectures, to assess whether the observed ecosystem-level patterns hold under different operator mixes, memory footprints, and compilation strategies~\cite{patterson2021carbon}.
+First, the workload should be extended beyond CNNs, to transformers and
+multimodal architectures, and to input resolutions that saturate the
+accelerator. Our workload does not: the GPU runs well below its board power
+limit for much of each epoch, which is precisely the regime in which host-side
+overhead --- the component we find dominates the ecosystem gap --- weighs most.
+Establishing how the gap narrows as the accelerator saturates is the single most
+useful follow-up, and it is a measurement, not a speculation.
 
-Second, testing on heterogeneous hardware platforms (e.g. TPUs, embedded and edge devices) would clarify how robust the observed rankings are under different accelerator toolchains and runtime stacks~\cite{patterson2022plateau,kaack2022aligning}.
-In particular, future work should explicitly treat the \emph{hardware--software stack} as part of the ecosystem definition (driver versions, compiler toolchains, and vendor runtimes), rather than assuming portability of efficiency rankings.
+Second, testing on heterogeneous hardware (server-class accelerators, TPUs,
+embedded and edge devices) would establish how much of the ranking is a property
+of the stacks and how much of this host. The hardware--software stack should be
+treated as part of the ecosystem definition rather than as a nuisance
+parameter.
 
-Third, a deeper exploration of the \emph{energy--time trade-off} is needed to identify regimes where faster execution is beneficial or detrimental from a sustainability perspective, including phase-aware serving constraints~\cite{weber2023twins,cruz2025greening}.
+Third, a white-box layer complementing this black-box design would localise
+where the host-side overhead originates: loader thread scheduling,
+host-to-device transfer, per-kernel launch overhead, allocator behaviour. We can
+say that three stacks running identical kernels differ by a large factor; we
+cannot yet say which line of the binding is responsible.
 
-Fourth, complementing our black-box, off-the-shelf evaluation, future work could introduce a controlled \emph{white-box} layer-level analysis (e.g. per-layer profiling) implemented with each ecosystem's native primitives.
-This would help localize where inefficiencies originate (e.g. convolution/attention kernels, activation and normalization layers, data pipelines, host-to-device transfers, memory allocation and caching), and clarify which components are ecosystem-driven versus model-driven~\cite{georgiou2022green,marini2025green,pereira2021ranking,gordillo2024ranking}.
-Crucially, such analysis should be designed as \emph{complementary} evidence, since fine-grained attribution can reduce realism while increasing internal control.
+Fourth, the instrument characterisation invites replication. We report the
+reported-window floor of one estimator on one platform. Whether other estimators
+share it, whether it varies with sampling interval and tracking mode, and how
+many published energy--time results rest on it, are answerable questions, and
+the method --- bracket every block with hardware counters and compare --- is
+cheap.
 
-Finally, expanding the scope of reproducibility by incorporating real-world workloads, distributed training and inference (multi-GPU, multi-node), and standardized energy-aware benchmarks would enable evaluation in contexts closer to production environments~\cite{lacoste2019quantifying,verdecchia2023systematic,banbury2021mlperf}.
-A particularly valuable extension would be to include independent run-level repetitions (not only epoch-level repeated measurements) and to cross-validate software-based energy estimates with external power sensors in a subset of configurations, to strengthen both statistical inference and measurement validity~\cite{verdecchia2023systematic}.
-
+Finally, a wall-meter reference would let the chip-level boundary used here be
+related to whole-system energy, which is what an operator pays for. We report a
+chip boundary consistently and decline to extrapolate; closing that gap requires
+hardware we did not have.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Carbon Footprint of This Study}
 
-The total carbon footprint of our experiments is estimated at approximately 3.3~kg of CO$_2$e, based on  \texttt{CodeCarbon} measurements across 7,200 training and inference epochs. This corresponds to the emissions of driving an average passenger car for about 27~km (17~miles), an equivalency derived from average new car emissions data reported by the European Environment Agency (EEA)~\cite{EEA-cars-monitoring}, or the electricity required to power a typical European household for one day, based on residential energy consumption data from Eurostat~\cite{Eurostat-energy-data}. 
-While modest compared to large-scale industrial training, this evaluation underscores the importance of quantifying and reporting the environmental impact of research experiments.
-
+The campaign reported here consumed \vCampaignEnergyMJ~MJ
+(\vCampaignEnergyKWh~kWh) at the accelerator and CPU package across \vRuns{}
+runs. At the grid carbon intensity CodeCarbon assigns to this location, that
+corresponds to a few kilograms of CO$_2$e --- modest against industrial
+training, and reported here for the same reason we ask others to report it: an
+energy figure without a stated boundary and a stated scope is not auditable.
+The figure above excludes development, failed runs and the earlier campaign that
+motivated this design; including them would roughly double it.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Declaration of Generative AI and AI-assisted Technologies in the Writing Process}
-During the preparation of this work the authors used ChatGPT-5 in order to improve the readability of the manuscript text. After using this tool, the authors reviewed and edited the content as needed and take full responsibility for the content of the article.
+During the preparation of this work the authors used generative AI assistants
+(ChatGPT and Claude) in three distinct capacities, which we separate because
+they carry different weight.
+
+For \emph{writing}, the tools were used to improve the readability of the
+manuscript text. For \emph{software engineering}, they were used to repair and
+refactor the experimental implementations, to write the shared measurement
+bridge, the conformance checker and the analysis pipeline, and to diagnose
+defects in the ecosystems' data loaders and build configurations. For
+\emph{analysis}, they were used to write the scripts that produce the tables and
+figures; the scripts, not the assistants, produce the numbers, and the numbers
+are injected into this manuscript from those scripts rather than transcribed.
+
+No experimental measurement was produced, adjusted or selected by an AI
+assistant. The authors reviewed and edited all generated content and code,
+verified the findings against the raw data, and take full responsibility for the
+content of the article.
 
 \balance
 \bibliographystyle{IEEEtran}

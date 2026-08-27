@@ -165,6 +165,38 @@ def energy_time(runs: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def phase_consistency(runs: pd.DataFrame) -> pd.DataFrame:
+    """Do training and inference rank the ecosystems the same way?
+
+    The submitted analysis reported that they do not, and drew a
+    "phase-aware decision making" recommendation from it. That claim is
+    sensitive to the instrument: inference blocks are short enough to sit under
+    the reported-window floor, so an estimator-derived inference ranking is
+    partly a ranking of floors. Recomputed on counter-bracketed energy, the
+    question is worth asking again.
+    """
+    rows = []
+    for (model, dataset), g in runs.groupby(["model", "dataset"]):
+        piv = g.pivot_table(index="ecosystem", columns="phase", values="energy_j",
+                            aggfunc="median")
+        if not {"Training", "Inference"}.issubset(piv.columns):
+            continue
+        piv = piv.dropna()
+        if len(piv) < 3:
+            continue
+        rho, p = stats.spearmanr(piv["Training"], piv["Inference"])
+        train_rank = list(piv["Training"].sort_values().index)
+        infer_rank = list(piv["Inference"].sort_values().index)
+        rows.append({
+            "model": model, "dataset": dataset, "n_ecosystems": len(piv),
+            "spearman_rho": round(rho, 3), "p": p,
+            "same_best": train_rank[0] == infer_rank[0],
+            "identical_order": train_rank == infer_rank,
+            "best_training": train_rank[0], "best_inference": infer_rank[0],
+        })
+    return pd.DataFrame(rows)
+
+
 def main() -> None:
     runs = run_totals()
     print(f"run-level observations: {len(runs)}")
@@ -193,6 +225,12 @@ def main() -> None:
     print(et.to_string(index=False))
     save_table(et, "v2_stats_energy_time",
                "Energy-time rank agreement on counter-bracketed durations")
+
+    pc = phase_consistency(runs)
+    print("\n--- do training and inference rank ecosystems alike? ---")
+    print(pc.to_string(index=False))
+    save_table(pc, "v2_stats_phase_consistency",
+               "Training against inference ranking, per block")
 
     runs.to_csv(TABLES / "v2_run_totals.csv", index=False)
 
