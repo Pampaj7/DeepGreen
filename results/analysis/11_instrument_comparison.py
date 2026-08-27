@@ -212,6 +212,34 @@ def duration_agreement(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def agreement_by_phase_length(df: pd.DataFrame) -> pd.DataFrame:
+    """The campaign-wide agreement figure hides where it comes from.
+
+    CodeCarbon samples at a fixed interval, one second here. When a measurement
+    block is long relative to that interval the two instruments are reading the
+    same accumulating counters and agree to a hundredth of a percent. When the
+    block is shorter than the interval there is nothing to accumulate, the
+    estimator interpolates from sampled power, and the disagreement grows.
+
+    Reporting only the mean over all blocks would therefore overstate how well an
+    estimator does on exactly the blocks a cross-ecosystem study cares about --
+    the inference passes, and the epochs of the fastest stacks.
+    """
+    d = df.copy()
+    d["phase_length"] = pd.cut(
+        d.duration_hw_s, [0, 1, 3, 10, 30, np.inf],
+        labels=["<1 s", "1-3 s", "3-10 s", "10-30 s", ">30 s"])
+    t = (d.groupby("phase_length", observed=True)
+         .agg(n_epochs=("ratio_meas", "size"),
+              mean_ratio=("ratio_meas", "mean"),
+              p95_ratio=("ratio_meas", lambda s: s.quantile(0.95)),
+              worst_ratio=("ratio_meas", "max"))
+         .reset_index())
+    t["mean_error_pct"] = ((t.mean_ratio - 1) * 100).round(2)
+    t["worst_error_pct"] = ((t.worst_ratio - 1) * 100).round(1)
+    return t.round(4)
+
+
 def duration_floor_model(df: pd.DataFrame) -> tuple[pd.DataFrame, float]:
     """CodeCarbon will not report a window shorter than a fixed floor.
 
@@ -384,6 +412,13 @@ def main() -> None:
     print(rank_df[["model", "dataset", "n_ecosystems", "identical"]].to_string(index=False))
     save_table(rank_df, "v2_instrument_ranking",
                "Ecosystem ranking under each instrument, per block")
+
+    abl = agreement_by_phase_length(df)
+    print()
+    print("--- energy agreement, by phase length ---")
+    print(abl.to_string(index=False))
+    save_table(abl, "v2_instrument_agreement_by_length",
+               "Energy agreement between the instruments as a function of phase length")
 
     # -- 6. the window floor, and what it does to power ---------------------
     floor_rows, floor = duration_floor_model(df)
