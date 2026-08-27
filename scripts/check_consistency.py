@@ -50,6 +50,35 @@ def glob_read(pattern: str) -> dict[str, str]:
     }
 
 
+def strip_comments(files: dict[str, str]) -> dict[str, str]:
+    """Blank out // and /* */ comments, keeping line numbers intact.
+
+    A checker that matches inside comments cannot be used to document the very
+    defect it guards against -- the first version of the per-binary-transform
+    check failed on the comment explaining why the check exists.
+    """
+    out = {}
+    for path, text in files.items():
+        res, i, n = [], 0, len(text)
+        while i < n:
+            two = text[i:i + 2]
+            if two == "//":
+                j = text.find("\n", i)
+                j = n if j == -1 else j
+                res.append(" " * (j - i))
+                i = j
+            elif two == "/*":
+                j = text.find("*/", i + 2)
+                j = n if j == -1 else j + 2
+                res.append("".join(c if c == "\n" else " " for c in text[i:j]))
+                i = j
+            else:
+                res.append(text[i])
+                i += 1
+        out[path] = "".join(res)
+    return out
+
+
 def check_regex(eco, name, files, pattern, expect=True, detail_ok="", flags=0):
     """PASS if `pattern` is found (expect=True) or absent (expect=False)."""
     hits = []
@@ -107,6 +136,19 @@ def run() -> list[Result]:
                          r"AsyncDataSetIterator\([^,]+,\s*2\)"))
     r.append(check_regex("Rust/tch", "S3 loader pool bounded",
                          glob_read("rust/src/datasets/*.rs"), r"init_loader_pool\(\)"))
+
+    # The input transform lives in the loader and nowhere else. A per-binary
+    # copy of it destroyed one configuration's training data for a whole
+    # campaign: vgg_fashion.rs resized the float tensor the loader had already
+    # produced, with a function that returns uint8, so every value in [0,1]
+    # truncated to zero and the network trained on black images while being
+    # evaluated on real ones. Training loss fell, test accuracy sat at chance,
+    # and nothing in the energy data showed it.
+    r.append(check_regex("Rust/tch", "S3 no per-binary image transform",
+                         strip_comments(glob_read("rust/src/bin/*.rs")),
+                         r"image::resize|vision::image::resize|fn preprocess",
+                         expect=False,
+                         detail_ok="the loader owns the pipeline"))
 
     # ---------------- S3: input scaling ------------------------------------
     r.append(check_regex("Rust/tch", "S3 normalisation gated off by default",

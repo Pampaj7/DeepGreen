@@ -41,7 +41,7 @@ This repository contains the replication package for the paper:
 > The revised manuscript is in **[paper/](./paper)**. All seven in-scope
 > ecosystems now run on the GPU under one shared measurement contract
 > (`tools/deepgreen_tracker.py`) and record per-epoch accuracy; conformance is
-> enforced by `scripts/check_consistency.py` (56 checks).
+> enforced by `scripts/check_consistency.py` (57 checks).
 
 ---
 

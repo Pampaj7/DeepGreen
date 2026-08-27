@@ -3,38 +3,22 @@ use rust::emissions::{init_tracker_daemon, start_tracker, stop_tracker, shutdown
 
 use tch::{nn, nn::OptimizerConfig, Device, Kind};
 use tch::nn::ModuleT;
-use tch::vision::image::resize;
 use std::collections::HashMap;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
-/// Converte grayscale [1,H,W] in RGB [3,H,W]
-fn expand_to_rgb(img: &tch::Tensor) -> tch::Tensor {
-    if img.size()[0] == 1 {
-        img.repeat(&[3, 1, 1])
-    } else {
-        img.shallow_clone()
-    }
-}
-
-/// Prepara immagine singola: resize a 32×32 + RGB + float normalizzato
-fn preprocess(img: &tch::Tensor, device: Device) -> tch::Tensor {
-    let mut x_resized = resize(&img.to(Device::Cpu), 32, 32).unwrap();
-    x_resized = expand_to_rgb(&x_resized);
-    x_resized = x_resized.to_kind(Kind::Float) / 255.0;
-    x_resized.to_device(device)
-}
-
-/// Preprocessa un batch intero [B,1,H,W] → [B,3,32,32]
-fn preprocess_batch(x: &tch::Tensor, device: Device) -> tch::Tensor {
-    let mut images: Vec<tch::Tensor> = Vec::new();
-    for i in 0..x.size()[0] {
-        let img = x.get(i);
-        let img = preprocess(&img, device);
-        images.push(img.unsqueeze(0));
-    }
-    tch::Tensor::cat(&images, 0)
-}
+// The per-binary image transform that used to live here has been removed.
+//
+// It resized the tensor the loader had already produced, and it did so with
+// tch::vision::image::resize, which takes and returns uint8. The loader hands
+// over float values in [0,1]; converting those to uint8 truncates every one of
+// them to zero, so this binary trained on black images while evaluating on real
+// ones. Training loss fell as the network memorised the constant input and test
+// accuracy sat at chance, which looks like a model that fails to generalise
+// rather than a pipeline that destroys its inputs.
+//
+// Specification S3 puts the input transform in exactly one place, the loader,
+// for this reason. scripts/check_consistency.py now enforces it.
 
 fn main() {
     let device = Device::cuda_if_available();
@@ -97,8 +81,6 @@ fn main() {
         for batch in train_data.iter_batches(batch_size) {
             let (x, y) = batch.unwrap();
 
-            // preprocess intero batch
-            let x = preprocess_batch(&x, device);
 
             let output = net.forward_t(&x, true);
             let loss = output.cross_entropy_for_logits(&y);
