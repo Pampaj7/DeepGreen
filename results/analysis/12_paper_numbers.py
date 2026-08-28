@@ -18,6 +18,7 @@ manuscript on the next build, or the build fails.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -156,6 +157,21 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     macro("vGpuPowerCVPct", num(100 * gpu_w.std() / gpu_w.mean(), 0))
     macro("vCpuShareOfTotalPct",
           num(100 * epochs.hw_cpu_j.sum() / epochs.hw_total_j.sum(), 0))
+
+    # The machine's static draw at the same boundary, measured on an idle host
+    # (scripts/measure_idle.py). Every figure in this study is whole-machine and
+    # un-baselined, so how much of a block is simply the machine being on is a
+    # question the study owes an answer to.
+    idle_path = TABLES / "v2_idle_baseline.json"
+    if idle_path.exists():
+        idle = json.loads(idle_path.read_text())
+        macro("vIdleTotalW", num(idle["total_w"], 0))
+        macro("vIdleGpuW", num(idle["gpu_w"], 0))
+        macro("vIdleCpuW", num(idle["cpu_package_w"], 0))
+        macro("vIdleCpuSharePct", num(100 * idle["cpu_package_w"] / cpu_w.mean(), 0))
+        macro("vIdleGpuSharePct", num(100 * idle["gpu_w"] / gpu_w.mean(), 0))
+        block_w = (epochs.hw_total_j / epochs.duration_hw_s)
+        macro("vIdleShareOfBlockPct", num(100 * idle["total_w"] / block_w.mean(), 0))
 
     diff = (epochs.cc_meas_j - epochs.hw_meas_j).abs()
     macro("vOffsetMedianJ", num(diff.median(), 2))

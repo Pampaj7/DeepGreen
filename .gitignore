@@ -61,3 +61,7 @@ paper/bio/
 # cas-dc icon assets ship with Elsevier's template bundle, not with the class;
 # build.sh generates stand-ins.
 paper/thumbnails/
+# Calibration re-execution: a third window used only to bound between-window
+# drift. Same shape as campaign_v2/ and equally not distributed; the comparison
+# it feeds is in results/revision/tables/v2_window_calibration.*
+results/calibration/

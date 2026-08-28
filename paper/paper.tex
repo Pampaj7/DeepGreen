@@ -1935,16 +1935,29 @@ rather than as a fault of one. It does not bear on the reported-duration
 finding, which concerns a field rather than a measurement.
 
 A second construct limitation belongs here, because it bounds what the
-attribution in Section~\ref{sec:discussion} can claim. Of the energy we report,
-\vCpuShareOfTotalPct\,\% is the CPU package, and that term carries almost no
-workload signal: package power is \vCpuPowerMeanW\,W with a standard deviation
-of \vCpuPowerSdW\,W across the whole campaign, a coefficient of variation of
-\vCpuPowerCVPct\,\% against \vGpuPowerCVPct\,\% for the accelerator, and it
-barely separates the ecosystems. So when we locate the ecosystem spread in
-host-side work, that is an inference from accelerator idle time and from the
-shared-module control group, not from a measured host-side energy term. A study
-that wanted to measure host-side work directly would need DRAM and platform
-counters this machine does not expose.
+attribution in Section~\ref{sec:discussion} can claim. Every figure we report is
+whole-machine and un-baselined: the counters accumulate whatever the silicon
+draws, the machine's static consumption included. We measured that directly
+rather than arguing about it. On an idle host at the same boundary this machine
+draws \vIdleTotalW\,\si{\watt} --- \vIdleGpuW\,\si{\watt} at the accelerator and
+\vIdleCpuW\,\si{\watt} at the CPU package --- which is
+\vIdleShareOfBlockPct\,\% of the mean power of a measured block.
+
+The two halves of the boundary are affected very differently, and this is the
+part that matters for interpretation. The accelerator's idle draw is
+\vIdleGpuSharePct\,\% of its campaign mean, so the GPU term is mostly workload.
+The CPU package's is \vIdleCpuSharePct\,\%: of the \vCpuPowerMeanW\,\si{\watt}
+mean package power, the great majority is the machine being on. That term
+accordingly carries almost no workload signal --- its coefficient of variation
+across the whole campaign is \vCpuPowerCVPct\,\% against \vGpuPowerCVPct\,\% for
+the accelerator --- while contributing \vCpuShareOfTotalPct\,\% of reported
+energy. So when we locate the ecosystem spread in host-side work, that is an
+inference from accelerator idle time and from the shared-module control group,
+not from a measured host-side energy term. A study wanting to measure host-side
+work directly would need DRAM and platform counters this machine does not
+expose. We report un-baselined energy because that is what the counters give
+and what an operator pays for, and we state the baseline so a reader can
+subtract it.
 
 The more interesting construct threat is one we can measure. A software
 estimator's output is a mixture of measured and modelled terms, and the mixture

@@ -130,12 +130,23 @@ JAVA_CLASS = {
 }
 
 
+def campaign_dir() -> Path:
+    """Where runs are written.
+
+    Configurable so that a calibration re-execution -- re-running an already
+    completed configuration to measure drift between two time windows -- cannot
+    overwrite the campaign it is calibrating against. The default is unchanged.
+    """
+    return Path(os.environ.get("DEEPGREEN_CAMPAIGN_DIR",
+                               str(REPO_ROOT / "results" / "campaign_v2")))
+
+
 def run_environment(job: "Job") -> dict[str, str]:
     """The shared run contract every ecosystem reads."""
     ctx = RunContext(ecosystem=job.ecosystem, model=job.model,
                      dataset=job.dataset, repetition=job.repetition)
     return {
-        "DEEPGREEN_RUN_DIR": str(REPO_ROOT / "results" / "campaign_v2" / ctx.slug),
+        "DEEPGREEN_RUN_DIR": str(campaign_dir() / ctx.slug),
         "DEEPGREEN_ECOSYSTEM": job.ecosystem,
         "DEEPGREEN_MODEL": job.model,
         "DEEPGREEN_DATASET": job.dataset,
@@ -264,7 +275,7 @@ def _acquire_exclusive_lock() -> None:
     Machine-mode energy measurement assumes the machine is doing one thing.
     That assumption now has a lock behind it rather than a convention.
     """
-    lock_path = REPO_ROOT / "results" / "campaign_v2" / ".campaign.lock"
+    lock_path = campaign_dir() / ".campaign.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     handle = open(lock_path, "w")
     try:
@@ -356,7 +367,7 @@ def main() -> int:
     plan = build_plan(args.ecosystems, args.models, args.datasets, args.repetitions)
 
     if args.print_plan:
-        out = REPO_ROOT / "results" / "campaign_v2" / "plan.json"
+        out = campaign_dir() / "plan.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         payload = [
             {
