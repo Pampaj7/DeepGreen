@@ -51,6 +51,22 @@ from pathlib import Path
 
 RAPL_ROOT = Path("/sys/class/powercap")
 J_PER_UJ = 1e-6
+# A lower bound on package power while a measured block is running. Used only to
+# decide whether a block could have wrapped the RAPL counter twice: at this
+# machine's ~50 W package draw the range is a quarter of an hour, and the
+# longest block in the campaign is under two minutes.
+_MIN_WRAP_W = 10.0
+
+
+class CounterReset(RuntimeError):
+    """A counter moved backwards, or could have wrapped more than once.
+
+    Raised rather than corrected. Both cases mean the block's energy is not
+    recoverable from the two snapshots, and a study that reports it anyway has
+    invented a number.
+    """
+
+
 J_PER_MJ = 1e-3
 
 
@@ -134,7 +150,15 @@ class HardwareCounters:
         out: dict[str, float] = {"duration_s": b.t - a.t}
 
         if a.gpu_mj is not None and b.gpu_mj is not None:
-            # 64-bit millijoule counter; no practical wraparound
+            # 64-bit millijoule counter, so no practical wraparound -- but it is
+            # reset by a driver reload or a GPU reset, which this campaign saw
+            # once. A reset mid-block yields a negative delta, and a negative
+            # energy recorded as a measurement is worse than a missing one.
+            if b.gpu_mj < a.gpu_mj:
+                raise CounterReset(
+                    f"NVML energy register went backwards ({a.gpu_mj} -> "
+                    f"{b.gpu_mj} mJ): the driver was reloaded or the device "
+                    f"reset during this block. The block is not measurable.")
             out["gpu_j"] = (b.gpu_mj - a.gpu_mj) * J_PER_MJ
 
         for key in a.rapl_uj:
@@ -142,6 +166,14 @@ class HardwareCounters:
                 continue
             raw = b.rapl_uj[key] - a.rapl_uj[key]
             if raw < 0:
+                # A single wrap is correctable; two are indistinguishable from
+                # one, so refuse blocks long enough for that to be possible.
+                rng_check = self._rapl_range.get(key, 0)
+                if rng_check > 0 and out["duration_s"] > rng_check / _MIN_WRAP_W:
+                    raise CounterReset(
+                        f"block of {out['duration_s']:.0f} s is long enough for "
+                        f"{key} to wrap more than once; the correction below "
+                        f"cannot tell one wrap from two.")
                 # RAPL wraps at max_energy_range_uj. Without this correction a
                 # wrap turns into a large negative energy, or is dropped, and a
                 # whole epoch is lost from the record.

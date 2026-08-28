@@ -213,7 +213,9 @@ def wasted_energy(q: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame([{
         "n_runs": len(q),
         "n_collapsed": int(q.collapsed.sum()),
-        "campaign_energy_MJ": round(total / 1e6, 2),
+        # Training energy only: the collapsed runs waste a training budget, and
+        # quoting them against a train+eval total would flatter the figure.
+        "training_energy_MJ": round(total / 1e6, 2),
         "collapsed_energy_MJ": round(wasted / 1e6, 2),
         "wasted_pct": round(100 * wasted / total, 1),
     }])

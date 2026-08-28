@@ -28,12 +28,20 @@ checksums are meaningful.
 ## The two instruments
 
 Each block appears once in `codecarbon.csv.gz` and once in `counters.csv.gz`,
-joinable on `(ecosystem, model, dataset, repetition, phase, epoch)`. The two
-instruments ran over the *identical* window: the shared bridge starts
-CodeCarbon and reads the counters inside one synchronous `START`, and stops and
-reads inside one synchronous `STOP`. Any disagreement between the two tables is
-therefore a property of the instruments, not of a timing difference — which is
-the point of measuring twice.
+joinable on `(ecosystem, model, dataset, repetition, phase, epoch)`. The two ran over the same
+phase boundaries: the shared bridge starts CodeCarbon and reads the counters
+inside one synchronous `START`, and stops and reads inside one synchronous
+`STOP`. The counter window is therefore *nested* immediately inside
+CodeCarbon's, not identical to it, which costs a near-constant ~0.5 J offset in
+the CPU term.
+
+Be aware of what the comparison establishes. Where both counters are exposed —
+as they are on this machine — CodeCarbon reads the same NVML register and the
+same RAPL files that `counters.csv.gz` holds. The GPU terms agree to about a
+millijoule because they are the same integer register read twice. So agreement
+here certifies the window and the unit conversion, not accuracy against ground
+truth; the interesting differences are in the terms CodeCarbon adds (`ram_energy`)
+and in the field it reports beside them (`duration`).
 
 The columns to compare are `energy_consumed` (kWh, CodeCarbon, whole machine
 including a RAM model) against `hw_total_j` (J, counters, accelerator plus CPU
@@ -43,9 +51,11 @@ RAM energy counter to read.
 
 ## Caveats worth knowing before you use these
 
-* **`duration` in the CodeCarbon table is not the phase.** Below about 11
-  seconds it is the phase plus a constant 3.28 s. Power derived from it is
-  understated by up to 6.7×. `duration_s` in the counters table is the phase.
+* **`duration` in the CodeCarbon table is not the phase.** Two thirds of blocks
+  carry seconds of tracker lifetime in which no energy was drawn, in three
+  discrete modes (0.01 s, 3.27 s, 4.56 s) that block length predicts but does
+  not determine. Power derived from that field is understated by up to 11.2× on
+  blocks under half a second. `duration_s` in the counters table is the phase.
 * **Twelve of the 105 VGG-16 runs never left chance accuracy.** They are here
   because they happened; they are excluded from the accuracy analysis and
   flagged by `results/analysis/15_convergence.py`. Filter on `test_acc`, not on
@@ -53,7 +63,7 @@ RAM energy counter to read.
 * **`longitude`/`latitude`/`country_name`** are CodeCarbon's IP geolocation of
   the measuring machine, resolved to a region rather than a place. They set the
   grid carbon intensity used for the CO₂e figures and nothing else.
-* **The five `Rust/tch` VGG-16 / Fashion-MNIST runs are the re-executed ones.**
+* **The `Rust/tch` runs on five of the six blocks were re-executed later.**
   The originals trained on all-zero images through a defect of ours and were
   discarded; the evidence is kept at
   `results/revision/record/vgg_fashion_pipeline_defect.csv`. They ran in a

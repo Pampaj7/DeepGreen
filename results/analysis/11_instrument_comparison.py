@@ -352,12 +352,16 @@ def main() -> None:
     # -- 4. where the two instruments structurally disagree -----------------
     summary = pd.DataFrame(
         {
+            # CodeCarbon does not sample the GPU: on this platform it reads
+            # nvmlDeviceGetTotalEnergyConsumption, the same register the harness
+            # reads, so the first row compares one register with itself. The
+            # label said "pynvml sampling" and that was wrong.
             "quantity": [
-                "GPU (NVML counter vs CodeCarbon pynvml sampling)",
-                "CPU package (RAPL counter vs CodeCarbon)",
-                "GPU + CPU, the measured part",
-                "CodeCarbon total incl. modelled RAM",
-                "RAM share of the CodeCarbon total",
+                "GPU, ratio (both read the NVML energy register)",
+                "CPU package, ratio (both read RAPL energy_uj)",
+                "GPU + CPU, ratio (the part both read)",
+                "CodeCarbon total over counters, ratio (incl. modelled RAM)",
+                "RAM share of the CodeCarbon total (per cent, not a ratio)",
             ],
             "mean_ratio_or_share": [
                 df.ratio_gpu.mean(),
@@ -392,6 +396,16 @@ def main() -> None:
     print()
     print("--- campaign-wide instrument summary ---")
     print(summary.to_string(index=False))
+    # Mean of per-block ratios. A campaign-weighted ratio is a different and
+    # much smaller number -- the per-block mean is dominated by short blocks
+    # carrying a fixed offset -- so both are reported rather than one.
+    summary["campaign_weighted"] = [
+        df.cc_gpu_j.sum() / df.hw_gpu_j.sum(),
+        df.cc_cpu_j.sum() / df.hw_cpu_j.sum(),
+        df.cc_meas_j.sum() / df.hw_meas_j.sum(),
+        df.cc_total_j.sum() / df.hw_total_j.sum(),
+        100 * df.cc_ram_j.sum() / df.cc_total_j.sum(),
+    ]
     save_table(summary, "v2_instrument_summary",
                "Campaign-wide agreement between the two instruments")
 

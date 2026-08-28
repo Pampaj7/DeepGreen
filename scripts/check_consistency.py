@@ -330,6 +330,56 @@ def run() -> list[Result]:
                          r"/home/(pampaj|marcopaglio)/", expect=False,
                          detail_ok="none outside comments"))
 
+    # ---------------- S6: replication ---------------------------------------
+    # The specification has six parts and the checker covered five of them, so
+    # the one guarantee no static check can be assumed to hold -- that the runs
+    # are independent, differently seeded and interleaved -- was the one taken
+    # on trust. It is checkable: the driver builds the schedule in this process.
+    try:
+        sys.path.insert(0, str(REPO / "scripts"))
+        import run_campaign  # noqa: E402  -- path set immediately above
+
+        # The campaign's own dimensions, not a toy plan: on a handful of
+        # configurations a shuffle collides at a repetition boundary by chance,
+        # and the check would be measuring the toy rather than the design.
+        ecos = sorted(set(run_campaign.PYTHON_ECOSYSTEMS) |
+                      set(run_campaign.EXTERNAL_ECOSYSTEMS))
+        models, datasets, reps = ["resnet18", "vgg16"], \
+            ["fashionmnist", "cifar100", "tinyimagenet"], 5
+        plan = run_campaign.build_plan(ecos, models, datasets, repetitions=reps)
+
+        n_expected = len(ecos) * len(models) * len(datasets) * reps
+        r.append(Result("all", "S6 one job per configuration per repetition",
+                        PASS if len(plan) == n_expected else FAIL,
+                        f"{len(plan)} jobs"))
+
+        # Interleaved: repetitions of one configuration must be well separated.
+        order = [(j.ecosystem, j.model, j.dataset) for j in plan]
+        pos: dict[tuple, list[int]] = {}
+        for i, c in enumerate(order):
+            pos.setdefault(c, []).append(i)
+        min_gap = min(min(b - a for a, b in zip(v, v[1:])) for v in pos.values())
+        r.append(Result("all", "S6 repetitions interleaved, not consecutive",
+                        PASS if min_gap > 1 else FAIL,
+                        f"minimum {min_gap} jobs between repetitions"))
+
+        # Distinct seeds within a configuration, and reproducible across calls.
+        seeds: dict[tuple, set] = {}
+        for j in plan:
+            seeds.setdefault((j.ecosystem, j.model, j.dataset), set()).add(j.seed)
+        fewest = min(len(v) for v in seeds.values())
+        r.append(Result("all", "S6 distinct seed per repetition",
+                        PASS if fewest == reps else FAIL,
+                        f"{fewest} of {reps} distinct"))
+
+        again = run_campaign.build_plan(ecos, models, datasets, repetitions=reps)
+        same = [(j.ecosystem, j.model, j.dataset, j.repetition, j.seed) for j in plan] == \
+               [(j.ecosystem, j.model, j.dataset, j.repetition, j.seed) for j in again]
+        r.append(Result("all", "S6 schedule is reproducible",
+                        PASS if same else FAIL, "fixed shuffle seed"))
+    except Exception as exc:  # a checker that cannot check must say so
+        r.append(Result("all", "S6 replication schedule", FAIL, f"{type(exc).__name__}: {exc}"))
+
     # ---------------- scope -------------------------------------------------
     rc = read("scripts/run_campaign.py")
     r.append(Result("all", "V2 scope excludes MATLAB",

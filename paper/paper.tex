@@ -199,7 +199,7 @@ with Deeplearning4j; R with \texttt{torch}; Rust with \texttt{tch} --- on three
 datasets. A written specification defines what ``the same experiment'' means
 across stacks and \vConformanceChecks{} automated checks enforce it against the
 source. Energy is read from hardware counters (NVML and RAPL) with CodeCarbon
-over the identical window as a second reading. Each configuration runs
+over the same phase boundaries as a second reading. Each configuration runs
 \vRepetitions{} independent interleaved times, and every stack records per-epoch
 accuracy.
 
@@ -379,10 +379,10 @@ but whether a study can tell when it is not. An estimator that falls back on a
 model when a counter is unavailable, and announces the substitution only in a
 log line, produces a number of the same shape and plausibility either way. We
 therefore instrument every measurement block \emph{twice}: hardware counters as
-the primary instrument, and \texttt{CodeCarbon} over the identical window as an
-independent second reading. Agreement between the two is then an observable
-property of each block rather than an assumption, and the places where they
-cannot agree --- CodeCarbon's RAM term is derived from installed memory
+the primary instrument, and \texttt{CodeCarbon} started and stopped at the same
+phase boundaries as a second reading. Agreement between the two is then an
+observable property of each block rather than an assumption, and the places
+where they cannot agree --- CodeCarbon's RAM term is derived from installed memory
 capacity, and no counter on this platform can confirm or refute it --- are
 identified rather than absorbed.
 
@@ -744,8 +744,8 @@ same lineage, different backend and different artefact.}
 \textbf{Ecosystem} & \textbf{Framework / Library} & \textbf{Version} & \textbf{Backend} \\
 \midrule
 Python  & PyTorch / TorchVision$^\dagger$ & v2.7.0 / v0.22.0  & LibTorch 2.7.0, CUDA 12.8 \\
-        & TensorFlow / Keras              & v2.19.1 / v3.15.1 & cuDNN 9.3, CUDA 12 wheels \\
-        & JAX / Flax / Optax              & v0.10.2 / v0.12.8 / v0.2.8 & cuDNN 9.24, CUDA 12 wheels \\
+        & TensorFlow / Keras              & v2.19.1 / v3.15.1 & cuDNN 9.3.0, CUDA 12 wheels \\
+        & JAX / Flax / Optax              & v0.10.2 / v0.12.8 / v0.2.8 & cuDNN 9.24.0, CUDA 12 wheels \\
 C++     & LibTorch$^\dagger$              & v2.7.0            & LibTorch 2.7.0, CUDA 12.8 \\
 Java    & Deeplearning4j                  & v1.0.0-M2.1       & ND4J CUDA 11.6, cuDNN 8.3 \\
 R       & \texttt{torch}$^\ddagger$       & v0.17.0           & bundled LibTorch, CUDA 12 \\
@@ -768,9 +768,11 @@ These settings reflect canonical practices in the community while ensuring compa
 \textbf{Measurement.}
 Each phase of each epoch is bracketed by two counter reads --- NVML's
 accumulated-energy register and the CPU package RAPL counter --- and is
-simultaneously tracked by \texttt{CodeCarbon} v3.3.0~\cite{codecarbon}
-over the identical window. The two instruments are started and stopped by the
-same code path, so their windows cannot drift apart.
+simultaneously tracked by \texttt{CodeCarbon} v3.3.0~\cite{codecarbon}. The two
+are started and stopped by the same code path, so their windows cannot drift
+apart. They are not identical: the counter reads are nested immediately inside
+the tracker's, which costs a fixed offset we quantify in
+Section~\ref{sec:instrument} rather than assume away.
 
 The four non-Python ecosystems drive the instrumentation through a single shared
 bridge: a Python process that accepts \texttt{START}, \texttt{STOP},
@@ -1136,7 +1138,8 @@ once collapses are excluded.
 
 \textbf{It breaks fixed-budget energy comparison, invisibly.} A collapsed run
 costs full energy and produces nothing: \vWastedMJ~MJ, or \vWastedPct\,\% of the
-campaign's total, was spent on runs that learned nothing. An ecosystem that drew
+campaign's \vTrainingEnergyMJ~MJ of training energy, was spent on runs that
+learned nothing. An ecosystem that drew
 unlucky initialisations looks equally expensive and much less accurate; one that
 drew lucky ones looks efficient. With a single run per configuration --- the
 design this study replaces --- the reported number is whichever outcome that one
@@ -1312,7 +1315,10 @@ what they say about each other.
 
 \begin{table}[t]
 \centering
-\caption{Agreement between the two instruments over \vBlocks{} blocks.}
+\caption{Agreement between the two readings over \vBlocks{} blocks. The mean is
+over per-block ratios and is dominated by the short blocks, which carry a fixed
+offset; the campaign-weighted column is the ratio of the two totals. The first
+three rows compare registers with themselves.}
 \label{tab:instrument}
 \resizebox{\columnwidth}{!}{\input{generated/tab_instrument.tex}}
 \end{table}
@@ -1358,12 +1364,21 @@ flat across every duration decile from \SI{0.3}{\second} to \SI{65}{\second}.
 \textbf{On what is not measured, they cannot agree.} CodeCarbon's total exceeds
 the counters by \vCCtotalRatio$\times$, and the excess is entirely its RAM term
 --- \vCCramSharePct\,\% of its reported total on average --- which is derived
-from installed memory capacity rather than from memory activity. No counter on
-this platform can confirm or refute it. The number is not wrong so much as it is
-not a measurement, and it is added silently to a figure otherwise composed of
-measurements. On a machine with more installed RAM the same model contributes a
-larger share, which means the reported energy of an identical workload depends
-on how much memory the host happens to have.
+from installed memory capacity rather than from memory activity. The model is
+specific: a constant watts-per-DIMM, over a DIMM count inferred from total
+capacity, with decreasing marginal power above four DIMMs and a cap. On this
+machine it yields a flat \SI{20}{\watt} for every block of the campaign,
+regardless of what the workload does to memory. No counter on this platform can
+confirm or refute it, because there is no DRAM RAPL domain to read.
+
+The number is not wrong so much as it is not a measurement, and it is added
+silently to a figure otherwise composed of measurements. On a machine with more
+installed RAM the model contributes more --- bounded, because of the cap, but
+enough that the reported energy of an identical workload depends on the host's
+memory configuration. Our own boundary has the opposite failing and we state it
+plainly: the counters omit DRAM energy altogether. One figure contains an
+unverifiable term; the other is missing a real one. Neither is a whole-system
+number, and the difference between them is not an error bar.
 
 \textbf{The time between the phases belongs to the instrument.}
 Energy is attributed only to the phases each stack brackets, and the stacks
@@ -2126,8 +2141,14 @@ runs. At the grid carbon intensity CodeCarbon assigns to this location, that
 corresponds to a few kilograms of CO$_2$e --- modest against industrial
 training, and reported here for the same reason we ask others to report it: an
 energy figure without a stated boundary and a stated scope is not auditable.
-The figure above excludes development, failed runs and the earlier campaign that
-motivated this design; including them would roughly double it.
+The figure above is the energy inside the measured blocks. It excludes
+development, failed runs and the earlier campaign that motivated this design ---
+including those would roughly double it --- and it excludes the machine's draw
+during the untracked time between blocks discussed in
+Section~\ref{sec:instrument}, which at this campaign's block lengths is of the
+same order as the energy the collapsed runs wasted. An honest campaign-level
+figure is therefore larger than the one we report and we do not pretend
+otherwise; what we report is the quantity the comparisons are made on.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{CRediT Authorship Contribution Statement}

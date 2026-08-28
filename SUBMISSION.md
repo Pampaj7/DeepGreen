@@ -41,16 +41,18 @@ before uploading; nothing here should be edited by hand.
 ## What the manuscript claims, and where each claim comes from
 
 Every quantity is a macro from `paper/generated/numbers.tex`, written by
-`results/analysis/12_paper_numbers.py`. There are 212 of them. No number in the
+`results/analysis/12_paper_numbers.py`. There are 213 of them. No number in the
 text is typed by an author — including the count of conformance checks and the
-size of the defect catalogue, both of which had already drifted (57 quoted
-against 63 run; five defects claimed as ours against four marked) before they
-were made generated.
+size of the defect catalogue, both of which had already drifted (57 quoted against 63 run; five defects claimed as ours against four marked)
+before they were made generated. A three-reviewer pass found more of the same
+kind, all now generated: the chi-square p-value, the count and scope of the
+runs executed outside the main window, the size of the defect catalogue, and
+the number of runs that were interleaved.
 
 Verify the whole chain with:
 
 ```bash
-python3 scripts/check_consistency.py            # 63 pass, 0 fail
+python3 scripts/check_consistency.py            # 67 pass, 0 fail
 python3 scripts/consolidate_raw.py --check      # package matches the raw tree
 ./paper/build.sh                                # analysis + numbers + figures + PDF
 ```
