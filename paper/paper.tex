@@ -168,10 +168,10 @@
 % page. Make the glue rigid.
 \setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}\setlength{\topsep}{0pt}
 \item One specification, \vConformanceChecks{} automated checks: \vEcosystems{} stacks run the same experiment
-\item Every block measured twice: NVML and RAPL counters, and CodeCarbon in parallel
 \item \vRuns{} runs, \vBlocks{} blocks; training energy spans \vSpreadTrainMin$\times$--\vSpreadTrainMax$\times$ across stacks
+\item Among \vCtrlStacks{} stacks running identical kernels the spread is \vCtrlSpreadMin$\times$--\vCtrlSpreadMax$\times$
 \item The estimator's duration field, not the stacks, produced ``faster is not greener''
-\item Between-run CV \vCVTrainMedian\,\%; the two instruments agree on energy to \vCCmeasDisagreementPct\,\%
+\item \vWindowPaddedPct\,\% of blocks are timed over a longer window than their energy
 \end{highlights}
 
 \begin{keywords}
@@ -386,10 +386,11 @@ cannot agree --- CodeCarbon's RAM term is derived from installed memory
 capacity, and no counter on this platform can confirm or refute it --- are
 identified rather than absorbed.
 
-This also fixes the boundary. NVML plus RAPL is a \emph{chip-level} measurement:
-it excludes the power supply, fans and drives that a wall meter would see, and
-must not be presented as a whole-system figure. We had no wall meter available
-and say so, reporting a chip-boundary quantity consistently rather than a
+This also fixes the boundary. NVML plus RAPL is a \emph{board-and-package}
+measurement: the accelerator card including its memory, plus the CPU package,
+excluding the power supply, fans, drives and host DRAM that a wall meter would
+see. It must not be presented as a whole-system figure. We had no wall meter available
+and say so, reporting a board-and-package quantity consistently rather than a
 mixture of measured and modelled terms that corresponds to no physical boundary
 at all. Section~\ref{sec:instrument} reports what the two instruments say about
 each other across the campaign.
@@ -513,7 +514,7 @@ the other \vEcosystems{}. Including a stack that provably runs a different
 experiment would reintroduce exactly the confound this design exists to remove.
 
 Our dependent variables are the \emph{energy consumption} of each measurement
-block, in Joules at a chip-level boundary (accelerator plus CPU package), and
+block, in Joules at a board-and-package boundary (accelerator card plus CPU package), and
 the \emph{test accuracy} reached at the end of each epoch. Recording the second
 alongside the first is what allows energy to be normalised by achieved quality
 in Section~\ref{subsec:rq1}; a fixed-budget comparison that does not record
@@ -606,9 +607,19 @@ not the binding overhead the study sets out to isolate.
 Energy is read from hardware counters at the boundaries of each measurement
 block: NVML's \texttt{nvmlDeviceGetTotalEnergyConsumption}, an accumulating
 millijoule register on the accelerator, and the RAPL package-energy counters
-exposed at \texttt{/sys/class/powercap} for the CPU, with
-wraparound at \texttt{max\_energy\_range\_uj} handled explicitly. The reported
-quantity is their sum: a chip-level boundary, identical for every ecosystem.
+exposed at \texttt{/sys/class/powercap} for the CPU, with wraparound at
+\texttt{max\_energy\_range\_uj} handled explicitly. The reported quantity is
+their sum, identical for every ecosystem.
+
+The two halves of that sum are not at the same boundary, and the sum is not
+``the chip''. NVML's register is a \emph{board} quantity: it includes the GPU
+die, its GDDR6X and the card's voltage regulators. RAPL's package domain is the
+CPU package alone. Host DRAM is in neither --- this platform exposes no
+\texttt{dram} RAPL domain, so its energy, of order ten watts, is not measurable
+here and is absent from every figure we report. We name the quantity
+board-plus-package rather than chip-level, and we note the asymmetry with our
+own criticism of the estimator's modelled RAM term: that term is unverifiable,
+and ours is missing altogether.
 
 \texttt{CodeCarbon}~\cite{codecarbon} runs over the same window as
 an independent second instrument, in machine tracking mode at a one-second
@@ -794,8 +805,12 @@ this design:
           and estimator reading side by side, which is what makes the analysis
           of Section~\ref{sec:instrument} reproducible rather than anecdotal.
 \end{enumerate}
-Every number in this manuscript is generated from those records by the analysis
-pipeline and injected into the source at build time; none is transcribed.
+Every quantity this manuscript reports from the replicated campaign is
+generated from those records by the analysis pipeline and injected into the
+source at build time. The exceptions are stated where they occur: figures
+recovered from the audit of the earlier campaign, and one-off diagnostics
+reproduced from the record that established them, which are not recomputable
+from the campaign because they describe a campaign that no longer exists.
 
 \begin{table}[t]
 \centering
@@ -828,9 +843,10 @@ Independent runs      & \vRepetitions{} per configuration, interleaved \\
 \section{Results}
 \label{sec:results}
 
-We report the campaign in the order the research questions were posed, with one
-departure: RQ4, on the apparatus, comes last but conditions everything before
-it, and a reader who wants to know how much to trust
+We report the campaign in the order the research questions were posed, after a
+subsection on repeatability that bounds everything after it. One departure is
+worth flagging: RQ4, on the apparatus, comes last but conditions everything
+before it, and a reader who wants to know how much to trust
 Sections~\ref{subsec:rq1}--\ref{subsec:rq3} should read
 Section~\ref{sec:instrument} first.
 
@@ -873,7 +889,7 @@ thing measured.
 \label{subsec:rq1}
 
 Figure~\ref{fig:energy_ci} and Table~\ref{tab:train_energy} report training
-energy per epoch for every ecosystem and block, at a common chip-level boundary.
+energy per epoch for every ecosystem and block, at a common board-and-package boundary.
 
 \begin{figure*}[t]
     \centering
@@ -916,9 +932,17 @@ are the same code; it is binding overhead, data movement and host-side dispatch.
 Within that control the spread is \vCtrlSpreadMin$\times$ to
 \vCtrlSpreadMax$\times$ (Table~\ref{tab:libtorch_control}), against
 \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ across all
-\vEcosystems{}: so binding overhead alone accounts for
-\vCtrlShareMin\,\%--\vCtrlShareMax\,\% of the log spread, and the framework
-choice dominates the rest.
+\vEcosystems{}. The answer splits by architecture, and we state it rather than
+leaving the table to speak. On ResNet-18 the control group spans
+\vCtrlSpreadResnetMin$\times$--\vCtrlSpreadResnetMax$\times$ and accounts for
+\vCtrlShareMax\,\% of the log spread: binding and host-side work are a first-order term
+there. On VGG-16 the control spans only
+\vCtrlSpreadVggMin$\times$--\vCtrlSpreadVggMax$\times$ and accounts for as
+little as \vCtrlShareMin\,\%: the three stacks running identical kernels are nearly
+indistinguishable, and the remaining spread is the frameworks that do not share
+those kernels. ResNet-18 is the smaller network, so a larger share of its epoch
+is host-side dispatch --- which is the mechanism the split implies and which we
+cannot confirm without profiling we did not do.
 
 R is reported beside the control rather than inside it. It links its own
 bundled LibTorch and, because the R binding cannot switch a script module
@@ -979,17 +1003,45 @@ trained follows in parentheses.}
 
 Figure~\ref{fig:energy_accuracy} plots the two together. Ranking ecosystems by
 accuracy per kilojoule rather than by energy alone puts \vEffBest{} ahead of
-\vEffWorst{} by \vEffRatio$\times$ --- a different quantity from the energy
-ratio, and the one a practitioner choosing a stack actually faces.
+\vEffWorst{} by \vEffRatio$\times$ --- \vEffRatioTrained$\times$ counting only
+the runs that trained --- a different quantity from the energy ratio, and closer
+to the one a practitioner choosing a stack actually faces.
+
+\textbf{Energy to a target, and what it costs to report it.} Closest of all is
+the energy a stack spends before it first reaches a stated accuracy, which a
+fixed-budget design cannot produce.
+Table~\ref{tab:energy_to_target} reports it against a target fixed per dataset.
+On Fashion-MNIST every run of every ecosystem reaches
+\vTargetFashion\,\%, and the energy to get there spans
+\vTargetFashionSpread$\times$ --- a like-for-like comparison at equal quality,
+and the cleanest number in this paper. On the harder datasets the table is
+mostly informative for its gaps: \vTargetNeverStacks{} of the \vEcosystems{}
+stacks never reach \vTargetTiny\,\% on Tiny ImageNet within the epoch budget at
+all, so for those cells there is no energy-to-target to report and the
+fixed-budget columns are the only comparison available. We show the empty cells
+rather than dropping them, because ``did not reach the target'' is the result.
+
+\begin{table}[t]
+\centering
+\caption{Median training energy (kJ) to first reach a target accuracy, with the
+number of runs that reached it where that is not all \vAccRunsPerCell{}.
+Targets: \vTargetFashion\,\%, \vTargetCifar\,\%, \vTargetTiny\,\%.}
+\label{tab:energy_to_target}
+\resizebox{\columnwidth}{!}{\input{generated/tab_energy_to_target.tex}}
+\end{table}
 
 \subsubsection{Runs that consume the budget and learn nothing}
 \label{subsubsec:collapse}
 
 Replicating each configuration surfaced something a single run cannot show.
-VGG-16 does not always train. In \vCollapsedVgg{} of \vCollapsedVggRuns{}
-VGG-16 runs the network converges to \emph{exactly} chance accuracy --- 1/100 on
-CIFAR-100, 1/200 on Tiny ImageNet --- and stays there for all 30 epochs, having
-consumed the full energy budget while learning nothing.
+VGG-16 does not always train. We call a run \emph{collapsed} when its final
+test accuracy never exceeds \vCollapseFactor$\times$ chance for its dataset; the
+multiplier is generous on purpose, because every collapsed run in this campaign
+sits at chance exactly --- 1/100 on CIFAR-100, 1/200 on Tiny ImageNet --- so no
+case depends on where the line is drawn. By that criterion
+\vCollapsedVgg{} of \vCollapsedVggRuns{} VGG-16 runs collapse and stay collapsed
+for all 30 epochs, having consumed the full energy budget while learning
+nothing.
 ResNet-18 never does this: \vCollapsedResnet{} of \vCollapsedResnetRuns{} runs.
 Neither architecture does it on Fashion-MNIST.
 
@@ -1002,20 +1054,36 @@ Neither architecture does it on Fashion-MNIST.
     \label{fig:convergence}
 \end{figure*}
 
-The pattern points at the recipe rather than at any ecosystem. VGG-16 as
-shipped carries no batch normalisation, and a plain sixteen-layer network
-initialised randomly and driven by Adam at $10^{-4}$ over a hundred or two
-hundred classes can settle into predicting a single class; whether it does is
-decided by the initialisation. The collapse appears in \vCollapseEcosystems{}
+The per-epoch traces say precisely what these runs are. In every one of them
+the loss sits at $\ln N$ for the $N$ classes of the dataset --- 4.605 on
+CIFAR-100, 5.298 on Tiny ImageNet --- to within \vCollapseLossDeviationMax{},
+for all thirty epochs. That is the loss of a \emph{uniform} output
+distribution: the network is not confidently predicting one class, it is
+producing the same distribution for every input, and no gradient signal is
+reaching it. VGG-16 as shipped carries no batch normalisation, and a plain
+sixteen-layer network driven by Adam at $10^{-4}$ over a hundred or two hundred
+classes can start there and never leave.
+
+What decides whether a run does so is not the initial weights. The
+\vCollapseSharedStacks{} stacks that load the byte-identical exported module
+start from identical parameters, and they disagree about which repetitions
+collapse: in \vCollapseDiscordantCells{} cells one of them settles at chance
+while another trains to full accuracy on the same architecture, dataset and
+repetition index. What differs between them is the stochastic path --- shuffle
+order under each framework's own generator, and non-deterministic kernels ---
+not the starting point. The collapse appears in \vCollapseEcosystems{}
 ecosystems independently, and \vCollapseNeverEcosystems{} never exhibit it.
-Per-ecosystem rates range from \vCollapseRateMin\,\% to \vCollapseRateMax\,\%
-against an overall \vCollapseRateOverall\,\%, but with ten susceptible runs per
-ecosystem that spread is not distinguishable from chance (permutation test,
-$p = \vCollapseHomogeneityP$). We therefore report the susceptibility as a
-property of the recipe and leave open whether ecosystems differ in rate ---
-they plausibly do, since each framework initialises weights with its own scheme
-and its own generator, but resolving it needs more repetitions than an energy
-study can usually afford.
+Per-ecosystem rates range from \vCollapseRateMin\,\% to \vCollapseRateMax\,\%,
+against an overall \vCollapseRateOverall\,\% of the runs where collapse occurs
+at all --- VGG-16 on the two many-class datasets, ten runs per ecosystem. That
+spread is large, and ten runs per ecosystem are not enough to establish it: the
+two tests we ran disagree, for reasons we set out in
+Section~\ref{sec:threats}. We therefore report the susceptibility as a property
+of the recipe, report that the ecosystems plausibly differ in rate, and decline
+to say which are more robust. Resolving it needs more repetitions than an energy
+study can usually afford, and it is a question worth someone's time: the answer
+would be about each framework's generator and shuffle order, not about its
+kernels.
 
 \textbf{A failed recipe and a broken pipeline look identical in an energy
 table.} Both produce chance accuracy at full energy cost, and neither is visible
@@ -1046,6 +1114,16 @@ result, and the discarded runs no longer exist in the campaign, their signature
 is preserved as a record in the replication package rather than quoted from
 memory.
 
+We are able to state the discriminator's recall on the one instance we have,
+and it is not perfect. The defect was a deterministic code path on the training
+branch, so all \vRepetitions{} repetitions of that configuration carried it; the
+discriminator flagged \vDefectRuns{}. The remaining run finished above the
+collapse threshold and so was never a candidate for the test at all. A
+discriminator calibrated on a single positive example, with a threshold chosen
+after seeing it, is a heuristic and not a detector: it separates the two failure
+modes cleanly once a run is known to have failed, and it will miss a defect that
+leaves enough accuracy behind. We report it as the diagnostic aid it is.
+
 Two consequences matter here.
 
 \textbf{It is the strongest evidence that the specification worked.} On
@@ -1068,7 +1146,7 @@ fixed budget delivers fixed quality.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ1 Findings: Impact of Ecosystems on Training Energy Efficiency}]
 \small
-Measured at a common chip-level boundary and replicated \vRepetitions{} times
+Measured at a common board-and-package boundary and replicated \vRepetitions{} times
 per configuration, training energy differs across ecosystems by
 \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture
 and dataset, with \vSpreadTrainBest{} cheapest in every block. Between-run
@@ -1386,9 +1464,9 @@ execution engines and toolchains all differ --- and we therefore report these as
 ecosystem-level effects rather than attributing them to a programming language.
 
 \textbf{Rankings are largely phase-consistent, contrary to what an
-estimator-based analysis suggests.} Recomputed on counter-bracketed energy,
-training and inference rank the ecosystems alike in
-\vPhaseSameBest{} of \vPhaseBlocks{} blocks, with Spearman correlations between
+estimator-based analysis suggests.} Recomputed on counter-bracketed energy, the same ecosystem is cheapest in both
+phases in \vPhaseSameBest{} of \vPhaseBlocks{} blocks, and the full ordering is
+identical in \vPhaseIdenticalOrder{}, with Spearman correlations between
 \vPhaseRhoMin{} and \vPhaseRhoMax. This matters because the opposite claim ---
 that the phases rank differently and so demand phase-aware stack selection ---
 is a natural conclusion to draw from estimator output, and we can now say why:
@@ -1514,17 +1592,33 @@ size on different hardware, which is exactly the assumption our own measurements
 give us the least confidence in.
 
 \textbf{Inference phase (hyperscale workload, fixed work).}
-Inference energy scales approximately linearly with served volume when stacks
-are compared at a fixed service target. Let $E_{\text{PyTorch}}$ be the daily
-energy attributable to \emph{inference} with PyTorch as the baseline. Assuming
-$N=100{,}000$ accelerators running continuously for 24 hours at an average
-inference-attributable draw of $P=0.4$~kW each gives
-$E_{\text{PyTorch}} = \vScenarioBaselineMWh$~MWh/day, or
+Let PyTorch serve a fixed daily inference volume on $N=100{,}000$ accelerators
+running continuously for 24 hours at an average inference-attributable draw of
+$P=0.4$~kW each: $\vScenarioBaselineMWh$~MWh/day, or
 \vScenarioBaselineCost~\euro\ per day at
-\SI{100}{\euro\per\mega\watt\hour}. Applying the measured inference multipliers
-yields Table~\ref{tab:industrial_inference}: \vScenarioBest{} at
-\vScenarioBestMult$\times$ the baseline and \vScenarioWorst{} at
-\vScenarioWorstMult$\times$.
+\SI{100}{\euro\per\mega\watt\hour}.
+
+Two things about how that scales. First, the quantity a less efficient stack
+needs more of is \emph{accelerator-hours}, not watts: at a fixed service target
+it needs a larger fleet, or the same fleet for longer, and
+Table~\ref{tab:industrial_inference} states it that way. Multiplying energy at a
+fixed fleet and fixed hours would imply a per-card draw several times the board
+limit of the accelerator we measured, which is not a thing that can happen.
+Second, the multipliers are computed from \emph{accelerator energy alone}, to
+match the per-accelerator power budget the scenario assumes; taking them at the
+board-and-package boundary instead moves the ecosystem spread from
+\vScenarioSpreadGpu$\times$ to \vScenarioSpreadTotal$\times$. This matters
+because the submitted version of this paper multiplied a per-GPU board power by
+a ratio derived from CPU, GPU and modelled RAM energy together --- different
+boundaries, and their product is not a quantity.
+
+On that basis \vScenarioBest{} serves the same volume at
+\vScenarioBestMult$\times$ the baseline energy and \vScenarioWorst{} at
+\vScenarioWorstMult$\times$. We note that the inference blocks these multipliers
+come from are sub-second in most stacks, which is the regime
+Section~\ref{sec:instrument} identifies as least reliable for any instrument;
+they are counter-bracketed and so do not carry the estimator's padding, but they
+are the shortest measurements in the campaign and the ratios inherit that.
 
 \begin{table*}[t]
 \centering
@@ -1570,7 +1664,8 @@ whether a reader given only the released measurements could detect the problem.
 Entries marked $\ast$ were introduced by us while repairing the study and caught
 by the checks or the accuracy metric, not by review.}
 \label{tab:catalogue}
-\small
+% \small overflowed the page by 7.3pt once the campaign-lock row was added.
+\footnotesize
 \begin{tabularx}{\linewidth}{p{4.4cm}Xc}
 \toprule
 \textbf{Class} & \textbf{Measured effect} & \textbf{Visible} \\
@@ -1618,7 +1713,7 @@ yes \\
 \multicolumn{3}{l}{\emph{Implementation}} \\
 \addlinespace
 Divergent hyperparameters &
-Two learning rates across eight stacks &
+\vAuditLearningRates{} learning rates across \vAuditStacks{} stacks &
 no \\
 \addlinespace
 Divergent loader parallelism &
@@ -1806,11 +1901,35 @@ energy data distinguishes that case from a correct one except its magnitude.
 
 \textbf{Construct Validity.}
 Our construct is energy at a stated boundary, not ``sustainability''. We report
-accelerator plus CPU-package energy read from hardware counters: a chip-level
-boundary that excludes power supply, fans and drives. We had no wall meter and
-therefore do not report a whole-system figure, and we would emphasise that a
-chip-boundary number must not be compared with a wall-meter number from another
-study.
+accelerator-board plus CPU-package energy read from hardware counters, which
+excludes the power supply, fans, drives, chipset --- and host DRAM, for which
+this platform exposes no counter. We had no wall meter and therefore do not
+report a whole-system figure, and a board-plus-package number must not be
+compared with a wall-meter number from another study.
+
+The counters are our reference and they are not exempt from the scrutiny we
+apply to the estimator. RAPL's package energy is itself a modelled quantity on
+some parts and its update interval is of order a
+millisecond~\cite{khan2018rapl}; NVML's accumulated-energy register rests on
+board telemetry averaged internally, so its temporal resolution is not
+unlimited either. That bounds what the sub-second comparison of
+Section~\ref{sec:instrument} can establish: for the shortest blocks in this
+campaign, both instruments are near the edge of what they resolve, and the
+disagreement we report there should be read as a joint property of the pair
+rather than as a fault of one. It does not bear on the reported-duration
+finding, which concerns a field rather than a measurement.
+
+A second construct limitation belongs here, because it bounds what the
+attribution in Section~\ref{sec:discussion} can claim. Of the energy we report,
+\vCpuShareOfTotalPct\,\% is the CPU package, and that term carries almost no
+workload signal: package power is \vCpuPowerMeanW\,W with a standard deviation
+of \vCpuPowerSdW\,W across the whole campaign, a coefficient of variation of
+\vCpuPowerCVPct\,\% against \vGpuPowerCVPct\,\% for the accelerator, and it
+barely separates the ecosystems. So when we locate the ecosystem spread in
+host-side work, that is an inference from accelerator idle time and from the
+shared-module control group, not from a measured host-side energy term. A study
+that wanted to measure host-side work directly would need DRAM and platform
+counters this machine does not expose.
 
 The more interesting construct threat is one we can measure. A software
 estimator's output is a mixture of measured and modelled terms, and the mixture
@@ -1883,12 +2002,22 @@ thing.
 Where the sample is genuinely too small we say so rather than reach. The VGG-16
 collapse rates of Section~\ref{subsubsec:collapse} range from
 \vCollapseRateMin\,\% to \vCollapseRateMax\,\% across ecosystems, and a
-$\chi^2$ test on that table returns $p = \vCollapseChiSqP$ --- which would
-license a claim that ecosystems differ in robustness. The smallest expected cell
-count is \vCollapseChiSqMinExpected, far below what that approximation needs; a
-permutation test on the same data gives $p = \vCollapseHomogeneityP$. We report the permutation result and make no such
-claim. The difference between the two is exactly the kind of small-sample
-over-confidence a reader is entitled to be warned about.
+$\chi^2$ test on that table returns $p = \vCollapseChiSqP$, which would license
+a claim that ecosystems differ in robustness; a permutation test we ran on the
+same data returns $p = \vCollapseHomogeneityP$, which would not.
+
+We report both, and we are careful about why they differ, because our first
+explanation was wrong. It is tempting to attribute the gap to the $\chi^2$
+approximation failing on small cells --- the smallest expected count here is
+\vCollapseChiSqMinExpected. That is not what happened. The two tests use
+different statistics: our permutation test calibrates the \emph{range} of
+per-ecosystem rates, a bounded statistic that saturates once one ecosystem sits
+at zero and another at a half, and it is much the less powerful of the two.
+Permutation-calibrating the $\chi^2$ statistic itself reproduces the $\chi^2$
+$p$-value closely. The honest reading is that the evidence does lean towards
+ecosystem-dependent collapse rates, on ten susceptible runs per ecosystem, and
+that ten runs cannot settle it. We make no claim about which ecosystems are more
+robust, and we flag the question as one this design was not built to answer.
 
 Finally, \vLateRuns{} runs --- \vLateConfigurations{} configurations, all of
 them \vLateEcosystems{} --- were executed in a separate window \vLateGapDays{}
@@ -1912,7 +2041,7 @@ twice per measurement block.
 Three findings stand out.
 
 First, ecosystem selection substantially shifts operational efficiency: at a
-common chip-level boundary, training the same model on the same data costs
+common board-and-package boundary, training the same model on the same data costs
 between \vSpreadTrainMin$\times$ and \vSpreadTrainMax$\times$ more energy on one
 ecosystem than another, with between-run variability of order
 \vCVTrainMedian\,\%. Because three of the ecosystems compared execute a
@@ -1982,9 +2111,9 @@ many published energy--time results rest on it, are answerable questions, and
 the method --- bracket every block with hardware counters and compare --- is
 cheap.
 
-Finally, a wall-meter reference would let the chip-level boundary used here be
-related to whole-system energy, which is what an operator pays for. We report a
-chip boundary consistently and decline to extrapolate; closing that gap requires
+Finally, a wall-meter reference would let the board-and-package boundary used
+here be related to whole-system energy, which is what an operator pays for. We
+report that boundary consistently and decline to extrapolate; closing that gap requires
 hardware we did not have.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

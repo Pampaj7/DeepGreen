@@ -76,13 +76,13 @@ value disappears the build fails rather than printing a stale figure.
 | Energy against measured time, phase consistency | `14_v2_statistics.py` |
 | Training collapses and conditional accuracy | `15_convergence.py` |
 | Defect catalogue | the audit of the earlier campaign, `01`–`10` |
-| Conformance: 57 checks | `scripts/check_consistency.py` |
+| Conformance: 63 checks | `scripts/check_consistency.py` |
 
 ## Figures
 
 | Figure | What it shows |
 |---|---|
-| `fig_window_floor.png` | The estimator's reported duration is `max(phase, ~4 s)`, and what that does to power |
+| `fig_window_floor.png` | The estimator’s reported duration carries seconds of tracker lifetime, in three discrete modes, and what that does to derived power |
 | `fig_energy_ci.png` | Training energy per ecosystem and block, with between-run intervals |
 | `fig_energy_accuracy.png` | Energy spent against accuracy reached; collapsed runs marked |
 | `fig_instrument.png` | Where the two instruments agree, and the part no counter can confirm |

@@ -372,9 +372,15 @@ def fig_convergence(conditional: pd.DataFrame, by_eco: pd.DataFrame) -> None:
                 color=["#4393c3", "#b2182b"][k])
     ax2.set(xticks=np.arange(len(piv)), xticklabels=piv.index,
             ylabel="VGG-16 runs collapsed (of 5)", ylim=(0, 5.4))
-    ax2.tick_params(labelsize=8)
+    # Labels were colliding at this width ("RustTensorFlow").
+    ax2.tick_params(labelsize=7.5)
+    for lbl in ax2.get_xticklabels():
+        lbl.set_rotation(20)
+        lbl.set_ha("right")
     ax2.legend(fontsize=8)
-    ax2.set_title("(b) every ecosystem is susceptible; VGG-16 only",
+    # The old title said "every ecosystem is susceptible" over a panel showing
+    # three ecosystems at zero.
+    ax2.set_title("(b) four of seven ecosystems, VGG-16 only",
                   fontsize=9.5, loc="left")
     save(fig, "fig_convergence")
 

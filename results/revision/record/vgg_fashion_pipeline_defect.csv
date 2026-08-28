@@ -12,6 +12,14 @@
 # about a defect should be as traceable as a claim about a result. Produced by
 # results/analysis/15_convergence.py before the fix; the corrected runs reach
 # 91.68-92.72% test accuracy, in line with every other ecosystem.
+#
+# FIVE runs carried the defect -- it was a deterministic code path on the
+# training branch, so every repetition of that configuration hit it -- and the
+# discriminator flagged FOUR. The fifth finished above the 1.5x-chance
+# threshold and was therefore never a candidate. That is a measured
+# false-negative for this defect class, on the only instance we have, and the
+# manuscript reports it as one rather than quoting the discriminator's recall
+# as unknown.
 run,final_test_acc_pct,train_loss_drop_pct,test_loss_first,test_loss_last,diagnosis
 Rust-tch_vgg16_fashionmnist_rep0,9.95,86.4,4.77,7.24,"pipeline defect: fits train, fails test"
 Rust-tch_vgg16_fashionmnist_rep1,14.68,86.5,4.73,6.29,"pipeline defect: fits train, fails test"

@@ -20,11 +20,28 @@ counters, and CodeCarbon over the identical window). Raw records are under
 
 Everything below is reproducible with `results/analysis/run_all.sh`.
 
+### A correction we owe the reviewers before anything else
+
+The first version of this response reported energy tables that came from
+CodeCarbon's *total* — its modelled RAM term included — under captions saying
+hardware counters. That is the defect this work catalogues as "modelled term
+inside a measured total", and it is the same class of error as the
+kilowatt-hours-labelled-as-Joules that the reviewers caught in the submitted
+paper. It is fixed at the source: `09_campaign_v2.py` now reads `counters.csv`
+and reports the counter quantity over the counter-bracketed window. Every
+number below and in the manuscript comes from that. The training spread moves
+from 19.1× to 18.2×; nothing else in the conclusions changes.
+
+Two further self-corrections are recorded in this document rather than quietly
+absorbed: the model of the estimator's reported duration (twice wrong, see
+below) and the composition of the shared-backend control group, which contained
+a stack sharing neither the pinned build nor the exported module.
+
 ### What the re-execution changed in the conclusions
 
 | Submitted claim | After re-execution |
 |---|---|
-| Training spread 4.6× (Rust best, Java worst) | 7.8×–19.1× depending on the block, at a common chip-level boundary |
+| Training spread 4.6× (Rust best, Java worst) | 7.8×–18.2× depending on the block, at a common board-and-package boundary |
 | Energy reported in Joules | The submitted figures were kilowatt-hours; a factor of 3.6×10⁶ |
 | "Faster is not greener" | Faster *is* greener here (ρ ≈ 1). The contrary result reproduces as an artefact of the estimator's duration floor |
 | Rankings are phase-dependent | Largely phase-consistent once inference is measured rather than estimated |
@@ -38,22 +55,28 @@ Reviewer 3's major comment 2 asked for independent run-level repetitions.
 Executing them produced a result neither we nor the reviewers anticipated, and
 it is the clearest possible vindication of the request.
 
-**VGG-16 does not always train.** In 12 of 100 VGG-16 runs the network converges
+**VGG-16 does not always train.** In 12 of 105 VGG-16 runs the network converges
 to *exactly* chance accuracy — 1.00 % on CIFAR-100 (100 classes), 0.50 % on
 Tiny ImageNet (200 classes) — and stays there for all 30 epochs, having consumed
 the full energy budget while learning nothing. ResNet-18 never does this
-(0 of 100). Neither does it on Fashion-MNIST. VGG-16 as shipped has no batch
+(0 of 105). Neither does it on Fashion-MNIST. VGG-16 as shipped has no batch
 normalisation, and a plain 16-layer network under Adam at 1e-4 over many classes
 can settle into predicting one class; the initialisation decides whether it
 does.
 
 It appears in four ecosystems independently (Java 5/10, TensorFlow 4/10,
-C++ 2/10, PyTorch 1/10) and never in two (JAX 0/10, R 0/10). That spread is
+C++ 2/10, PyTorch 1/10) and never in three (JAX 0/10, R 0/10, Rust 0/10). That spread is
 *not* statistically distinguishable from a common rate at this sample size
-(permutation test, p = 0.10), so we report susceptibility as a property of the
+(permutation test, p = 0.07), so we report susceptibility as a property of the
 recipe and explicitly decline to rank ecosystems by robustness — a chi-square
-test on the same table gives p = 0.017, which is exactly the kind of
-small-count over-confidence the reviewers were right to guard against.
+test on the same table gives p = 0.0065. We first attributed that gap to the
+chi-square approximation failing on small cells; it is not that. The two tests
+use different statistics — ours calibrates the *range* of per-ecosystem rates, a
+bounded and much less powerful statistic — and permutation-calibrating the
+chi-square statistic itself reproduces its p-value. The honest reading is that
+the evidence leans towards ecosystem-dependent collapse rates and that ten
+susceptible runs per ecosystem cannot settle it. We make no claim about which
+stacks are more robust.
 
 Two consequences:
 
@@ -62,8 +85,8 @@ Two consequences:
    all runs and **1.3 points** over the runs that trained. Almost the entire
    apparent disagreement between stacks was collapsed runs, not different
    computations.
-2. **It silently breaks fixed-budget energy comparison.** 10.7 % of the
-   campaign's energy — 5.2 MJ — was spent on runs that learned nothing. An
+2. **It silently breaks fixed-budget energy comparison.** 10.5 % of the
+   campaign's training energy — 5.1 MJ — was spent on runs that learned nothing. An
    ecosystem that draws unlucky initialisations looks equally expensive and much
    less accurate. With one run per configuration, the published number is
    whichever outcome that seed produced, and nothing in the energy data
@@ -103,17 +126,26 @@ Reproduce with `results/analysis/15_convergence.py`.
 The campaign produced one result about the measurement tool itself that we
 believe is new and that bears on any study using it.
 
-Over every block, CodeCarbon's energy agrees with hardware counters to 0.5 %.
-Accuracy is not the problem. But the `duration` column it writes beside that
-energy is **not the interval the energy was accumulated over**: it is
-`max(phase_duration, ≈3.99 s)`, a relation that accounts for R² = 0.993 of its
-variance. Above about four seconds the two windows coincide to 16 ms; below it,
-the reported duration is a floor. The shortest phase in our campaign takes
-0.12 s and is filed as 3.38 s.
+Over every block, CodeCarbon's energy agrees with hardware counters to 0.5 % —
+because on this platform it reads the same two registers we do,
+`nvmlDeviceGetTotalEnergyConsumption` and the RAPL `energy_uj` files. The
+accelerator terms differ by 1.3 mJ; the whole residual is a flat 0.5 J in the
+CPU term, uncorrelated with block duration, from nesting our counter reads
+inside the tracker's window. So this is not an accuracy result and we no longer
+present it as one: where the counters are exposed, the estimator's energy is not
+a model at all.
+
+The `duration` column it writes beside that energy is a different matter. It is
+**not the interval the energy was accumulated over**: 67 % of blocks carry
+seconds of tracker lifetime in which no energy was drawn. The excess is
+trimodal — 0.01 s, 3.27 s or 4.56 s, with nothing between — and which mode a
+block lands in is *not* a function of its length: R is unpadded in all 1800 of
+its blocks while having the longest ones in the campaign, and C++ is padded in
+all 1800 of its own.
 
 Consequently any power or energy-per-second quantity derived by dividing
-CodeCarbon's energy by CodeCarbon's duration is understated by up to 6.8× for
-sub-second phases and is exact above ten seconds. The bias is a monotone
+CodeCarbon's energy by CodeCarbon's duration is understated by up to 11.2× on
+blocks under half a second and is correct above ten. The bias is a monotone
 function of phase length, so it falls hardest on the fastest ecosystems and on
 the inference phase — which is exactly where a cross-ecosystem comparison lives.
 This is, as far as we can determine, the mechanism behind the submitted
@@ -503,17 +535,24 @@ the instrument is already least reliable.
 
 ### A second correction, to our own model of the instrument
 
-We first fitted CodeCarbon's reported duration as `max(phase, 3.99 s)` and
-reported R² = 0.993. That model is wrong in the middle of the range. The excess
-is bimodal — either about 3.28 s or about 13 ms, with nothing in between and the
-transition near 11 seconds — so the reported duration is *the phase plus a
-constant* below the threshold, not a floor. The two-regime model gives
-R² = 0.998 at a mean absolute error of 0.42 s against 1.14 s for the floor.
+We fitted CodeCarbon's reported duration twice and got it wrong twice, in the
+same way. First as a floor, `max(phase, 3.99 s)`, R² = 0.993. Then, on finding
+that wrong in the middle of the range, as two regimes — phase plus 3.28 s below
+11 s — R² = 0.998 at a third of the error, which looked conclusive.
 
-We report this because the failure mode is the paper's own argument turned on
-us: R² = 0.993 on a heavily skewed predictor looked conclusive while being
-carried entirely by the blocks where both models agree. The consequence for
-power is unchanged.
+It is not. The excess is trimodal (0.01 s, 3.27 s, 4.56 s) and block length does
+not determine which mode a block lands in: 450 blocks longer than 11 s are
+padded, 86 shorter than it are not, and one ecosystem is unpadded in every one
+of its 1800 blocks while another is padded in every one of its own. Both fits
+were curves through a predictor that does not govern the phenomenon, and both
+earned their R² against a variable whose range is dominated by phase length
+itself.
+
+We report both failures because they are the paper's own argument turned on us,
+twice: a high R² on a skewed predictor is not evidence of the right functional
+form. The manuscript now states the consequence without any model — divide each
+instrument's energy by its own duration, per phase-length bin — which is what it
+should have done first.
 
 ### Comment 12 — Descriptive answers, no mechanism
 
@@ -636,16 +675,16 @@ came from the measurement setup.
 
 **The replicated campaign identifies the mechanism.** The submitted RQ3 used
 CodeCarbon's `duration` column as the time axis. That column is not the interval
-the energy was accumulated over: it is `max(phase_duration, ≈3.99 s)`,
-R² = 0.993. Every phase shorter than four seconds — which is every inference
-phase in the faster stacks, and the training epochs of the fastest — was
+the energy was accumulated over: two thirds of blocks carry seconds of tracker
+lifetime in which no energy was drawn. Every such block — which is every
+inference phase in the faster stacks, and many of the training epochs — was
 therefore recorded with a *stretched* time and a *correct* energy. That is
 precisely the shape of a "fast but energy-hungry" data point, and it is
 manufactured entirely by the instrument.
 
 Recomputed on counter-bracketed durations, energy and time rank the
 configurations at Spearman ρ ≈ 1 in both phases. `11_instrument_comparison.py`
-reproduces the floor characterisation; `14_v2_statistics.py` reproduces the
+reproduces the window characterisation; `14_v2_statistics.py` reproduces the
 correlations.
 
 Efficiency Index: see Reviewer 1 comment 10.

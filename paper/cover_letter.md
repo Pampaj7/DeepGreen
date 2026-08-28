@@ -26,14 +26,26 @@ parallelism, and in two cases evaluated in training mode. Any one of these
 invalidates a cross-ecosystem energy comparison; together they made the
 submitted result an artefact of its own apparatus.
 
+We also record two corrections we made to our own re-execution during internal
+review, because both are the kind of thing this paper argues cannot be caught by
+care alone. The headline energy tables were being computed from the software
+estimator's total, modelled RAM term included, under captions saying hardware
+counters --- the same class of error as the unit mislabelling, committed by us,
+in the paper that catalogues it. And our model of the estimator's reported
+duration was wrong twice before it was right: a floor, then a threshold, both
+fitted to a predictor that does not govern the phenomenon and both carrying a
+persuasive R². The manuscript now reports the consequence without any model.
+
 We rebuilt accordingly. A written specification now states what "the same
 experiment" means across stacks — model, optimisation, data pipeline, backend,
 measurement, replication — and 63 automated checks enforce it against the source
 code, so a divergence fails a check instead of quietly changing a number. Energy
 is read from hardware counters (NVML's accumulated-energy register and the RAPL
-package counters) with CodeCarbon running over the identical window as a second,
-independent instrument, so every block carries two readings that can be held
-against each other. Each configuration runs five independent interleaved times
+package counters) with CodeCarbon running over the identical window as a second
+reading, so every block carries two readings that can be held against each
+other. We are careful in the manuscript about what that comparison establishes:
+where both counters are exposed CodeCarbon reads the same registers, so the
+agreement certifies the window and the arithmetic, not the accuracy. Each configuration runs five independent interleaved times
 with distinct seeds, and every ecosystem records per-epoch test accuracy. The
 result is 210 complete runs and 12,600 doubly instrumented blocks, with no
 failed or partial run in the analysis.
@@ -44,10 +56,12 @@ under the original design.
 The first is that the submitted paper's headline claim — that faster is not
 greener — reproduces here as an artefact of the estimator rather than a property
 of the ecosystems. The duration CodeCarbon reports beside each energy figure is
-not the duration the energy was accumulated over: below about eleven seconds it
-is the phase plus a constant 3.28 s (R² = 0.998). Any energy–time analysis built
-on that field understates power by up to 6.7× for sub-second phases, and the
-bias falls precisely on the fastest stacks and the inference phase. Measured
+not the duration the energy was accumulated over: two thirds of blocks carry
+seconds of tracker lifetime in which no energy was drawn, in three discrete
+modes that block length predicts but does not determine. Any energy–time
+analysis built on that field understates power by up to 11.2× on blocks under
+half a second, and the bias falls precisely on the fastest stacks and the
+inference phase. Measured
 against the counters, energy and time correlate at ρ = 0.98 in both phases.
 
 The second is a failure that only replication can see. VGG-16 converges to
