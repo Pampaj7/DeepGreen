@@ -119,7 +119,25 @@ class RunContext:
 
     @property
     def out_dir(self) -> Path:
-        return REPO_ROOT / "results" / "campaign_v2" / self.slug
+        """Where this run writes.
+
+        DEEPGREEN_RUN_DIR is the run contract: the campaign driver sets it, and
+        tools/deepgreen_tracker.py -- the path the non-Python stacks take --
+        has always honoured it. This path, taken by the Python stacks in
+        process, hardcoded the campaign directory and ignored it. The two
+        disagreed silently, so redirecting the driver's output moved the lock
+        and the plan and left the Python runs writing over the campaign they
+        were supposed to be measured against. They did exactly that, once.
+
+        One variable, read the same way on both paths, with the campaign
+        directory as the fallback so the default is unchanged.
+        """
+        override = os.environ.get("DEEPGREEN_RUN_DIR")
+        if override:
+            return Path(override)
+        root = os.environ.get("DEEPGREEN_CAMPAIGN_DIR")
+        base = Path(root) if root else REPO_ROOT / "results" / "campaign_v2"
+        return base / self.slug
 
 
 class Harness:

@@ -380,6 +380,22 @@ def run() -> list[Result]:
     except Exception as exc:  # a checker that cannot check must say so
         r.append(Result("all", "S6 replication schedule", FAIL, f"{type(exc).__name__}: {exc}"))
 
+    # ---------------- S5: one output contract, both paths -------------------
+    # The driver sets DEEPGREEN_RUN_DIR; deepgreen_tracker.py honoured it and
+    # deepgreen_bench.py hardcoded the campaign directory. Redirecting the
+    # driver moved the lock and left the Python stacks writing over the
+    # campaign. Both paths must read the same variable.
+    for name in ("tools/deepgreen_bench.py", "tools/deepgreen_tracker.py"):
+        src = read(name)
+        r.append(Result("all", f"S5 {Path(name).stem} honours DEEPGREEN_RUN_DIR",
+                        PASS if "DEEPGREEN_RUN_DIR" in src else FAIL, name))
+    bench = read("tools/deepgreen_bench.py")
+    hardcoded = re.search(r'"results"\s*/\s*"campaign_v2"', bench) is not None
+    unconditional = hardcoded and "DEEPGREEN_RUN_DIR" not in bench
+    r.append(Result("all", "S5 output path is not hardcoded past the contract",
+                    FAIL if unconditional else PASS,
+                    "campaign_v2 appears only as the fallback"))
+
     # ---------------- scope -------------------------------------------------
     rc = read("scripts/run_campaign.py")
     r.append(Result("all", "V2 scope excludes MATLAB",
