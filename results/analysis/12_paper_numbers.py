@@ -194,6 +194,16 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     macro("vCoverageWorstEco", SHORT[cov.loc[cov.coverage_pct.idxmin(), "ecosystem"]])
     macro("vCoverageBestEco", SHORT[cov.loc[cov.coverage_pct.idxmax(), "ecosystem"]])
 
+    # What the untracked time costs, at the measured idle power. The paper says
+    # this energy is "attributed to nobody"; it should say how much.
+    per_block = pd.read_csv(TABLES / "v2_coverage_per_block.csv", usecols=["gap_s"])
+    untracked_s = float(per_block.gap_s.sum())
+    macro("vUntrackedHours", num(untracked_s / 3600, 1))
+    if idle_path.exists():
+        untracked_j = untracked_s * idle["total_w"]
+        macro("vUntrackedMJ", num(untracked_j / 1e6, 1))
+        macro("vUntrackedPct", num(100 * untracked_j / epochs.hw_meas_j.sum(), 0))
+
     gi = pd.read_csv(TABLES / "v2_coverage_gap_attribution.csv").iloc[0]
     macro("vGapInstrumentR", num(gi.pearson_r, 2))
     macro("vGapInstrumentRPadded", num(gi.pearson_r_padded_only, 2))
@@ -457,7 +467,16 @@ def quality_facts() -> None:
     macro("vAccBlockSpreadTrainedMax", num(ok_blk.spread.max(), 1))
     macro("vAccRunsPerCell", int(q.groupby(["ecosystem", "dataset"]).size().max()))
 
-    # accuracy per kJ: the quality-normalised ranking the fixed-budget one hides
+    # accuracy per kJ: the quality-normalised ranking the fixed-budget one hides.
+    # Pooling across datasets averages values two orders of magnitude apart
+    # (~2.8 on Fashion-MNIST against ~0.03 on Tiny ImageNet), so the pooled mean
+    # is dominated by the easiest dataset. Report the per-dataset ratios too.
+    for ds, tag in (("fashionmnist", "Fashion"), ("cifar100", "Cifar"),
+                    ("tinyimagenet", "Tiny")):
+        g = q[q.dataset == ds].groupby("ecosystem").acc_per_kJ.mean().sort_values()
+        if len(g) > 1:
+            macro(f"vEffRatio{tag}", num(g.iloc[-1] / g.iloc[0], 1))
+            macro(f"vEffBest{tag}", SHORT[g.index[-1]])
     eff = q.groupby("ecosystem").acc_per_kJ.mean().sort_values(ascending=False)
     macro("vEffBest", SHORT[eff.index[0]])
     macro("vEffWorst", SHORT[eff.index[-1]])

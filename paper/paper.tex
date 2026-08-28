@@ -1007,7 +1007,12 @@ Figure~\ref{fig:energy_accuracy} plots the two together. Ranking ecosystems by
 accuracy per kilojoule rather than by energy alone puts \vEffBest{} ahead of
 \vEffWorst{} by \vEffRatio$\times$ --- \vEffRatioTrained$\times$ counting only
 the runs that trained --- a different quantity from the energy ratio, and closer
-to the one a practitioner choosing a stack actually faces.
+to the one a practitioner choosing a stack actually faces. That pooled figure
+averages values two orders of magnitude apart, since accuracy per kilojoule on
+Fashion-MNIST and on Tiny ImageNet are not the same kind of number, so we give
+it per dataset as well: \vEffRatioFashion$\times$ on Fashion-MNIST,
+\vEffRatioCifar$\times$ on CIFAR-100 and \vEffRatioTiny$\times$ on Tiny
+ImageNet, with \vEffBestFashion{} best on all three.
 
 \textbf{Energy to a target, and what it costs to report it.} Closest of all is
 the energy a stack spends before it first reaches a stated accuracy, which a
@@ -1417,10 +1422,13 @@ and the spreads reported in Section~\ref{subsec:rq1} stand as they are.
 Two caveats belong with that conclusion. The attribution is not exact --- for
 one ecosystem the instrument's share of untracked time comes out slightly above
 100\,\%, which is the one-second timestamp resolution showing through, and
-Table~\ref{tab:coverage} prints it unclamped rather than rounding it away. And
-the untracked time is not free: under whole-machine tracking it is real energy
-drawn from the wall and attributed to nobody, and its share grows as blocks get
-shorter, which is exactly where the instrument's other failure modes bite.
+Table~\ref{tab:coverage} prints it unclamped rather than rounding it away. And the untracked time is not free. Across the campaign it amounts to
+\vUntrackedHours{} hours, which at this machine's measured idle draw of
+\vIdleTotalW\,\si{\watt} is \vUntrackedMJ~MJ --- about \vUntrackedPct\,\% of the
+energy the campaign reports, drawn from the wall and attributed to nobody. Its
+share grows as blocks get shorter, which is exactly where the instrument's other
+failure modes bite, and it is a cost anyone planning a machine-mode campaign
+should budget for rather than discover.
 
 \begin{table}[t]
 \centering
@@ -2158,8 +2166,7 @@ The figure above is the energy inside the measured blocks. It excludes
 development, failed runs and the earlier campaign that motivated this design ---
 including those would roughly double it --- and it excludes the machine's draw
 during the untracked time between blocks discussed in
-Section~\ref{sec:instrument}, which at this campaign's block lengths is of the
-same order as the energy the collapsed runs wasted. An honest campaign-level
+Section~\ref{sec:instrument}, a further \vUntrackedMJ~MJ. An honest campaign-level
 figure is therefore larger than the one we report and we do not pretend
 otherwise; what we report is the quantity the comparisons are made on.
 
