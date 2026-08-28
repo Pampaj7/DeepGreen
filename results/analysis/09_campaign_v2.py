@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import J_PER_KWH, REPO_ROOT, bootstrap_ci, save_table  # noqa: E402
+from common import J_PER_KWH, REPO_ROOT, save_table, t_ci  # noqa: E402
 
 CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
 TARGET_ACCURACY = {  # per dataset, chosen well below the achievable ceiling
@@ -72,6 +72,16 @@ def collect() -> pd.DataFrame:
             no_metrics.append(run_dir.name)
             continue
         metrics = pd.read_csv(metrics_path)
+        # The counters are the instrument this study reports. Read them here
+        # rather than downstream: everything this file writes -- the energy
+        # tables, the spreads, the intervals, the quality normalisation -- was
+        # being computed from CodeCarbon's total, which carries a modelled RAM
+        # term, under a caption reading "accelerator plus CPU package". That is
+        # the defect this paper catalogues as "modelled term inside a measured
+        # total", committed by the paper itself.
+        hw = pd.read_csv(run_dir / "counters.csv")
+        hw["phase"] = hw.phase.map({"train": "Training", "eval": "Inference"})
+        hw = hw.set_index(["phase", "epoch"])
         for emissions_path in sorted(run_dir.glob("emissions_*.csv")):
             stem = emissions_path.stem  # emissions_<phase>_epoch<N>
             _, phase, epoch_tag = stem.split("_", 2)
@@ -80,11 +90,22 @@ def collect() -> pd.DataFrame:
             if e.empty:
                 continue
             rec = e.iloc[-1].to_dict()
+            phase_label = {"train": "Training", "eval": "Inference"}[phase]
+            try:
+                counter = hw.loc[(phase_label, epoch)]
+            except KeyError:
+                # A CodeCarbon file with no counter reading is a block this
+                # study cannot report, not a block to fall back on the
+                # estimator for.
+                continue
             rec.update(
                 {
                     "run_dir": run_dir.name,
-                    "phase": {"train": "Training", "eval": "Inference"}[phase],
+                    "phase": phase_label,
                     "epoch": epoch,
+                    "hw_total_j": float(counter.hw_total_j),
+                    "hw_gpu_j": float(counter.gpu_j),
+                    "hw_duration_s": float(counter.duration_s),
                 }
             )
             rows.append(rec)
@@ -98,9 +119,17 @@ def collect() -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.DataFrame(rows)
-    df["energy_j"] = df["energy_consumed"].astype(float) * J_PER_KWH
-    df["gpu_energy_j"] = df["gpu_energy"].astype(float) * J_PER_KWH
-    df["duration_s"] = df["duration"].astype(float)
+    # The reported quantity: accelerator plus CPU package, from the counters,
+    # over the counter-bracketed window. The estimator's own total and duration
+    # are kept beside it under names that say what they are, so that the
+    # instrument comparison has both and no analysis can pick up the wrong one
+    # by reaching for a neutral name.
+    df["energy_j"] = df["hw_total_j"].astype(float)
+    df["gpu_energy_j"] = df["hw_gpu_j"].astype(float)
+    df["duration_s"] = df["hw_duration_s"].astype(float)
+    df["cc_total_j"] = df["energy_consumed"].astype(float) * J_PER_KWH
+    df["cc_gpu_j"] = df["gpu_energy"].astype(float) * J_PER_KWH
+    df["cc_duration_s"] = df["duration"].astype(float)
 
     meta = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
@@ -131,7 +160,7 @@ def between_run_stats(df: pd.DataFrame) -> pd.DataFrame:
         ["ecosystem", "model", "dataset", "phase"], observed=True
     ):
         e = s["run_energy_j"].to_numpy()
-        mean, lo, hi = bootstrap_ci(e, np.mean)
+        mean, lo, hi = t_ci(e)
         rows.append(
             {
                 "ecosystem": eco,

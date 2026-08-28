@@ -142,6 +142,21 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     macro("vWindowExcessLongMs",
           num(fv["median window excess, phases longer than 6 s (s)"] * 1000, 0))
 
+    # What the disagreement actually is. The GPU terms are the same register
+    # read twice; the CPU terms differ by a near-constant offset that comes from
+    # nesting the counter reads inside the tracker's window, not from any
+    # sampling regime. Reporting it as a percentage made a fixed offset look
+    # like a length-dependent accuracy problem.
+    diff = (epochs.cc_meas_j - epochs.hw_meas_j).abs()
+    macro("vOffsetMedianJ", num(diff.median(), 2))
+    macro("vOffsetGpuMedianMJ", num((epochs.cc_gpu_j - epochs.hw_gpu_j).abs().median() * 1000, 1))
+    macro("vOffsetCpuMedianJ", num((epochs.cc_cpu_j - epochs.hw_cpu_j).abs().median(), 2))
+    macro("vOffsetDurationCorr", num(diff.corr(epochs.duration_hw_s), 2))
+    macro("vCCmeasWeightedRatio", num(epochs.cc_meas_j.sum() / epochs.hw_meas_j.sum(), 5))
+    macro("vCCmeasWeightedPct",
+          num(abs(epochs.cc_meas_j.sum() / epochs.hw_meas_j.sum() - 1) * 100, 2))
+    macro("vCCtotalWeightedRatio", num(epochs.cc_total_j.sum() / epochs.hw_total_j.sum(), 3))
+
     abl = pd.read_csv(TABLES / "v2_instrument_agreement_by_length.csv").set_index("phase_length")
     macro("vAgreeShortPct", num(abl.loc["<1 s", "mean_error_pct"], 1))
     macro("vAgreeShortWorstPct", num(abl.loc["<1 s", "worst_error_pct"], 0))
@@ -155,20 +170,70 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
 
     gi = pd.read_csv(TABLES / "v2_coverage_gap_attribution.csv").iloc[0]
     macro("vGapInstrumentR", num(gi.pearson_r, 2))
+    macro("vGapInstrumentRPadded", num(gi.pearson_r_padded_only, 2))
+    macro("vGapInstrumentRUnpadded", num(gi.pearson_r_unpadded_only, 2))
+    macro("vGapTimestampResolutionS", int(gi.timestamp_resolution_s))
     macro("vGapInstrumentPct", num(min(100.0, gi.share_of_gap_explained_pct), 0))
     macro("vGapMedianS", num(gi.median_gap_s, 2))
     macro("vGapVsExcessS", num(gi.median_abs_difference_s, 2))
 
-    wm = pd.read_csv(TABLES / "v2_coverage_window_model.csv")
-    best = wm.loc[wm.mean_abs_error_s.idxmin()]
-    naive = wm[wm.model.str.startswith("max(")].iloc[0]
-    macro("vWindowModelBestRsq", num(best.r_squared, 4))
-    macro("vWindowModelBestMAE", num(best.mean_abs_error_s, 2))
+    # The reported-duration excess: three modes, not a function of block length.
+    wm = pd.read_csv(TABLES / "v2_coverage_window_model.csv").sort_values("mode_excess_s")
+    macro("vWindowModes", len(wm))
+    for i, (_, r) in enumerate(wm.iterrows(), start=1):
+        tag = ["One", "Two", "Three", "Four"][i - 1]
+        macro(f"vWindowMode{tag}S", num(r.mode_excess_s, 2))
+        macro(f"vWindowMode{tag}Pct", num(r.share_pct, 0))
+        macro(f"vWindowMode{tag}Blocks", int(r.n_blocks))
+    macro("vWindowModeWidestS", num(wm.spread_s.max(), 2))
+    macro("vWindowPaddedPct", num(wm[wm.mode_excess_s > 0.5].share_pct.sum(), 0))
+    macro("vWindowConstS", num(wm.mode_excess_s.iloc[1], 2))
+
+    rf = pd.read_csv(TABLES / "v2_coverage_window_rejected_fits.csv")
+    naive = rf[rf.model.str.startswith("max(")].iloc[0]
+    thresh = rf[~rf.model.str.startswith("max(")].iloc[0]
     macro("vWindowModelNaiveRsq", num(naive.r_squared, 4))
     macro("vWindowModelNaiveMAE", num(naive.mean_abs_error_s, 2))
-    nums = re.findall(r"[0-9.]+", best.model)
-    macro("vWindowConstS", nums[0])
-    macro("vWindowThresholdS", nums[1])
+    macro("vWindowModelBestRsq", num(thresh.r_squared, 4))
+    macro("vWindowModelBestMAE", num(thresh.mean_abs_error_s, 2))
+    macro("vWindowThresholdS", re.findall(r"[0-9.]+", thresh.model)[1])
+    macro("vWindowPaddedAboveThreshold", int(naive.padded_above_threshold))
+    macro("vWindowUnpaddedBelowThreshold", int(naive.unpadded_below_threshold))
+
+    # The two ecosystems that rule out any length-based model, named by the data.
+    blk = pd.read_csv(TABLES / "v2_coverage_per_block.csv",
+                      usecols=["ecosystem", "window_excess_s"])
+    padded_share = blk.assign(p=blk.window_excess_s > 0.5).groupby("ecosystem").p.mean()
+    never = padded_share.idxmin()
+    always = padded_share.idxmax()
+    macro("vWindowUnpaddedEco", SHORT[never])
+    macro("vWindowUnpaddedEcoBlocks", int((blk.ecosystem == never).sum()))
+    macro("vWindowAlwaysPaddedEco", SHORT[always])
+    macro("vWindowAlwaysPaddedEcoBlocks", int((blk.ecosystem == always).sum()))
+
+    # The consequence, stated without a model.
+    pdist = pd.read_csv(TABLES / "v2_coverage_power_distortion.csv")
+    worst = pdist.loc[pdist.understated_by.idxmax()]
+    macro("vPowerUnderstatedWorst", num(worst.understated_by, 1))
+    macro("vPowerUnderstatedWorstBin", str(worst.bin).replace("<", "$<$"))
+    macro("vPowerReportedWorstW", num(worst.reported_power_w, 0))
+    macro("vPowerMeasuredWorstW", num(worst.measured_power_w, 0))
+    lines = [
+        r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
+        r"\begin{tabular}{lrrrr}",
+        r"\toprule",
+        r"\textbf{Phase length} & \textbf{Blocks} & "
+        r"\textbf{Power from the reported fields} & \textbf{Measured power} & "
+        r"\textbf{Understated by} \\",
+        r"\midrule",
+    ]
+    for _, r in pdist.iterrows():
+        label = str(r["bin"]).replace("<", "$<$").replace(">", "$>$").replace("-", "--")
+        lines.append(f"{label} & {int(r.n_blocks)} & {r.reported_power_w:.0f}\\,W & "
+                     f"{r.measured_power_w:.0f}\\,W & {r.understated_by:.2f}$\\times$ \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    (OUT / "tab_power_distortion.tex").write_text("\n".join(lines) + "\n")
+    print("  wrote paper/generated/tab_power_distortion.tex")
 
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
@@ -316,9 +381,23 @@ def write_spread_table(spread: pd.DataFrame) -> None:
 
 
 # ---------------------------------------------------------------- quality --
+# A run counts as collapsed if it never exceeded 1.5x chance; see
+# 15_convergence.py, which owns the definition.
+CHANCE_PCT = {"fashionmnist": 10.0, "cifar100": 1.0, "tinyimagenet": 0.5}
+
+
 def quality_facts() -> None:
     q = pd.read_csv(TABLES / "v2_quality_normalised.csv")
+    # The accuracy table averaged the collapsed runs in, so the manuscript used
+    # a collapse-contaminated spread as evidence in one section and argued in
+    # another that collapses explain nearly all of it. Both versions now exist,
+    # and each claim says which it uses.
+    q["collapsed"] = q.final_test_acc_pct <= q.dataset.map(CHANCE_PCT) * 1.5
+    trained = q[~q.collapsed]
+
     summ = q.groupby(["ecosystem", "dataset"]).final_test_acc_pct.mean().reset_index()
+    summ_ok = (trained.groupby(["ecosystem", "dataset"])
+               .final_test_acc_pct.mean().reset_index())
     for ds, tag in (("fashionmnist", "Fashion"), ("cifar100", "Cifar"),
                     ("tinyimagenet", "Tiny")):
         g = summ[summ.dataset == ds]
@@ -328,12 +407,35 @@ def quality_facts() -> None:
         macro(f"vAccMax{tag}", num(g.final_test_acc_pct.max(), 1))
         macro(f"vAccSpread{tag}",
               num(g.final_test_acc_pct.max() - g.final_test_acc_pct.min(), 1))
+        h = summ_ok[summ_ok.dataset == ds]
+        macro(f"vAccTrainedMin{tag}", num(h.final_test_acc_pct.min(), 1))
+        macro(f"vAccTrainedMax{tag}", num(h.final_test_acc_pct.max(), 1))
+        macro(f"vAccTrainedSpread{tag}",
+              num(h.final_test_acc_pct.max() - h.final_test_acc_pct.min(), 1))
+
+    # Pooling the two architectures cancels most of the spread, because they
+    # reach different accuracies in opposite per-ecosystem directions. A claim
+    # about how closely the stacks agree has to be made per block.
+    per_block = (q.groupby(["model", "dataset", "ecosystem"])
+                 .final_test_acc_pct.mean().reset_index())
+    blk = (per_block.groupby(["model", "dataset"]).final_test_acc_pct
+           .agg(lambda x: x.max() - x.min()).reset_index(name="spread"))
+    fashion = blk[blk.dataset == "fashionmnist"]
+    macro("vAccBlockSpreadFashionMax", num(fashion.spread.max(), 1))
+    ok_block = (trained.groupby(["model", "dataset", "ecosystem"])
+                .final_test_acc_pct.mean().reset_index())
+    ok_blk = (ok_block.groupby(["model", "dataset"]).final_test_acc_pct
+              .agg(lambda x: x.max() - x.min()).reset_index(name="spread"))
+    macro("vAccBlockSpreadTrainedMax", num(ok_blk.spread.max(), 1))
+    macro("vAccRunsPerCell", int(q.groupby(["ecosystem", "dataset"]).size().max()))
 
     # accuracy per kJ: the quality-normalised ranking the fixed-budget one hides
     eff = q.groupby("ecosystem").acc_per_kJ.mean().sort_values(ascending=False)
     macro("vEffBest", SHORT[eff.index[0]])
     macro("vEffWorst", SHORT[eff.index[-1]])
     macro("vEffRatio", num(eff.iloc[0] / eff.iloc[-1], 1))
+    eff_ok = trained.groupby("ecosystem").acc_per_kJ.mean().sort_values(ascending=False)
+    macro("vEffRatioTrained", num(eff_ok.iloc[0] / eff_ok.iloc[-1], 1))
 
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
@@ -344,9 +446,18 @@ def quality_facts() -> None:
         r"\midrule",
     ]
     piv = summ.pivot(index="ecosystem", columns="dataset", values="final_test_acc_pct")
+    piv_ok = summ_ok.pivot(index="ecosystem", columns="dataset",
+                           values="final_test_acc_pct")
     for eco, row in piv.iterrows():
-        vals = [row.get(d, np.nan) for d in ("fashionmnist", "cifar100", "tinyimagenet")]
-        cells = [f"{v:.2f}" if pd.notna(v) else "--" for v in vals]
+        cells = []
+        for d in ("fashionmnist", "cifar100", "tinyimagenet"):
+            v, w = row.get(d, np.nan), piv_ok.loc[eco].get(d, np.nan)
+            if pd.isna(v):
+                cells.append("--")
+            elif pd.isna(w) or abs(v - w) < 0.005:
+                cells.append(f"{v:.2f}")
+            else:  # collapsed runs excluded, in parentheses
+                cells.append(f"{v:.2f} ({w:.2f})")
         lines.append(f"{SHORT[eco]} & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_accuracy.tex").write_text("\n".join(lines) + "\n")
@@ -366,6 +477,17 @@ def statistics_facts() -> None:
     pw = pd.read_csv(TABLES / "v2_stats_pairwise.csv")
     macro("vPairsTotal", len(pw))
     macro("vPairsSignificant", int(pw.significant.sum()))
+    # Why that count is zero, and must be: with five runs against five the
+    # smallest attainable exact two-sided p is 2/C(10,5), and Holm over the
+    # comparisons within a block multiplies it past 0.05 whatever the effect.
+    per_block = int(pw.groupby(["model", "dataset", "phase"]).size().max())
+    macro("vPairsPerBlock", per_block)
+    macro("vPairsMinRawP", num(pw.p_raw.min(), 4))
+    macro("vPairsMinHolmP", num(pw.p_holm.min(), 3))
+    om = pd.read_csv(TABLES / "v2_stats_omnibus.csv")
+    macro("vOmnibusEpsMin", num(om.epsilon_sq.min(), 2))
+    macro("vOmnibusBlocks", len(om))
+    macro("vOmnibusMaxP", f"{om.p.max():.0e}".replace("e-0", "\\times 10^{-") + "}")
     macro("vPairsLargePct",
           num(100 * (pw.magnitude == "large").mean(), 0))
 
@@ -376,23 +498,36 @@ def statistics_facts() -> None:
     macro("vPhaseBlocks", len(pc))
 
     ct = pd.read_csv(TABLES / "v2_stats_libtorch_control.csv")
-    macro("vCtrlSpreadMin", num(ct.spread_libtorch.min(), 1))
-    macro("vCtrlSpreadMax", num(ct.spread_libtorch.max(), 1))
+    macro("vCtrlSpreadMin", num(ct.spread_shared_module.min(), 1))
+    macro("vCtrlSpreadMax", num(ct.spread_shared_module.max(), 1))
     macro("vCtrlShareMin", num(ct.share_of_log_spread_pct.min(), 0))
     macro("vCtrlShareMax", num(ct.share_of_log_spread_pct.max(), 0))
+    macro("vCtrlStacks", int(ct.n_shared_module.max()))
+    macro("vFamilySpreadMin", num(ct.spread_libtorch_family.min(), 1))
+    macro("vFamilySpreadMax", num(ct.spread_libtorch_family.max(), 1))
+    resnet = ct[ct.model == "resnet18"]
+    vgg = ct[ct.model == "vgg16"]
+    macro("vCtrlSpreadResnetMin", num(resnet.spread_shared_module.min(), 1))
+    macro("vCtrlSpreadResnetMax", num(resnet.spread_shared_module.max(), 1))
+    macro("vCtrlSpreadVggMin", num(vgg.spread_shared_module.min(), 1))
+    macro("vCtrlSpreadVggMax", num(vgg.spread_shared_module.max(), 1))
 
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
-        r"\begin{tabular}{llrrr}",
+        r"\begin{tabular}{llrrrr}",
         r"\toprule",
         r"\textbf{Model} & \textbf{Dataset} & \textbf{All " + str(int(ct.n_all.max()))
-        + r"} & \textbf{LibTorch group} & \textbf{Share of log spread} \\",
+        + r"} & \textbf{Shared module (" + str(int(ct.n_shared_module.max()))
+        + r")} & \textbf{LibTorch family (" + str(int(ct.n_shared_module.max()) + 1)
+        + r")} & \textbf{Share of log spread} \\",
         r"\midrule",
     ]
     for _, r in ct.iterrows():
         lines.append(
             f"{MODEL[r.model]} & {DATASET[r.dataset]} & {r.spread_all:.1f}$\\times$ & "
-            f"{r.spread_libtorch:.1f}$\\times$ & {r.share_of_log_spread_pct:.0f}\\% \\\\")
+            f"{r.spread_shared_module:.1f}$\\times$ & "
+            f"{r.spread_libtorch_family:.1f}$\\times$ & "
+            f"{r.share_of_log_spread_pct:.0f}\\% \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_control.tex").write_text("\n".join(lines) + "\n")
     print("  wrote paper/generated/tab_control.tex")
@@ -634,6 +769,7 @@ def reexecution_facts() -> None:
     macro("vLateBlocks",
           ", ".join(sorted({f"{MODEL[m]}/{DATASET[d]}"
                             for m, d in zip(later.model, later.dataset)})))
+    macro("vInterleavedRuns", len(starts) - len(later))
 
 
 # ----------------------------------------------------------------- ranking --

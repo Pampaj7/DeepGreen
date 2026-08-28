@@ -39,7 +39,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import REPO_ROOT, cliffs_delta, save_table  # noqa: E402
 
 TABLES = REPO_ROOT / "results" / "revision" / "tables"
-LIBTORCH = {"Python/PyTorch", "Cpp/LibTorch", "C++/LibTorch", "R/torch", "Rust/tch"}
+# Two nested groups, and the difference between them is the whole point.
+#
+# SHARED_MODULE are the stacks that under S1 load the byte-identical exported
+# TorchScript module on the pinned LibTorch 2.7.0 build. That is the real
+# control: same kernels, same weights, same graph.
+#
+# LIBTORCH_FAMILY adds R, which links its own bundled LibTorch and, because the
+# R binding cannot switch a script module between train and eval mode, builds an
+# equivalent architecture instead of loading the shared one. R was inside the
+# control group and carried its spread: reporting 8.5--10.8x as "shared-backend
+# overhead" was reporting the one member that shares neither the backend build
+# nor the module.
+SHARED_MODULE = {"Python/PyTorch", "Cpp/LibTorch", "C++/LibTorch", "Rust/tch"}
+LIBTORCH_FAMILY = SHARED_MODULE | {"R/torch"}
 
 
 def run_totals() -> pd.DataFrame:
@@ -117,28 +130,42 @@ def pairwise(runs: pd.DataFrame) -> pd.DataFrame:
 def libtorch_control(runs: pd.DataFrame) -> pd.DataFrame:
     """How much spread survives when the backend is held fixed?
 
-    Four of the seven ecosystems run on LibTorch, and under specification S1 the
-    Python, C++ and Rust members of that group train the identical TorchScript
-    module. Whatever separates them is therefore binding and host overhead, not
-    kernels. Comparing that spread with the full spread bounds how much of the
-    headline effect is attributable to the backend rather than the ecosystem.
+    Three of the seven ecosystems -- Python, C++ and Rust -- train the identical
+    exported TorchScript module on the identical pinned LibTorch build. Whatever
+    separates *those three* is binding and host overhead, not kernels, and that
+    is the number this table exists to report.
+
+    R links its own bundled LibTorch and builds an equivalent architecture
+    rather than loading the shared module, so it belongs to the LibTorch family
+    but not to the control. Both are reported, because the difference between
+    them is itself a result: it says how much of the "shared-backend" spread was
+    the one member that shared neither the build nor the module.
     """
     rows = []
     train = runs[runs.phase == "Training"]
     for (model, dataset), g in train.groupby(["model", "dataset"]):
-        med = g.groupby("ecosystem").energy_j.median()
-        ctrl = med[[e for e in med.index if e in LIBTORCH]]
+        # Mean of run means, matching the estimator every other energy table in
+        # this study uses. It was the median here, so the same quantity -- the
+        # spread across all seven -- came out differently in two tables of the
+        # same paper.
+        med = g.groupby("ecosystem").energy_j.mean()
+        ctrl = med[[e for e in med.index if e in SHARED_MODULE]]
+        family = med[[e for e in med.index if e in LIBTORCH_FAMILY]]
         if len(ctrl) < 2:
             continue
         full_spread = med.max() / med.min()
         ctrl_spread = ctrl.max() / ctrl.min()
+        family_spread = family.max() / family.min()
         rows.append({
             "model": model, "dataset": dataset,
-            "n_all": len(med), "n_libtorch": len(ctrl),
+            "n_all": len(med), "n_shared_module": len(ctrl),
             "spread_all": round(full_spread, 2),
-            "spread_libtorch": round(ctrl_spread, 2),
+            "spread_shared_module": round(ctrl_spread, 2),
+            "spread_libtorch_family": round(family_spread, 2),
             "share_of_log_spread_pct": round(
                 100 * np.log(ctrl_spread) / np.log(full_spread), 1),
+            "family_share_of_log_spread_pct": round(
+                100 * np.log(family_spread) / np.log(full_spread), 1),
         })
     return pd.DataFrame(rows)
 

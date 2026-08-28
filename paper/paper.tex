@@ -182,28 +182,53 @@ Machine Learning \sep Deep Learning \sep Green AI \sep Energy Efficiency \sep Su
 \begin{abstract}\newline
 
 \textbf{Context.}
-The rapid growth of Deep Learning (DL) has been accompanied by a steep increase in its environmental footprint, and a natural question follows for practitioners: does the choice of language--framework ecosystem carry an energy price? Answering it requires that every ecosystem run the same experiment and be measured the same way. Both requirements are more demanding than they appear, and neither is verifiable from reported energy figures alone.
+Deep Learning's environmental footprint raises a practical question: does the
+choice of language--framework ecosystem carry an energy price? Answering it
+requires that every ecosystem run the same experiment and be measured the same
+way --- neither of which is verifiable from reported energy figures alone.
 
 \textbf{Objectives.}
-This paper investigates \emph{how the choice of language--framework ecosystem affects the energy efficiency of DL workloads}, and, inseparably from that, \emph{what an apparatus must guarantee before such a comparison means anything}. We adopt a practitioner-centric perspective on the operational energy--time trade-offs developers face when selecting an ecosystem for training and inference, using computer vision image classification as a representative energy-intensive workload.
+We quantify how ecosystem choice affects the energy efficiency of DL training
+and inference, and, inseparably, what an apparatus must guarantee before such a
+comparison means anything.
 
 \textbf{Methods.}
-We compare two convolutional architectures (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems --- Python with PyTorch, TensorFlow and JAX; C++ with LibTorch; Java with Deeplearning4j; R with \texttt{torch}; and Rust with \texttt{tch} --- on three datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet). Three methodological commitments distinguish the design. First, a written experiment specification states what ``the same experiment'' means across stacks, and \vConformanceChecks{} automated checks enforce it against the source, so a divergence fails loudly instead of quietly changing a number. Second, energy is read from hardware counters --- NVML \texttt{nvmlDeviceGetTotalEnergyConsumption} for the accelerator and the RAPL package-energy counters for the CPU --- with CodeCarbon running over the same window as a second, independent instrument. Third, each configuration is executed as \vRepetitions{} independent interleaved runs with distinct seeds, making the run rather than the epoch the unit of analysis, and every stack records per-epoch accuracy so that energy can be normalised by the quality actually achieved.
+Two convolutional architectures (ResNet-18, VGG-16) across \vEcosystems{}
+ecosystems --- Python with PyTorch, TensorFlow and JAX; C++ with LibTorch; Java
+with Deeplearning4j; R with \texttt{torch}; Rust with \texttt{tch} --- on three
+datasets. A written specification defines what ``the same experiment'' means
+across stacks and \vConformanceChecks{} automated checks enforce it against the
+source. Energy is read from hardware counters (NVML and RAPL) with CodeCarbon
+over the identical window as a second reading. Each configuration runs
+\vRepetitions{} independent interleaved times, and every stack records per-epoch
+accuracy.
 
 \textbf{Results.}
-The design yields \vRuns{} runs and \vBlocks{} doubly instrumented measurement blocks. Between-run repeatability is high: the median coefficient of variation of training energy is \vCVTrainMedian\,\%. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block, while final accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST --- the differences are energetic, not qualitative. The two instruments agree on energy to \vCCmeasDisagreementPct\,\% over the whole campaign --- \vAgreeLongPct\,\% for blocks longer than \SI{30}{\second}, degrading to \vAgreeShortPct\,\% below one second, where the block is shorter than the sampling interval --- so the difficulty with software estimation is narrower and stranger than inaccuracy: the duration CodeCarbon reports beside each energy figure is not the duration the energy was accumulated over, but the phase plus a constant \vWindowConstS\,\si{\second} whenever the phase is shorter than about \vWindowThresholdS\,\si{\second} and the phase itself above that ($R^2 = \vWindowModelBestRsq$). Any power or energy--time analysis built on that field therefore understates power by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases while being exact above ten seconds --- a bias that falls precisely on the fastest ecosystems and the inference phase.
-
-Replication also exposed a failure a single-run design cannot see: VGG-16
-converges to exactly chance accuracy in \vCollapsedVgg{} of \vCollapsedVggRuns{}
-runs and never trains, consuming \vWastedPct\,\% of the campaign's energy for
-nothing, in \vCollapseEcosystems{} ecosystems independently and never for
-ResNet-18. Excluding those runs collapses the cross-ecosystem accuracy spread on
-\vCondBlockName{} from \vCondBlockRaw{} to \vCondBlockConverged{} percentage
-points --- so almost all apparent disagreement between stacks was runs that
-failed to train, not stacks computing different things.
+Over \vRuns{} runs and \vBlocks{} doubly instrumented blocks, training energy
+differs across ecosystems by \vSpreadTrainMin$\times$ to
+\vSpreadTrainMax$\times$ depending on the block, with a median between-run
+coefficient of variation of \vCVTrainMedian\,\%. Among the
+\vCtrlStacks{} stacks executing a byte-identical TorchScript module the spread
+is \vCtrlSpreadMin$\times$--\vCtrlSpreadMax$\times$, so much of the effect is
+binding and host-side work rather than kernels. On Fashion-MNIST the stacks
+converge to within \vAccBlockSpreadFashionMax{} percentage points; on the harder
+datasets they do not, and energy must be read alongside accuracy. Replication
+exposed a failure a single-run design cannot see: VGG-16 reaches exactly chance
+accuracy in \vCollapsedVgg{} of \vCollapsedVggRuns{} runs, consuming
+\vWastedPct\,\% of the campaign's energy for nothing. On the apparatus, the
+estimator's energy agrees with the counters to \vCCmeasDisagreementPct\,\%
+because on this platform it reads the same registers --- but
+\vWindowPaddedPct\,\% of blocks are reported with a duration seconds longer than
+the interval their energy was accumulated over, so power derived from those two
+fields is understated by up to \vPowerUnderstatedWorst$\times$ on the shortest
+blocks and correct on the longest.
 
 \textbf{Conclusions.}
-Ecosystem selection materially affects the energy profile of DL applications, but the size and even the direction of that effect depend on decisions in the measurement apparatus that are invisible in the resulting data. We report the corrected comparison together with the specification, the shared measurement contract, the conformance checker and the raw dual-instrument records needed to audit it.
+Ecosystem selection materially affects the energy profile of DL applications,
+but the size and even the direction of that effect depend on decisions in the
+measurement apparatus that are invisible in the resulting data. We report the
+comparison together with the specification, the conformance checker and the raw
+dual-instrument records needed to audit it.
 \end{abstract}
 
 
@@ -219,22 +244,22 @@ In a world of limited environmental resources, the ever-growing energy required 
 
 Rather than framing this trend solely as a cause of concern, the field is now embracing a proactive paradigm, referred to as \emph{Green AI}~\cite{schwartz2020green,verdecchia2023systematic}. This research line promotes the development of AI systems that are not only accurate and effective but also energy-conscious and efficient. Recent surveys have highlighted advances across lightweight architectures, efficient training and inference strategies, model compression, and hardware-aware optimizations~\cite{xu2021survey,mehlin2023towards,tripp2024measuring,yarally2023uncovering}. Evidence increasingly points in the direction of energy improvements not necessarily implying a degradation of accuracy~\cite{cruz2025greening}.
 
-Beyond algorithmic efficiency, research in software sustainability has shown that the choice of programming language itself can have a substantial impact on energy usage~\cite{pereira2021ranking,georgiou2017analyzing,pereira2017energy,gordillo2024ranking,nanz2015comparative,chandra2019impact,mahadevappa2021energy,maleki2017understanding}. Nevertheless, while both Green AI and the environmental sustainability of programming languages have been independently investigated, their intersection remains largely unexplored.
+Beyond algorithmic efficiency, research in software sustainability has shown that the choice of programming language itself can have a substantial impact on energy usage~\cite{pereira2021ranking,georgiou2017analyzing,pereira2017energy,gordillo2024ranking,chandra2019impact,mahadevappa2021energy,maleki2017understanding}, and on the run time and memory that partly determine it~\cite{nanz2015comparative}. Nevertheless, while both Green AI and the environmental sustainability of programming languages have been independently investigated, their intersection remains largely unexplored.
 A first step was made by Georgiou \etal~\cite{georgiou2022green}, who analyzed the energy footprint of Deep Learning frameworks within Python, and by Marini \etal~\cite{marini2025green}, who studied the impact of programming languages in AI workloads.
 
 For a practitioner, however, a programming language is inseparable from its \emph{ecosystem}. Choosing a language for DL typically implies adopting a specific software stack, including language bindings, frameworks/libraries, runtimes/execution engines, and low-level driver/toolchain dependencies.
 As a result, in real-world settings it is often more meaningful to evaluate \emph{language--framework ecosystems} as they are adopted in practice, rather than attempting to isolate a ``pure'' language effect under synthetic, fully standardized conditions.
 
-Yet, to the best of our knowledge, no prior work has systematically examined this ecosystem-level dimension across multiple language-based DL stacks in the context of GPU-based DL, where frameworks, execution engines, toolchains, and dataset complexity can introduce substantial variability~\cite{weber2023twins}.
+Prior work has approached this from three directions without closing it. Energy has been compared across DL frameworks \emph{within} one language ecosystem, including at the GPU and runtime-infrastructure level~\cite{georgiou2022green,alizadeh2024energy}; language-level energy has been measured for CPU-bound general-purpose workloads~\cite{pereira2021ranking,gordillo2024ranking}; and the \emph{runtime} cost of cross-language DL bindings has been characterised for time, memory and accuracy, but not for energy~\cite{li2024bindings}. What has not been measured is energy across multiple language-based DL stacks for GPU training and inference, where frameworks, execution engines, toolchains and dataset complexity all vary together~\cite{weber2023twins}.
 
-This paper addresses this gap by presenting a large-scale empirical study on \emph{the impact of language--framework ecosystems on the energy efficiency of DL workloads}.
+This paper addresses this gap by presenting an empirical study on \emph{the impact of language--framework ecosystems on the energy efficiency of DL workloads}.
 To achieve our goal, we consider two widely adopted convolutional neural networks (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems, spanning five host languages (Python, C++, Java, R and Rust) and the frameworks each of them offers in practice (PyTorch, TensorFlow and JAX; LibTorch; Deeplearning4j; and the \texttt{torch} and \texttt{tch} bindings), on three heterogeneous datasets (Fashion-MNIST, CIFAR-100 and Tiny ImageNet).
 
 A cross-ecosystem energy comparison, however, rests on two premises that are rarely stated and never visible in the resulting numbers: that every stack is running the same experiment, and that every stack is measured the same way. We found both to be far harder to satisfy than the literature suggests, and we came to that conclusion the expensive way. An earlier campaign of ours, of exactly this shape, was executed carefully and produced an entirely coherent story; auditing it against its own source code afterwards showed that the stacks had drifted apart in learning rate, input shape, evaluation batching and data-loader parallelism, that the measurement tool had been configured five different ways across them, and that two stacks were capable of running the whole workload on the CPU while reporting nothing but a log line. None of this was visible in the energy figures. All of it moved them.
 
 We therefore treat the apparatus as part of the contribution rather than as a preliminary. Three commitments follow. \emph{(i)} A written experiment specification states what ``the same experiment'' means across stacks --- model, optimisation, data pipeline, backend, measurement and replication --- and \vConformanceChecks{} automated checks enforce it against the source code, so that a divergence fails a check instead of quietly changing a number. \emph{(ii)} Energy is read from hardware counters, NVML's accumulated-energy register for the accelerator and the RAPL package-energy counters for the CPU, with CodeCarbon running over the same window as a second, independent instrument; every block therefore carries two readings that can be held against each other. \emph{(iii)} Each configuration is executed as \vRepetitions{} independent, interleaved runs with distinct seeds, so that the run rather than the epoch is the unit of analysis, and every ecosystem records per-epoch test accuracy, so that energy can be normalised by the quality actually reached rather than assumed equal.
 
-Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report are genuine. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. The ecosystem effect is real, it is large, and it is energetic rather than qualitative.
+Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report, Student-$t$ on five independent runs, describe between-run uncertainty rather than epoch autocorrelation. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccBlockSpreadFashionMax{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. On the two harder datasets the stacks do not converge to a common accuracy, and there energy must be read alongside quality rather than instead of it. The ecosystem effect is real and large; on Fashion-MNIST it is energetic rather than qualitative.
 
 Replication earned its cost in a way we did not anticipate. VGG-16 fails to
 train at all in \vCollapsedVgg{} of \vCollapsedVggRuns{} runs --- converging to
@@ -248,7 +273,7 @@ excluding them takes the cross-ecosystem spread on \vCondBlockName{} from
 run per configuration reports whichever of the two outcomes its single seed
 produced.
 
-The two instruments agree on \emph{energy} to \vCCmeasDisagreementPct\,\% over \vBlocks{} blocks, which relocates the difficulty with software-based estimation. What does not agree is time: the duration CodeCarbon reports beside each energy figure is not the interval the energy was accumulated over but the phase plus a constant \vWindowConstS\,\si{\second}, for every phase shorter than about \vWindowThresholdS\,\si{\second} ($R^2 = \vWindowModelBestRsq$; the excess is bimodal, either that constant or nothing). Power derived by dividing the one field by the other is therefore understated by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases and is exact above ten seconds --- a bias that lands squarely on the fastest ecosystems and on the inference phase, which is to say on precisely the comparisons such a study exists to make.
+The two readings agree on \emph{energy} to \vCCmeasDisagreementPct\,\% over \vBlocks{} blocks --- on this platform the estimator reads the same two registers we do, so its energy is not an estimate at all, and that relocates the difficulty with software-based estimation rather than dissolving it. What does not agree is time. The duration CodeCarbon reports beside each energy figure is not the interval the energy was accumulated over: \vWindowPaddedPct\,\% of blocks carry seconds of tracker lifetime that no energy was drawn in, in \vWindowModes{} discrete modes that block length predicts but does not determine. Power derived by dividing the one field by the other is therefore understated by up to \vPowerUnderstatedWorst$\times$ on the shortest blocks and correct on the longest --- a bias that lands squarely on the fastest ecosystems and on the inference phase, which is to say on precisely the comparisons such a study exists to make.
 
 The contributions of this work are as follows:
 \begin{itemize}
@@ -295,7 +320,7 @@ report close tracking under controlled conditions and larger deviations on
 heterogeneous infrastructure~\cite{aquino2025energyindex,bouza2023carbonfootprint};
 independent validation against external ground truth across hundreds of AI
 experiments reports estimator errors up to 40\% and systematic underestimation
-of 20--30\% in some settings~\cite{fischer2025groundtruthing}. That work asks
+of 20--30\% in some settings~\cite{fischer2026groundtruthing}. That work asks
 whether an estimator's number is close to the truth.
 
 We ask a different and complementary question: whether a study can \emph{tell}
@@ -329,7 +354,7 @@ and drives. \emph{Hardware energy counters} --- NVML's
 \texttt{nvmlDeviceGetTotalEnergyConsumption} on NVIDIA accelerators and Intel
 RAPL on the CPU package --- accumulate energy in the silicon itself and are read
 by software but not estimated by it. \emph{Software estimators} such as
-\texttt{CodeCarbon}~\cite{lacoste2019quantifying} sit on top of whatever the
+\texttt{CodeCarbon}~\cite{codecarbon} sit on top of whatever the
 platform exposes and substitute a model wherever it exposes nothing.
 
 Software estimators have become standard in sustainability-oriented AI
@@ -346,7 +371,7 @@ conditions while deviating more on heterogeneous
 infrastructure~\cite{aquino2025energyindex,bouza2023carbonfootprint}.
 Independent validation against external ground truth across hundreds of AI
 experiments nonetheless reports estimator errors of up to 40\%, and systematic
-underestimation of 20--30\% in some settings~\cite{fischer2025groundtruthing}.
+underestimation of 20--30\% in some settings~\cite{fischer2026groundtruthing}.
 
 We take a different position from the one this literature usually implies. The
 question is not whether a software estimator is accurate enough to be trusted,
@@ -370,6 +395,54 @@ at all. Section~\ref{sec:instrument} reports what the two instruments say about
 each other across the campaign.
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Related Work}
+\label{sec:related}
+
+Table~\ref{tab:related} places this study against the work closest to it on the
+two axes that matter here: how many language ecosystems are compared, and how
+energy is measured.
+
+\begin{table*}[t]
+\centering
+\caption{The closest prior work, on the two axes this study varies. ``Stacks''
+counts distinct language--framework combinations compared under one protocol.}
+\label{tab:related}
+\begin{tabularx}{\linewidth}{l l l X l}
+\toprule
+\textbf{Study} & \textbf{Stacks} & \textbf{Hardware} & \textbf{Energy instrument} & \textbf{Replication} \\
+\midrule
+Pereira \etal~\cite{pereira2021ranking} & 27 languages, no DL & CPU & RAPL & 10 runs \\
+Gordillo \etal~\cite{gordillo2024ranking} & 8 languages, no DL & CPU & hardware meter & repeated \\
+Georgiou \etal~\cite{georgiou2022green} & 2 frameworks, Python only & CPU + GPU & RAPL + NVML & 30 runs \\
+Alizadeh \& Castor~\cite{alizadeh2024energy} & 4 runtimes, Python only & CPU + GPU & software estimator & repeated \\
+Li \etal~\cite{li2024bindings} & 5 bindings, 2 frameworks & CPU + GPU & none (time, memory, accuracy) & repeated \\
+Jay \etal~\cite{jay2023experimental} & software meters, not stacks & CPU + GPU & meters against a wattmeter & repeated \\
+Marini \etal~\cite{marini2025green} & 5 languages & CPU + GPU & software estimator & single run \\
+\midrule
+This study & \vEcosystems{} stacks, 5 languages & GPU & NVML + RAPL counters, estimator alongside & \vRepetitions{} runs \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Two of these deserve more than a row. Alizadeh and Castor~\cite{alizadeh2024energy}
+compare runtime infrastructures for the same models on the same GPU, and reach
+the ecosystem-level question from inside Python: their treatment is the runtime
+beneath one language, ours is the language--framework stack above it. Li
+\etal~\cite{li2024bindings} compare TensorFlow and PyTorch bindings across five
+languages, which is our independent variable exactly, and measure run time,
+memory and accuracy rather than energy --- the gap this study fills, and the
+reason we treat the measurement boundary as a contribution rather than a
+preliminary.
+
+Jay \etal~\cite{jay2023experimental} compare software power meters, CodeCarbon
+among them, against physical meters on CPU and GPU. Their finding that a
+measurement window must comfortably exceed a meter's sampling interval is the
+precedent for a constraint we ran into independently and report in
+Section~\ref{sec:instrument}; what we add is a characterisation of the
+\emph{duration} an estimator reports beside its energy, which to our knowledge
+has not been examined.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Research Methodology}
@@ -417,7 +490,7 @@ By relying on these standard, pre-implemented architectures, we ensure that our 
 To account for varying workload complexity, we employ three widely utilized datasets.
 \emph{Fashion-MNIST} provides a lightweight baseline with 28$\times$28 grayscale images across 10 classes~\cite{xiao2017fashion}, and is often used as a modern drop-in replacement for MNIST\footnote{\url{https://github.com/zalandoresearch/fashion-mnist}}. It includes 60,000 training and 10,000 test images.
 \emph{CIFAR-100} increases complexity with 32$\times$32 color images across 100 categories, remaining a canonical benchmark for image classification~\cite{krizhevsky2009learning}, and comprises 50,000 training and 10,000 test images.
-\emph{Tiny ImageNet} represents a demanding workload with 64$\times$64 color images across 200 classes and 100,000 training and 10,000 test images, serving as a proxy for ImageNet-scale tasks~\cite{banbury2021mlperf}.
+\emph{Tiny ImageNet} represents a demanding workload with 64$\times$64 color images across 200 classes and 100,000 training and 10,000 test images, serving as a proxy for ImageNet-scale tasks~\cite{le2015tinyimagenet}.
 
 All datasets were resized to a uniform resolution of 32$\times$32 pixels.
 This preserves the relative differences in complexity (grayscale vs. color, number of classes, dataset size) while removing input resolution as a confounding factor~\cite{marini2025green,georgiou2022green}.
@@ -478,12 +551,16 @@ We therefore wrote the protocol down before running anything, as a
 specification with six parts, and made conformance machine-checkable.
 
 \begin{itemize}\itemsep2pt
-  \item \textbf{S1 --- Model.} The four ecosystems that share the LibTorch
-        backend (Python, C++, R, Rust) train the \emph{same} TorchScript module,
-        exported once per (architecture, dataset) pair, rather than four
-        independent reimplementations of ResNet-18 and VGG-16. The remaining
-        stacks use the canonical architecture their framework ships, with
-        parameter counts checked against the exported module.
+  \item \textbf{S1 --- Model.} The \vCtrlStacks{} ecosystems that share the
+        pinned LibTorch build (Python, C++, Rust) train the \emph{same}
+        TorchScript module, exported once per (architecture, dataset) pair,
+        rather than three independent reimplementations of ResNet-18 and
+        VGG-16. R links a LibTorch of its own and its binding cannot switch a
+        script module between training and evaluation mode, so it builds an
+        equivalent architecture instead; it belongs to the LibTorch lineage but
+        not to the control group. The remaining stacks use the canonical
+        architecture their framework ships, with parameter counts checked
+        against the exported module.
   \item \textbf{S2 --- Optimisation.} One optimiser, one learning rate, one
         batch size, one epoch count, one loss, one seeding policy, applied
         identically and asserted at startup.
@@ -533,10 +610,10 @@ exposed at \texttt{/sys/class/powercap} for the CPU, with
 wraparound at \texttt{max\_energy\_range\_uj} handled explicitly. The reported
 quantity is their sum: a chip-level boundary, identical for every ecosystem.
 
-\texttt{CodeCarbon}~\cite{lacoste2019quantifying} runs over the same window as
+\texttt{CodeCarbon}~\cite{codecarbon} runs over the same window as
 an independent second instrument, in machine tracking mode at a one-second
 sampling interval, configured identically for all \vEcosystems{} stacks through
-a single shared bridge. The six non-Python ecosystems drive that bridge over a
+a single shared bridge. The four non-Python ecosystems drive that bridge over a
 line protocol with synchronous acknowledgement, so that a phase boundary in the
 measured process and the corresponding counter read cannot drift apart --- an
 earlier asynchronous version of the same bridge under-reported one stack's
@@ -612,11 +689,12 @@ host.
 \textbf{Model implementations.}
 Every ecosystem uses the canonical architecture its framework provides rather
 than a reimplementation, and, where the backend permits, the \emph{same}
-artefact. Under specification S1 the four LibTorch-based stacks --- Python,
-C++, R and Rust --- do not build four independent ResNet-18s and VGG-16s but
+artefact. Under specification S1 the four stacks on the pinned LibTorch build --- Python,
+C++ and Rust --- do not build three independent ResNet-18s and VGG-16s but
 load one TorchScript module per (architecture, dataset) pair, exported once and
 version-pinned in a manifest that the conformance checker compares against the
-LibTorch each stack links. This removes what would otherwise be the largest
+LibTorch each stack links. R links its own bundled LibTorch and builds an
+equivalent architecture, for the reason given under S1. This removes what would otherwise be the largest
 uncontrolled variable in the study: in an earlier campaign these four stacks
 differed in parameter count, and comparing them was therefore comparing four
 models, not four bindings.
@@ -644,9 +722,11 @@ During a preliminary pilot phase, the Julia programming language (using \texttt{
 
 \begin{table*}[t]
 \centering
-\caption{Ecosystems, frameworks, versions and backends. The four stacks marked
-$\dagger$ share one pinned LibTorch build and one exported TorchScript module,
-and form the internal control group of the study.}
+\caption{Ecosystems, frameworks, versions and backends. The \vCtrlStacks{}
+stacks marked $\dagger$ share one pinned LibTorch build and one exported
+TorchScript module, and form the internal control group of the study. R, marked
+$\ddagger$, links a LibTorch of its own and builds an equivalent architecture:
+same lineage, different backend and different artefact.}
 \label{tab:frameworks}
 \begin{tabularx}{\linewidth}{l l l l}
 \toprule
@@ -657,7 +737,7 @@ Python  & PyTorch / TorchVision$^\dagger$ & v2.7.0 / v0.22.0  & LibTorch 2.7.0, 
         & JAX / Flax / Optax              & v0.10.2 / v0.12.8 / v0.2.8 & cuDNN 9.24, CUDA 12 wheels \\
 C++     & LibTorch$^\dagger$              & v2.7.0            & LibTorch 2.7.0, CUDA 12.8 \\
 Java    & Deeplearning4j                  & v1.0.0-M2.1       & ND4J CUDA 11.6, cuDNN 8.3 \\
-R       & \texttt{torch}$^\dagger$        & v0.17.0           & bundled LibTorch, CUDA 12 \\
+R       & \texttt{torch}$^\ddagger$       & v0.17.0           & bundled LibTorch, CUDA 12 \\
 Rust    & \texttt{tch}$^\dagger$          & v0.20.0           & LibTorch 2.7.0, CUDA 12.8 \\
 \midrule
 \multicolumn{2}{l}{\emph{Instrumentation}} & & \\
@@ -677,11 +757,11 @@ These settings reflect canonical practices in the community while ensuring compa
 \textbf{Measurement.}
 Each phase of each epoch is bracketed by two counter reads --- NVML's
 accumulated-energy register and the CPU package RAPL counter --- and is
-simultaneously tracked by \texttt{CodeCarbon} v3.3.0~\cite{lacoste2019quantifying}
+simultaneously tracked by \texttt{CodeCarbon} v3.3.0~\cite{codecarbon}
 over the identical window. The two instruments are started and stopped by the
 same code path, so their windows cannot drift apart.
 
-The six non-Python ecosystems drive the instrumentation through a single shared
+The four non-Python ecosystems drive the instrumentation through a single shared
 bridge: a Python process that accepts \texttt{START}, \texttt{STOP},
 \texttt{METRIC} and \texttt{EXIT} over a line protocol, reads the counters, and
 acknowledges each command before the measured process proceeds. The
@@ -799,8 +879,9 @@ energy per epoch for every ecosystem and block, at a common chip-level boundary.
     \centering
     \includegraphics[width=\linewidth]{figures/fig_energy_ci.png}
     \caption{Training energy per epoch, accelerator plus CPU package, with 95\%
-    between-run intervals. Note the logarithmic axis: the intervals are narrow
-    enough to be hard to see at this scale.}
+    Student-$t$ intervals over \vRepetitions{} independent runs. Note the
+    logarithmic axis: the intervals are narrow enough to be hard to see at this
+    scale.}
     \label{fig:energy_ci}
 \end{figure*}
 
@@ -827,21 +908,35 @@ the same boundary, the constant host term that used to be added to all of them
 \resizebox{\columnwidth}{!}{\input{generated/tab_spread.tex}}
 \end{table}
 
-\textbf{The shared-backend control group.} Four of the \vEcosystems{} ecosystems
-run on LibTorch, and three of those four --- Python, C++ and Rust --- train the
-byte-identical TorchScript module under specification S1. Whatever separates
-them cannot be the kernels, because the kernels are the same code; it is binding
-overhead, data movement and host-side dispatch.
-Table~\ref{tab:libtorch_control} reports the spread within that group against
-the spread across all \vEcosystems{}. A large control-group spread would mean
-the effect is host-side rather than intrinsic to the framework; a small one
-means the framework choice genuinely dominates.
+\textbf{The shared-backend control group.} \vCtrlStacks{} of the
+\vEcosystems{} ecosystems --- Python, C++ and Rust --- train the byte-identical
+TorchScript module on the same pinned LibTorch build under specification S1.
+Whatever separates \emph{those three} cannot be the kernels, because the kernels
+are the same code; it is binding overhead, data movement and host-side dispatch.
+Within that control the spread is \vCtrlSpreadMin$\times$ to
+\vCtrlSpreadMax$\times$ (Table~\ref{tab:libtorch_control}), against
+\vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ across all
+\vEcosystems{}: so binding overhead alone accounts for
+\vCtrlShareMin\,\%--\vCtrlShareMax\,\% of the log spread, and the framework
+choice dominates the rest.
+
+R is reported beside the control rather than inside it. It links its own
+bundled LibTorch and, because the R binding cannot switch a script module
+between training and evaluation mode, builds an equivalent architecture instead
+of loading the shared one --- so it shares neither the build nor the module.
+Including it widens the ``shared-backend'' spread to
+\vFamilySpreadMin$\times$--\vFamilySpreadMax$\times$, which would have been
+reported as binding overhead and is not: the difference between the two columns
+of Table~\ref{tab:libtorch_control} is the cost of one member that shares less
+than the label claims. We made that mistake in an earlier version of this
+analysis and record it here rather than quietly correcting it.
 
 \begin{table}[t]
 \centering
-\caption{Spread within the shared-backend control group against the full spread,
-per block. The control group holds LibTorch, the model and the data pipeline
-fixed.}
+\caption{Spread within the shared-module control group against the full spread,
+per block. The control holds the LibTorch build, the exported module and the
+data pipeline fixed. The LibTorch-family column adds R, which shares the
+lineage but neither the build nor the module.}
 \label{tab:libtorch_control}
 \resizebox{\columnwidth}{!}{\input{generated/tab_control.tex}}
 \end{table}
@@ -849,19 +944,26 @@ fixed.}
 \textbf{Energy at equal quality.} A fixed-budget comparison rewards a stack for
 learning less. Because every ecosystem now records test accuracy per epoch, we
 can check whether it is doing so. Table~\ref{tab:accuracy} reports final test
-accuracy by ecosystem and dataset. On Fashion-MNIST all \vEcosystems{} stacks
-land within \vAccSpreadFashion{} percentage points of one another
-(\vAccMinFashion--\vAccMaxFashion\,\%), which is the strongest available
-evidence that they are running the same experiment --- and a check the submitted
-design could not perform, because no ecosystem wrote its accuracy to disk. On
-the harder datasets the stacks separate more (CIFAR-100:
-\vAccMinCifar--\vAccMaxCifar\,\%), and there the energy comparison must be read
-alongside the accuracy reached rather than instead of it.
+accuracy by ecosystem and dataset. On Fashion-MNIST all \vEcosystems{} stacks land within
+\vAccBlockSpreadFashionMax{} percentage points of one another on either
+architecture, which is the strongest available evidence that they are running
+the same experiment --- and a check the submitted design could not perform,
+because no ecosystem wrote its accuracy to disk. We quote the per-architecture
+figure deliberately: pooling ResNet-18 and VGG-16, which reach different
+accuracies in opposite per-ecosystem directions, would report
+\vAccSpreadFashion{} points and would be measuring the pooling rather than the
+stacks. On the harder datasets the stacks separate more --- to at most
+\vAccBlockSpreadTrainedMax{} points per block once the runs that failed to train
+are excluded (Section~\ref{subsubsec:collapse}) --- and there the energy
+comparison must be read alongside the accuracy reached rather than instead of
+it.
 
 \begin{table}[t]
 \centering
-\caption{Final test accuracy (\%) after the fixed epoch budget, mean over
-\vRepetitions{} runs.}
+\caption{Final test accuracy (\%) after the fixed epoch budget, mean over the
+\vAccRunsPerCell{} runs of each cell (both architectures, \vRepetitions{}
+repetitions each). Where runs collapsed to chance, the mean over the runs that
+trained follows in parentheses.}
 \label{tab:accuracy}
 \resizebox{\columnwidth}{!}{\input{generated/tab_accuracy.tex}}
 \end{table}
@@ -971,9 +1073,12 @@ per configuration, training energy differs across ecosystems by
 \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture
 and dataset, with \vSpreadTrainBest{} cheapest in every block. Between-run
 variability is small (median CV \vCVTrainMedian\,\%), so these differences are
-well resolved. Final accuracy converges to within \vAccSpreadFashion{}
-percentage points on Fashion-MNIST, so the differences are energetic rather than
-qualitative --- the stacks are doing the same work at very different cost.
+well resolved. On Fashion-MNIST final accuracy converges to within
+\vAccBlockSpreadFashionMax{} percentage points on either architecture, so there
+the differences are energetic rather than qualitative. On the harder datasets the stacks do \emph{not} reach
+the same accuracy --- \vAccTrainedSpreadCifar{} points on CIFAR-100 and
+\vAccTrainedSpreadTiny{} on Tiny ImageNet even among the runs that trained ---
+and there the energy comparison must be read alongside the accuracy reached.
 \end{tcolorbox}
 
 \subsection{RQ2: Impact of ecosystems on inference energy efficiency}
@@ -1027,48 +1132,76 @@ good proxy for energy, and the interesting question is why an analysis of the
 same experimental shape can conclude otherwise.
 
 The answer is in Figure~\ref{fig:window_floor}. Panel (a) plots the duration
-CodeCarbon reports for each block against the counter-bracketed phase, and the
-relation has two regimes. Above about \vWindowThresholdS\,\si{\second} the two
-coincide to \vWindowExcessLongMs\,\si{\milli\second}. Below it, the reported
-duration is the phase plus a constant \vWindowConstS\,\si{\second} --- the
-excess is bimodal, essentially either that constant or nothing, with no
-intermediate values. Modelling it that way accounts for
-$R^2 = \vWindowModelBestRsq$ of the variance at a mean absolute error of
-\vWindowModelBestMAE\,\si{\second}.
+CodeCarbon reports for each block against the counter-bracketed phase. The
+excess between them is not continuous: it falls into \vWindowModes{} tight
+modes and nothing lies between them. \vWindowModeOnePct\,\% of blocks carry an
+excess of \vWindowModeOneS\,\si{\second} --- that is, none;
+\vWindowModeTwoPct\,\% carry \vWindowModeTwoS\,\si{\second}; and
+\vWindowModeThreePct\,\% carry \vWindowModeThreeS\,\si{\second}. The widest of
+the three modes spans \vWindowModeWidestS\,\si{\second}. Two thirds of the
+campaign's blocks are therefore reported with a window that is seconds longer
+than the interval over which their energy was accumulated.
 
-We report the fit this precisely because our own first attempt was a floor,
-$\max(\text{phase},\ \vWindowFloorS\,\text{s})$, which reaches
-$R^2 = \vWindowModelNaiveRsq$ and looks conclusive. It is not: that $R^2$ is
-carried by the very short and the very long blocks, where both models agree, and
-it is wrong in the middle, at nearly three times the error
-(\vWindowModelNaiveMAE\,\si{\second}). A high coefficient of determination on a
-skewed predictor is not evidence of the right functional form --- which is the
-argument of this paper applied to our own analysis.
+\emph{What decides which mode a block lands in is not its length.} Short blocks
+are padded far more often than long ones, and it is tempting --- we were tempted
+--- to write the excess as a function of phase duration. It is not one.
+\vWindowPaddedAboveThreshold{} blocks longer than \vWindowThresholdS\,\si{\second}
+are padded and \vWindowUnpaddedBelowThreshold{} blocks shorter than it are not;
+more decisively, \vWindowUnpaddedEco{} carries no padding in any of its
+\vWindowUnpaddedEcoBlocks{} blocks despite having the longest blocks in the
+campaign, while \vWindowAlwaysPaddedEco{} is padded in every one of its own. The
+excess is a property of the tracker's lifetime inside a particular process, not
+of the phase it brackets.
 
-The consequence is unchanged either way. The shortest phase in the campaign
-takes \vShortestPhaseS\,\si{\second} and is filed as
-\vShortestPhaseReportedS\,\si{\second}, a factor of \vShortestPhaseFactor.
+We are explicit about this because we fitted two length-based models before
+looking at the modes, and both are wrong in the same way. A floor,
+$\max(\text{phase},\ \vWindowFloorS\,\text{s})$, reaches
+$R^2 = \vWindowModelNaiveRsq$. A threshold, phase plus
+\vWindowConstS\,\si{\second} below \vWindowThresholdS\,\si{\second}, reaches
+$R^2 = \vWindowModelBestRsq$ at a third of the error, and looks conclusive. Both
+are curves fitted to a predictor that does not govern the phenomenon, and both
+achieve their $R^2$ against a variable whose range is dominated by phase length
+itself. A high coefficient of determination on a skewed predictor is not
+evidence of the right functional form --- which is this paper's own argument,
+turned on this paper's own analysis, twice.
+
+The consequence needs no model at all, which is the point.
+Table~\ref{tab:power_distortion} divides each instrument's own energy by its own
+duration. Below half a second the estimator's fields give
+\vPowerReportedWorstW\,W where the counters measure
+\vPowerMeasuredWorstW\,W, a factor of \vPowerUnderstatedWorst. The distortion
+falls monotonically with block length and reaches unity above ten seconds. The
+shortest phase in the campaign takes \vShortestPhaseS\,\si{\second} and is filed
+as \vShortestPhaseReportedS\,\si{\second}, a factor of \vShortestPhaseFactor.
+
+\begin{table}[t]
+\centering
+\caption{Power derived from the estimator's own energy and duration fields
+against power from the counters, by phase length. No model is fitted: each
+instrument is divided by itself.}
+\label{tab:power_distortion}
+\resizebox{\columnwidth}{!}{\input{generated/tab_power_distortion.tex}}
+\end{table}
 
 \begin{figure*}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/fig_window_floor.png}
     \caption{(a) The duration reported alongside each energy figure is not the
-    interval the energy was accumulated over: below about
-    \vWindowThresholdS\,\si{\second} it is the phase plus a constant
-    \vWindowConstS\,\si{\second}, and the phase itself above that.
+    interval the energy was accumulated over: the excess falls into
+    \vWindowModes{} discrete modes, and which one a block lands in is not
+    determined by its length.
     (b) Power obtained by dividing reported energy by reported duration is
-    consequently understated for short phases and exact for long ones.}
+    consequently understated for short phases and correct for long ones.}
     \label{fig:window_floor}
 \end{figure*}
 
 Panel (b) shows the consequence. Power computed as reported energy over reported
-duration is understated by \vPowerUnderstatedSubSecond$\times$ for sub-second
-phases (\vPowerCodeCarbonSubSecond\,W against a measured
-\vPowerCountersSubSecond\,W) and is accurate to \vPowerAgreeLongPct\,\% above ten
-seconds. The bias is not random and it is not uniform: it is a monotone function
-of phase length, so it falls hardest on the fastest ecosystems and on the
-inference phase, and it stretches their apparent time axis while leaving their
-energy untouched. That is precisely the shape of an artefactual ``fast but
+duration is understated by \vPowerUnderstatedWorst$\times$ on the shortest
+blocks (\vPowerReportedWorstW\,W against a measured \vPowerMeasuredWorstW\,W)
+and is correct above ten seconds. The bias is not random and it is not uniform:
+it is monotone in phase length, so it falls hardest on the fastest ecosystems
+and on the inference phase, and it stretches their apparent time axis while
+leaving their energy untouched. That is precisely the shape of an artefactual ``fast but
 energy-hungry'' finding.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ3 Findings: Energy and Time}]
@@ -1077,9 +1210,9 @@ On counter-bracketed durations, energy and execution time rank ecosystems almost
 identically ($\rho = \vRhoTrain$ training, $\vRhoInfer$ inference): within this
 workload, faster \emph{is} greener. The contrary finding is reproducible as an
 instrument artefact --- the duration field of a widely used software estimator
-adds a constant \vWindowConstS\,\si{\second} to any phase shorter than about
-\vWindowThresholdS\,\si{\second}, inflating the apparent runtime of the shortest
-by up to \vShortestPhaseFactor$\times$ while leaving their energy correct.
+pads \vWindowPaddedPct\,\% of blocks with seconds of tracker lifetime that
+carry no energy, inflating the apparent runtime of the shortest block by
+\vShortestPhaseFactor$\times$ while leaving its energy correct.
 \end{tcolorbox}
 
 \subsection{RQ4: How much of this is the apparatus?}
@@ -1106,31 +1239,43 @@ what they say about each other.
 \resizebox{\columnwidth}{!}{\input{generated/tab_instrument.tex}}
 \end{table}
 
-\textbf{On energy, the instruments agree.} Over the whole campaign the ratio of
-CodeCarbon to counters is \vCCgpuRatio{} for the accelerator and
-\vCCcpuRatio{} for the CPU package, or \vCCmeasRatio{} for their sum: a
-disagreement of \vCCmeasDisagreementPct\,\%. This is a useful and, we think,
-under-reported result. The literature's concern with software estimators is
-accuracy, and on this platform, over this workload, with both counters
-available, accuracy is not the problem.
+\textbf{On energy, the two readings agree --- and it is important to say why.}
+Over the whole campaign the ratio of CodeCarbon to counters is \vCCgpuRatio{}
+for the accelerator and \vCCcpuRatio{} for the CPU package, or \vCCmeasRatio{}
+for their sum, a mean per-block disagreement of \vCCmeasDisagreementPct\,\%;
+weighted by energy over the campaign it is \vCCmeasWeightedPct\,\%.
 
-That single figure hides where it comes from, and the structure matters more
-than the average. Agreement is a function of block length: above
-\SI{30}{\second} the two instruments agree to \vAgreeLongPct\,\%, and below one
-second the mean error rises to \vAgreeShortPct\,\% with a worst case of
-\vAgreeShortWorstPct\,\%. The transition sits at the sampling interval we
-configured, \vSamplingIntervalS\,\si{\second}, which is consistent with the
-estimator accumulating counter deltas when it has samples to accumulate and
-interpolating from sampled power when it does not --- though we can only observe
-the behaviour from outside, not the mechanism. The visible structure in
-Figure~\ref{fig:instrument}a is that transition.
+We initially read that as an accuracy result and it is not one. Where both
+counters are exposed, CodeCarbon reads \emph{the same registers we do}: NVML's
+accumulated-energy register on the accelerator and the RAPL \texttt{energy\_uj}
+files on the CPU package. The two are not independent instruments; they are two
+readers of one instrument. The evidence is in the residual itself. The
+accelerator terms differ by a median of \vOffsetGpuMedianMJ\,\si{\milli\joule}
+--- floating-point noise on the same integer register --- and essentially all of
+the residual is the CPU term, a near-constant \vOffsetCpuMedianJ\,\si{\joule}
+per block whose correlation with block duration is \vOffsetDurationCorr. That
+constant is the counter reads being nested immediately inside the tracker's own
+window rather than coinciding with it: at this machine's package power it
+corresponds to a window a few milliseconds wider, and it does not grow with the
+block.
 
-The practical rule this implies is simple and, as far as we know, not stated
-anywhere: a measurement block must be several times the instrument's sampling
-interval, or the instrument is estimating rather than measuring it. That is an
-awkward constraint for exactly the case a cross-ecosystem study needs, because
-the blocks it most wants to compare --- inference passes, and the epochs of the
-fastest stacks --- are the short ones.
+This changes what the comparison is worth, and we think it makes it more useful
+rather than less. It does not certify the estimator's accuracy against ground
+truth, which would need a wall meter and which independent validation work
+supplies~\cite{fischer2026groundtruthing}. What it certifies is that on a platform where the counters are exposed
+the estimator's energy is not a model at all --- so the failure modes worth
+worrying about are not in the arithmetic but in the configurations where the
+counters are \emph{not} exposed and the substitution is silent, and in the
+fields beside the energy. Both are what the rest of this section is about.
+
+It also means one figure we reported must be read carefully. Expressed as a
+percentage, a fixed \vOffsetMedianJ\,\si{\joule} offset grows without bound as
+blocks shorten: the mean per-block error is \vAgreeLongPct\,\% above
+\SI{30}{\second} and \vAgreeShortPct\,\% below one second. That is arithmetic on
+a constant, not a degradation of the instrument, and we withdraw the reading ---
+which we published in an earlier draft of this analysis --- that the transition
+marks the sampling interval. There is no transition: the absolute residual is
+flat across every duration decile from \SI{0.3}{\second} to \SI{65}{\second}.
 
 \textbf{On what is not measured, they cannot agree.} CodeCarbon's total exceeds
 the counters by \vCCtotalRatio$\times$, and the excess is entirely its RAM term
@@ -1144,32 +1289,45 @@ on how much memory the host happens to have.
 
 \textbf{The time between the phases belongs to the instrument.}
 Energy is attributed only to the phases each stack brackets, and the stacks
-differ enormously in how much of a run that is. Measured over wall time, tracked
-time ranges from \vCoverageMin\,\% (\vCoverageWorstEco) to \vCoverageMax\,\%
-(\vCoverageBestEco): more than half of a \vCoverageWorstEco{} run falls outside
-any measured block.
+differ enormously in how much of a run that is. Between the start of a run's
+first block and the end of its last, tracked time ranges from
+\vCoverageMin\,\% (\vCoverageWorstEco) to \vCoverageMax\,\%
+(\vCoverageBestEco): more than half of a \vCoverageWorstEco{} run's measured
+interval falls outside any measured block. We state the denominator precisely
+because it is not the process's wall time --- start-up, dataset construction,
+module loading, warm-up before the first epoch and teardown lie outside it, and
+are excluded from both sides of the ratio.
 
 The natural reading is that the low-coverage stacks do a great deal of work
 between phases and are flattered by a per-phase comparison. We pursued that
-reading and it is wrong. The gap preceding each block is almost exactly the
+reading and it does not survive. The gap preceding each block is close to the
 amount by which CodeCarbon's reported window exceeds the counter-bracketed
 phase: the two correlate at $r = \vGapInstrumentR$ over every block in the
 campaign, their medians differ by \vGapVsExcessS\,\si{\second}, and the window
-excess accounts for \vGapInstrumentPct\,\% of all untracked time. Coverage does
-not track anything about the ecosystems except the length of their blocks
-(Table~\ref{tab:coverage}) --- short blocks pay a fixed instrument cost more
+excess accounts for \vGapInstrumentPct\,\% of all untracked time. That pooled
+correlation is largely a contrast between padded and unpadded blocks rather than
+a fine agreement, and we report it as such: within the padded blocks alone it is
+$r = \vGapInstrumentRPadded$, and within the unpadded blocks
+$r = \vGapInstrumentRUnpadded$. The timestamps these gaps are computed from have
+\vGapTimestampResolutionS\,\si{\second} resolution against a median gap of
+\vGapMedianS\,\si{\second}, which is the precision this attribution has.
+
+Coverage tracks block length rather than anything about the ecosystems
+(Table~\ref{tab:coverage}): short blocks pay the tracker's fixed cost more
 often, so \vCoverageWorstEco{} with a \SI{3.2}{\second} median block is
-penalised where \vCoverageBestEco{} with a \SI{37}{\second} one is not.
+penalised where \vCoverageBestEco{} with a \SI{37}{\second} one is not. The
+untracked time is the instrument holding its window open. It would not exist in
+an uninstrumented run, and charging it to the ecosystems would charge them for
+the cost of being measured. Per-phase energy is therefore the right quantity,
+and the spreads reported in Section~\ref{subsec:rq1} stand as they are.
 
-The untracked time is the instrument holding its window open. It would not exist
-in an uninstrumented run, and charging it to the ecosystems would charge them
-for the cost of being measured. Per-phase energy is therefore the right
-quantity, and the spreads reported in Section~\ref{subsec:rq1} stand as they are.
-
-What the observation does bear on is anyone planning a campaign of this shape.
-Under whole-machine tracking that overhead is real energy drawn from the wall
-and attributed to nobody, and its share grows as blocks get shorter --- which is
-to say it grows exactly where the instrument is already least reliable.
+Two caveats belong with that conclusion. The attribution is not exact --- for
+one ecosystem the instrument's share of untracked time comes out slightly above
+100\,\%, which is the one-second timestamp resolution showing through, and
+Table~\ref{tab:coverage} prints it unclamped rather than rounding it away. And
+the untracked time is not free: under whole-machine tracking it is real energy
+drawn from the wall and attributed to nobody, and its share grows as blocks get
+shorter, which is exactly where the instrument's other failure modes bite.
 
 \begin{table}[t]
 \centering
@@ -1180,27 +1338,26 @@ the instrument's own window. Coverage follows block length, not the ecosystem.}
 \end{table}
 
 \textbf{Does the instrument change the answer?} We recomputed the ecosystem
-ranking of each block under both instruments. They agree in \vRankIdentical{} of
-\vRankBlocks{} blocks. The disagreements are confined to adjacent pairs that the
-statistical tests do not separate, so the instrument does not reorder the
-substantive conclusions of RQ1 --- provided energy, and not power or time
-derived from energy, is the quantity being compared.
+ranking of each block under both readings. They agree in \vRankIdentical{} of
+\vRankBlocks{} blocks, and the disagreements are confined to adjacent pairs. So
+the instrument does not reorder the substantive conclusions of RQ1 --- provided
+energy, and not power or time derived from energy, is the quantity being
+compared.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ4 Findings: The Apparatus}]
 \small
 Over \vBlocks{} doubly instrumented blocks, a widely used software estimator
 agrees with hardware energy counters to \vCCmeasDisagreementPct\,\% on the
-quantity both measure --- but that average is carried by the long blocks: it is
-\vAgreeLongPct\,\% above \SI{30}{\second} and \vAgreeShortPct\,\% below one, so
-the estimator measures where the block outlasts its sampling interval and
-estimates where it does not. The ecosystem ranking is nonetheless unchanged in
-\vRankIdentical{} of \vRankBlocks{} blocks. The remaining failure modes lie
-elsewhere:
-a modelled RAM term contributing \vCCramSharePct\,\% of the reported total that
-no counter can check and that scales with installed memory rather than with use,
-and a reported duration that is the phase plus a constant rather than the
-accumulation window. Both produce
-plausible numbers; neither is visible without a second instrument.
+quantity both measure --- because on this platform it is reading the same two
+registers, not estimating. That is the useful finding: where the counters are
+exposed, the estimator's energy is not the risk. The risks are the terms beside
+it. A modelled RAM term contributes \vCCramSharePct\,\% of the reported total,
+which no counter can check. \vWindowPaddedPct\,\% of blocks are reported with a
+duration seconds longer than the interval their energy was accumulated over, so
+power derived from those two fields is understated by up to
+\vPowerUnderstatedWorst$\times$. Both produce plausible numbers; neither is
+visible from the estimator's output alone. The ecosystem ranking is nonetheless
+unchanged in \vRankIdentical{} of \vRankBlocks{} blocks.
 \end{tcolorbox}
 
 \section{Discussion}
@@ -1256,12 +1413,16 @@ study of this exact shape can produce either answer depending on which of two
 fields of the same CSV it treats as the duration.
 
 \textbf{Quality must be measured, not assumed.} Under a fixed epoch budget the
-stacks converge to within \vAccSpreadFashion{} percentage points on
-Fashion-MNIST but separate by \vAccSpreadCifar{} points on CIFAR-100. Any
-efficiency claim on the harder datasets that does not report accuracy alongside
+stacks converge to within \vAccBlockSpreadFashionMax{} percentage points on
+Fashion-MNIST but separate by up to \vAccBlockSpreadTrainedMax{} points per
+block on the harder datasets, counting only the runs that trained. Any
+efficiency claim on those datasets that does not report accuracy alongside
 energy is comparing stacks that did different amounts of learning. This is not a
 subtle correction: an ecosystem that converges more slowly looks efficient
-precisely because it accomplished less.
+precisely because it accomplished less. We stress ``counting only the runs that
+trained'', because the uncorrected spread is \vAccSpreadCifar{} points on
+CIFAR-100 and most of that is the collapses of
+Section~\ref{subsubsec:collapse} rather than any difference in learning.
 
 \subsection{Implications for Stakeholders}
 Our findings carry different implications for different communities:
@@ -1343,7 +1504,9 @@ block to the cheapest changes training energy by
 \emph{training} budget is $E=1$~GWh on the most expensive stack of a block, the
 same fixed-budget run costs between $1/\vSpreadTrainMax$ and
 $1/\vSpreadTrainMin$ of that on the cheapest. At an electricity price of
-\SI{100}{\euro\per\mega\watt\hour}~\cite{kaack2022aligning}, the spread between
+\SI{100}{\euro\per\mega\watt\hour} --- a round figure in the range of recent
+European non-household prices, chosen for legibility rather than precision ---
+the spread between
 the two ends of a single block is on the order of hundreds of thousands of euro
 per GWh of training. We stress that this is arithmetic on a relative multiplier,
 not a forecast: it assumes the multiplier transfers to a workload of a different
@@ -1419,7 +1582,7 @@ Energy reported in \si{\kilo\watt\hour} under a \si{\joule} label; a factor of \
 yes \\
 \addlinespace
 Reported duration is not the accumulation window &
-Phase \(+\ \vWindowConstS\,\)s below \(\vWindowThresholdS\,\)s, phase above it; power understated \vPowerUnderstatedSubSecond$\times$ below one second, exact above ten &
+\vWindowPaddedPct\,\% of blocks padded by seconds of tracker lifetime in \vWindowModes{} discrete modes; power understated \vPowerUnderstatedWorst$\times$ on the shortest blocks, correct above ten seconds &
 no \\
 \addlinespace
 Modelled term inside a measured total &
@@ -1569,7 +1732,7 @@ verifiable in about a page of code.
 
 Three observations follow.
 
-\textbf{Only one of these is visible from the released data} --- and it is the
+\textbf{Only two of these are visible from the released data} --- and it is the
 one that changes no conclusion, since a constant factor leaves every ranking
 intact. Everything that does change a conclusion requires reading the code, or a
 second instrument, or a quality metric the study has to have thought to record.
@@ -1692,17 +1855,30 @@ not independent: epochs within a run share an initialisation, a JIT outcome, an
 allocator state and a thermal trajectory, so the effective sample size per
 configuration is one, confidence intervals are far too narrow and significance
 is inflated. Every interval and test reported here is computed on
-\vRepetitions{} independent runs per configuration, and all \vRuns{} runs were
-interleaved rather than executed consecutively so that machine-state drift is
-spread across conditions instead of aliasing onto one ecosystem.
+\vRepetitions{} independent runs per configuration, and
+\vInterleavedRuns{} of the \vRuns{} runs were interleaved rather than executed
+consecutively, so that machine-state drift is spread across conditions instead
+of aliasing onto one ecosystem. The exception is stated at the end of this
+subsection.
 
-Five repetitions is a small sample for a rank test, and we have preferred effect
-sizes (Cliff's delta) and Holm-corrected pairwise comparisons over unadjusted
-p-values accordingly. Between-run variability is low --- a median coefficient of
-variation of \vCVTrainMedian\,\% for training energy --- which makes the design
-well powered for the effect sizes we report, and we note that low variance is a
-statement about the measurement rather than a guarantee that the measurement is
-of the right thing.
+Five repetitions is a small sample for a rank test, and we report what that
+costs rather than working around it. A Kruskal--Wallis test rejects equality of
+ecosystems in every block ($p < 10^{-4}$, $\varepsilon^2 \ge \vOmnibusEpsMin$),
+and \vPairsLargePct\,\% of the \vPairsTotal{} pairwise comparisons carry a large
+Cliff's delta. Yet \vPairsSignificant{} of those \vPairsTotal{} pairs is
+significant after Holm correction --- and cannot be, at any effect size. With
+five runs against five, the smallest attainable two-sided exact Mann--Whitney
+$p$ is \vPairsMinRawP, and Holm over the \vPairsPerBlock{} comparisons within a
+block multiplies it to \vPairsMinHolmP. The design has the power to establish
+that the ecosystems differ and not the power to order any particular pair; we
+therefore rest the ordering claims on effect sizes and intervals, and make no
+pairwise significance claim.
+
+Between-run variability is low --- a median coefficient of variation of
+\vCVTrainMedian\,\% for training energy --- which makes the design well powered
+for the effect sizes we report. Low variance is a statement about the
+measurement rather than a guarantee that the measurement is of the right
+thing.
 
 Where the sample is genuinely too small we say so rather than reach. The VGG-16
 collapse rates of Section~\ref{subsubsec:collapse} range from
@@ -1744,18 +1920,23 @@ byte-identical TorchScript module, this gap is not kernel quality: it is
 binding overhead, data movement and host-side dispatch --- which is to say it is
 addressable by the people who maintain these stacks.
 
-Second, the effect is energetic and not qualitative. All \vEcosystems{} stacks
-converge to within \vAccSpreadFashion{} percentage points on Fashion-MNIST under
-the same epoch budget. They are doing the same work at very different cost.
+Second, on the easiest dataset the effect is energetic and not qualitative: all
+\vEcosystems{} stacks converge to within \vAccBlockSpreadFashionMax{} percentage
+points on Fashion-MNIST under the same epoch budget, doing the same work at very
+different cost. That equivalence does not extend to the harder datasets, where
+the stacks differ by \vAccTrainedSpreadCifar{} and \vAccTrainedSpreadTiny{}
+points even after excluding the runs that failed to train, and where energy must
+therefore be read alongside accuracy rather than instead of it.
 
 Third --- and this is the finding we did not expect --- the apparatus determines
 more of the answer than the ecosystems do, in one specific and correctable way.
 Over \vBlocks{} doubly instrumented blocks, a widely used software estimator
 agrees with hardware energy counters to \vCCmeasDisagreementPct\,\% on energy.
-But the duration it reports beside that energy is the phase plus a constant
-\vWindowConstS\,\si{\second}, not the interval the energy was accumulated over,
-so power derived from the two fields is understated by up to
-\vPowerUnderstatedSubSecond$\times$ for short phases and exact for long ones.
+But the duration it reports beside that energy is not the interval the energy
+was accumulated over: \vWindowPaddedPct\,\% of blocks carry seconds of tracker
+lifetime in which no energy was drawn, so power derived from the two fields is
+understated by up to \vPowerUnderstatedWorst$\times$ on the shortest blocks and
+correct on the longest.
 Recomputed on measured durations, energy and time rank ecosystems at
 $\rho = \vRhoTrain$: in this workload, faster \emph{is} greener, and the widely
 reported contrary result is reproducible here as an instrument artefact.

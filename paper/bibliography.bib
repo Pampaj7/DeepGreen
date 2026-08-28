@@ -9,24 +9,32 @@
 % Energy measurement: tools and their validation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-@article{fischer2025groundtruthing,
+@article{fischer2026groundtruthing,
   author  = {Fischer, Raphael},
   title   = {Ground-truthing {AI} energy consumption: validating {CodeCarbon}
              against external measurements},
   journal = {it - Information Technology},
-  year    = {2025},
+  volume  = {67},
+  number  = {4-6},
+  pages   = {155--163},
+  year    = {2026},
+  doi     = {10.1515/itit-2025-0031},
   note    = {Reports estimation errors of up to 40\% for established software
              estimators against meter ground truth}
 }
 
 @article{aquino2025energyindex,
-  author  = {Aquino-Brítez, Sergio and Ortiz, Andrés and Ortega, Julio and
-             Escobar, Juan José and Aquino-Brítez, Diego},
+  author  = {Aquino-Brítez, Sergio and García-Sánchez, Pablo and
+             Ortiz, Andrés and Aquino-Brítez, Diego},
   title   = {Towards an Energy Consumption Index for Deep Learning Models:
              A Comparative Analysis of Architectures, {GPUs}, and Measurement
              Tools},
   journal = {Sensors},
+  volume  = {25},
+  number  = {3},
+  pages   = {846},
   year    = {2025},
+  doi     = {10.3390/s25030846},
   note    = {Compares OpenZmeter hardware sensors against CarbonTracker and
              CodeCarbon on AlexNet, ResNet-18, VGG-16 and Swin Transformer}
 }
@@ -67,8 +75,10 @@
   author    = {Aashish, K. C. and others},
   title     = {Towards eco friendly cybersecurity: machine learning based
                anomaly detection with carbon and energy metrics},
-  journal   = {arXiv preprint},
-  year      = {2025},
+  journal   = {arXiv preprint arXiv:2601.00893},
+  eprint    = {2601.00893},
+  archivePrefix = {arXiv},
+  year      = {2026},
   note      = {Instruments Logistic Regression, Random Forest, SVM, Isolation
                Forest and XGBoost with CodeCarbon and defines an
                F1-per-kilowatt-hour eco-efficiency index}
@@ -202,7 +212,11 @@
   title   = {A large-scale empirical study on mobile performance: energy,
              run-time and memory},
   journal = {Empirical Software Engineering},
-  year    = {2024}
+  volume  = {29},
+  number  = {1},
+  pages   = {31},
+  year    = {2024},
+  doi     = {10.1007/s10664-023-10391-y}
 }
 
 @inproceedings{pereira2017energy,
@@ -282,6 +296,7 @@
   title   = {Aligning artificial intelligence with climate change mitigation},
   journal = {Nature Climate Change},
   volume  = {12},
+  number  = {6},
   pages   = {518--527},
   year    = {2022},
   doi     = {10.1038/s41558-022-01377-7}
@@ -570,4 +585,91 @@
   address   = {Rio de Janeiro, Brazil},
   doi       = {10.1145/3630106.3658542}
 }
+
+% CodeCarbon the tool, at the exact version this campaign ran. It was previously
+% cited to lacoste2019quantifying, which introduces the ML CO2 Impact
+% calculator -- a different artefact by an overlapping set of authors. For a
+% paper whose contribution is a characterisation of this tool, that is not a
+% cosmetic slip.
+@software{codecarbon,
+  author    = {Courty, Benoit and Schmidt, Victor and Luccioni, Sasha and
+               Kamal, Goyal and Coutarel, Marion and Feld, Boris and
+               L{\'e}cauchois, Mathilde and Lottick, Kadan and others},
+  title     = {\texttt{mlco2/codecarbon}: v3.3.0},
+  year      = {2026},
+  publisher = {Zenodo},
+  version   = {v3.3.0},
+  doi       = {10.5281/zenodo.4658424},
+  url       = {https://github.com/mlco2/codecarbon}
+}
+
+% Tiny ImageNet's own report. It was cited to banbury2021mlperf, which is
+% MLPerf Tiny -- a different benchmark, on CIFAR-10, Speech Commands, Visual
+% Wake Words and ToyADMOS, and not on Tiny ImageNet at all.
+@techreport{le2015tinyimagenet,
+  author      = {Le, Ya and Yang, Xuan},
+  title       = {Tiny {ImageNet} Visual Recognition Challenge},
+  institution = {Stanford University},
+  number      = {CS231N course report},
+  year        = {2015},
+  url         = {http://cs231n.stanford.edu/reports/2015/pdfs/yle_project.pdf}
+}
+
+% Software energy meters, including CodeCarbon, against physical meters on CPU
+% and GPU. The closest precedent for the dual-instrument design here, and the
+% source for the rule that a block must outlast the meter's sampling interval.
+@inproceedings{jay2023experimental,
+  author    = {Jay, Mathilde and Ostapenco, Vladimir and Lef{\`e}vre, Laurent and
+               Trystram, Denis and Orgerie, Anne-C{\'e}cile and Fichel, Benoit},
+  title     = {An Experimental Comparison of Software-Based Power Meters:
+               Focus on {CPU} and {GPU}},
+  booktitle = {Proceedings of the 23rd IEEE/ACM International Symposium on
+               Cluster, Cloud and Internet Computing (CCGrid)},
+  pages     = {106--118},
+  year      = {2023},
+  doi       = {10.1109/CCGrid57682.2023.00020}
+}
+
+% What RAPL actually measures, and at what temporal resolution. The counters
+% this study treats as its reference are not exempt from characterisation.
+@article{khan2018rapl,
+  author  = {Khan, Kashif Nizam and Hirki, Mikael and Niemi, Tapio and
+             Nurminen, Jukka K. and Ou, Zhonghong},
+  title   = {{RAPL} in Action: Experiences in Using {RAPL} for Power
+             Measurements},
+  journal = {ACM Transactions on Modeling and Performance Evaluation of
+             Computing Systems},
+  volume  = {3},
+  number  = {2},
+  pages   = {9:1--9:26},
+  year    = {2018},
+  doi     = {10.1145/3177754}
+}
+
+% GPU energy across DL frameworks and CUDA/TensorRT: the closest adjacent
+% ecosystem-level GPU energy study, and one we owe the reviewers a positioning
+% against.
+@inproceedings{alizadeh2024energy,
+  author    = {Alizadeh, Negar and Castor, Fernando},
+  title     = {Green {AI}: A Preliminary Empirical Study on Energy Consumption
+               in {DL} Models Across Different Runtime Infrastructures},
+  booktitle = {Proceedings of the IEEE/ACM 3rd International Conference on AI
+               Engineering --- Software Engineering for AI (CAIN)},
+  pages     = {134--139},
+  year      = {2024},
+  doi       = {10.1145/3644815.3644967}
+}
+
+% Cross-language DL bindings measured for time and accuracy rather than energy:
+% the design closest to ours, and the gap our energy boundary fills.
+@article{li2024bindings,
+  author  = {Li, Hao and Rajbahadur, Gopi Krishnan and Bezemer, Cor-Paul},
+  title   = {Studying the Impact of {TensorFlow} and {PyTorch} Bindings on
+             Machine Learning Software Quality},
+  journal = {ACM Transactions on Software Engineering and Methodology},
+  volume  = {34},
+  number  = {1},
+  pages   = {6:1--6:31},
+  year    = {2024},
+  doi     = {10.1145/3678168}
 }

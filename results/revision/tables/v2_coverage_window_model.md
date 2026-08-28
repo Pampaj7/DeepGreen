@@ -1,7 +1,7 @@
-**Competing models of CodeCarbon's reported duration**
+**The three modes of CodeCarbon's reported-duration excess**
 
-| model                                      |   r_squared |   mean_abs_error_s |
-|:-------------------------------------------|------------:|-------------------:|
-| max(phase, 3.99 s)                         |      0.9926 |              1.131 |
-| phase + 3.28 s                             |      0.9908 |              1.332 |
-| phase + 3.28 s if phase < 11 s, else phase |      0.998  |              0.399 |
+|   mode_excess_s |   n_blocks |   share_pct |   spread_s |   median_phase_s |
+|----------------:|-----------:|------------:|-----------:|-----------------:|
+|           0.014 |       4157 |        33   |      0.018 |            26.52 |
+|           3.271 |       6136 |        48.7 |      0.803 |             1.7  |
+|           4.563 |       2307 |        18.3 |      0.139 |             0.98 |

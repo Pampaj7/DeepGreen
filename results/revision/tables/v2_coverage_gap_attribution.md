@@ -1,5 +1,5 @@
 **The gap before each block against the instrument's window excess**
 
-|   n_blocks |   pearson_r |   median_gap_s |   median_window_excess_s |   median_abs_difference_s |   share_of_gap_explained_pct |
-|-----------:|------------:|---------------:|-------------------------:|--------------------------:|-----------------------------:|
-|      12390 |      0.9763 |          3.135 |                    3.268 |                     0.233 |                         96.4 |
+|   n_blocks |   pearson_r |   pearson_r_padded_only |   pearson_r_unpadded_only |   timestamp_resolution_s |   median_gap_s |   median_window_excess_s |   median_abs_difference_s |   share_of_gap_explained_pct |
+|-----------:|------------:|------------------------:|--------------------------:|-------------------------:|---------------:|-------------------------:|--------------------------:|-----------------------------:|
+|      12390 |      0.9763 |                  0.8174 |                    0.0412 |                        1 |          3.135 |                    3.268 |                     0.233 |                         96.4 |

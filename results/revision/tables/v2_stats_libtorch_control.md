@@ -1,10 +1,10 @@
 **Spread within the shared-backend control group against the full spread**
 
-| model    | dataset      |   n_all |   n_libtorch |   spread_all |   spread_libtorch |   share_of_log_spread_pct |
-|:---------|:-------------|--------:|-------------:|-------------:|------------------:|--------------------------:|
-| resnet18 | cifar100     |       7 |            4 |        14.88 |              9.55 |                      83.6 |
-| resnet18 | fashionmnist |       7 |            4 |        18.32 |             10.84 |                      82   |
-| resnet18 | tinyimagenet |       7 |            4 |        10.25 |              8.52 |                      92   |
-| vgg16    | cifar100     |       7 |            4 |         7.87 |              1.69 |                      25.4 |
-| vgg16    | fashionmnist |       7 |            4 |         7.92 |              1.92 |                      31.5 |
-| vgg16    | tinyimagenet |       7 |            4 |         7.82 |              1.81 |                      28.7 |
+| model    | dataset      |   n_all |   n_shared_module |   spread_all |   spread_shared_module |   spread_libtorch_family |   share_of_log_spread_pct |   family_share_of_log_spread_pct |
+|:---------|:-------------|--------:|------------------:|-------------:|-----------------------:|-------------------------:|--------------------------:|---------------------------------:|
+| resnet18 | cifar100     |       7 |                 3 |        14.9  |                   3.75 |                     9.57 |                      48.9 |                             83.6 |
+| resnet18 | fashionmnist |       7 |                 3 |        18.23 |                   3.79 |                    10.83 |                      45.9 |                             82.1 |
+| resnet18 | tinyimagenet |       7 |                 3 |        10.18 |                   3.24 |                     8.51 |                      50.7 |                             92.3 |
+| vgg16    | cifar100     |       7 |                 3 |         7.9  |                   1.1  |                     1.69 |                       4.8 |                             25.4 |
+| vgg16    | fashionmnist |       7 |                 3 |         7.94 |                   1.07 |                     1.91 |                       3.5 |                             31.4 |
+| vgg16    | tinyimagenet |       7 |                 3 |         7.82 |                   1.41 |                     1.81 |                      16.6 |                             28.9 |
