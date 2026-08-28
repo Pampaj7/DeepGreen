@@ -20,7 +20,7 @@ henderson2020systematic
 kaack2022aligning
 krizhevsky2009learning
 lacoste2019quantifying
-llmgreen2024
+luccioni2024power
 luccioni2022bloom
 luccioni2023counting
 mahadevappa2021energy
@@ -30,7 +30,7 @@ mehlin2023towards
 nanz2015comparative
 patterson2021carbon
 patterson2022plateau
-patterson2025optimizer
+almog2025optimizer
 paula2025comparative
 pereira2017energy
 pereira2021ranking

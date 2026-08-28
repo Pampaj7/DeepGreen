@@ -37,7 +37,6 @@
 
 \usepackage{xcolor}
 \usepackage{framed} % Required for the highlight environment
-\usepackage{fontawesome}
 \definecolor{formalshadelight}{RGB}{242,242,242}
 \definecolor{formalshadedark}{RGB}{50,50,50}
 
@@ -106,7 +105,10 @@
 
 % enable sloppy to avoid overfull
 \usepackage{microtype}
-\setlength{\emergencystretch}{2pt}
+% Two narrow columns and identifiers like nvmlDeviceGetTotalEnergyConsumption do
+% not coexist at 2pt of slack: fifteen lines punched through the margin. 3em lets
+% TeX loosen a line rather than overrun it.
+\setlength{\emergencystretch}{2em}
 
 % allow to end columns with 1-2 lines
 \flushbottom
@@ -157,6 +159,21 @@
 
 
 
+% Elsevier requires highlights at submission: at most five bullets, each at most
+% 85 characters including spaces. The values come from generated/numbers.tex like
+% every other quantity in this manuscript, so a bullet cannot go stale.
+\begin{highlights}
+% flushbottom is set for the two-column body; on the near-empty highlights page
+% it stretches the list's rubber glue and spreads five bullets over a whole
+% page. Make the glue rigid.
+\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}\setlength{\topsep}{0pt}
+\item One specification, \vConformanceChecks{} automated checks: \vEcosystems{} stacks run the same experiment
+\item Every block measured twice: NVML and RAPL counters, and CodeCarbon in parallel
+\item \vRuns{} runs, \vBlocks{} blocks; training energy spans \vSpreadTrainMin$\times$--\vSpreadTrainMax$\times$ across stacks
+\item The estimator's duration field, not the stacks, produced ``faster is not greener''
+\item Between-run CV \vCVTrainMedian\,\%; the two instruments agree on energy to \vCCmeasDisagreementPct\,\%
+\end{highlights}
+
 \begin{keywords}
 Machine Learning \sep Deep Learning \sep Green AI \sep Energy Efficiency \sep Sustainability \sep Green IT
 \end{keywords}
@@ -171,7 +188,7 @@ The rapid growth of Deep Learning (DL) has been accompanied by a steep increase 
 This paper investigates \emph{how the choice of language--framework ecosystem affects the energy efficiency of DL workloads}, and, inseparably from that, \emph{what an apparatus must guarantee before such a comparison means anything}. We adopt a practitioner-centric perspective on the operational energy--time trade-offs developers face when selecting an ecosystem for training and inference, using computer vision image classification as a representative energy-intensive workload.
 
 \textbf{Methods.}
-We compare two convolutional architectures (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems --- Python with PyTorch, TensorFlow and JAX; C++ with LibTorch; Java with Deeplearning4j; R with \texttt{torch}; and Rust with \texttt{tch} --- on three datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet). Three methodological commitments distinguish the design. First, a written experiment specification states what ``the same experiment'' means across stacks, and 57 automated checks enforce it against the source, so a divergence fails loudly instead of quietly changing a number. Second, energy is read from hardware counters --- NVML \texttt{nvmlDeviceGetTotalEnergyConsumption} for the accelerator and the RAPL package-energy counters for the CPU --- with CodeCarbon running over the same window as a second, independent instrument. Third, each configuration is executed as \vRepetitions{} independent interleaved runs with distinct seeds, making the run rather than the epoch the unit of analysis, and every stack records per-epoch accuracy so that energy can be normalised by the quality actually achieved.
+We compare two convolutional architectures (ResNet-18 and VGG-16) across \vEcosystems{} language--framework ecosystems --- Python with PyTorch, TensorFlow and JAX; C++ with LibTorch; Java with Deeplearning4j; R with \texttt{torch}; and Rust with \texttt{tch} --- on three datasets (Fashion-MNIST, CIFAR-100, Tiny ImageNet). Three methodological commitments distinguish the design. First, a written experiment specification states what ``the same experiment'' means across stacks, and \vConformanceChecks{} automated checks enforce it against the source, so a divergence fails loudly instead of quietly changing a number. Second, energy is read from hardware counters --- NVML \texttt{nvmlDeviceGetTotalEnergyConsumption} for the accelerator and the RAPL package-energy counters for the CPU --- with CodeCarbon running over the same window as a second, independent instrument. Third, each configuration is executed as \vRepetitions{} independent interleaved runs with distinct seeds, making the run rather than the epoch the unit of analysis, and every stack records per-epoch accuracy so that energy can be normalised by the quality actually achieved.
 
 \textbf{Results.}
 The design yields \vRuns{} runs and \vBlocks{} doubly instrumented measurement blocks. Between-run repeatability is high: the median coefficient of variation of training energy is \vCVTrainMedian\,\%. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on the block, while final accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST --- the differences are energetic, not qualitative. The two instruments agree on energy to \vCCmeasDisagreementPct\,\% over the whole campaign --- \vAgreeLongPct\,\% for blocks longer than \SI{30}{\second}, degrading to \vAgreeShortPct\,\% below one second, where the block is shorter than the sampling interval --- so the difficulty with software estimation is narrower and stranger than inaccuracy: the duration CodeCarbon reports beside each energy figure is not the duration the energy was accumulated over, but the phase plus a constant \vWindowConstS\,\si{\second} whenever the phase is shorter than about \vWindowThresholdS\,\si{\second} and the phase itself above that ($R^2 = \vWindowModelBestRsq$). Any power or energy--time analysis built on that field therefore understates power by up to \vPowerUnderstatedSubSecond$\times$ for sub-second phases while being exact above ten seconds --- a bias that falls precisely on the fastest ecosystems and the inference phase.
@@ -215,7 +232,7 @@ To achieve our goal, we consider two widely adopted convolutional neural network
 
 A cross-ecosystem energy comparison, however, rests on two premises that are rarely stated and never visible in the resulting numbers: that every stack is running the same experiment, and that every stack is measured the same way. We found both to be far harder to satisfy than the literature suggests, and we came to that conclusion the expensive way. An earlier campaign of ours, of exactly this shape, was executed carefully and produced an entirely coherent story; auditing it against its own source code afterwards showed that the stacks had drifted apart in learning rate, input shape, evaluation batching and data-loader parallelism, that the measurement tool had been configured five different ways across them, and that two stacks were capable of running the whole workload on the CPU while reporting nothing but a log line. None of this was visible in the energy figures. All of it moved them.
 
-We therefore treat the apparatus as part of the contribution rather than as a preliminary. Three commitments follow. \emph{(i)} A written experiment specification states what ``the same experiment'' means across stacks --- model, optimisation, data pipeline, backend, measurement and replication --- and 57 automated checks enforce it against the source code, so that a divergence fails a check instead of quietly changing a number. \emph{(ii)} Energy is read from hardware counters, NVML's accumulated-energy register for the accelerator and the RAPL package-energy counters for the CPU, with CodeCarbon running over the same window as a second, independent instrument; every block therefore carries two readings that can be held against each other. \emph{(iii)} Each configuration is executed as \vRepetitions{} independent, interleaved runs with distinct seeds, so that the run rather than the epoch is the unit of analysis, and every ecosystem records per-epoch test accuracy, so that energy can be normalised by the quality actually reached rather than assumed equal.
+We therefore treat the apparatus as part of the contribution rather than as a preliminary. Three commitments follow. \emph{(i)} A written experiment specification states what ``the same experiment'' means across stacks --- model, optimisation, data pipeline, backend, measurement and replication --- and \vConformanceChecks{} automated checks enforce it against the source code, so that a divergence fails a check instead of quietly changing a number. \emph{(ii)} Energy is read from hardware counters, NVML's accumulated-energy register for the accelerator and the RAPL package-energy counters for the CPU, with CodeCarbon running over the same window as a second, independent instrument; every block therefore carries two readings that can be held against each other. \emph{(iii)} Each configuration is executed as \vRepetitions{} independent, interleaved runs with distinct seeds, so that the run rather than the epoch is the unit of analysis, and every ecosystem records per-epoch test accuracy, so that energy can be normalised by the quality actually reached rather than assumed equal.
 
 Our results are correspondingly more modest and more defensible than a bare ranking. Between-run repeatability is high --- the median coefficient of variation of training energy across \vRuns{} runs is \vCVTrainMedian\,\% --- so the intervals we report are genuine. Under a common measurement boundary, training energy differs across ecosystems by \vSpreadTrainMin$\times$ to \vSpreadTrainMax$\times$ depending on architecture and dataset, with \vSpreadTrainBest{} consistently cheapest, while final test accuracy converges to within \vAccSpreadFashion{} percentage points on Fashion-MNIST across all \vEcosystems{} stacks. The ecosystem effect is real, it is large, and it is energetic rather than qualitative.
 
@@ -238,7 +255,9 @@ The contributions of this work are as follows:
     \item A systematic empirical comparison of DL energy consumption across \vEcosystems{} language--framework ecosystems for GPU-based workloads, replicated \vRepetitions{} times per configuration and reported with between-run uncertainty and quality normalisation;
     \item An experiment specification for cross-ecosystem energy studies, together with an executable conformance checker that enforces it, and a single measurement contract implemented by all \vEcosystems{} stacks;
     \item A dual-instrument characterisation of CodeCarbon against hardware energy counters over \vBlocks{} measurement blocks, including a quantified failure mode of its reported duration that invalidates energy--time analyses built on it;
-    \item A comprehensive replication package, including all data, scripts, and settings required to fully reproduce our results.\footnote{Replication package available at: \url{https://zenodo.org/records/17734884}}
+    \item A comprehensive replication package, including all data, scripts, and settings required to fully reproduce our results.\footnote{Replication package: \url{https://github.com/Pampaj7/DeepGreen}. The
+Zenodo record \url{https://zenodo.org/records/17734884} archives the earlier
+campaign and is superseded by this one.}
 \end{itemize}
 
 Improving the energy efficiency of AI systems is not just a technical challenge but also an ethical imperative as the field matures and scales~\cite{dodge2022efficient}.
@@ -314,12 +333,13 @@ by software but not estimated by it. \emph{Software estimators} such as
 platform exposes and substitute a model wherever it exposes nothing.
 
 Software estimators have become standard in sustainability-oriented AI
-research~\cite{dodge2022efficient,patterson2022plateau}, and their reliability
-for ML and DL workloads is documented across model compression
+research~\cite{dodge2022efficient,patterson2022plateau}, and are relied upon as
+the sole instrument across model compression
 analysis~\cite{paula2025comparative}, optimizer efficiency
-benchmarks~\cite{patterson2025optimizer}, large-scale evaluations of Large
-Language Models~\cite{llmgreen2024} and cybersecurity
-systems~\cite{cybergreen2026}. Comparative studies have also run
+benchmarks~\cite{almog2025optimizer}, large-scale evaluations of Large
+Language Models~\cite{luccioni2024power} and cybersecurity
+systems~\cite{cybergreen2026} --- studies whose conclusions inherit whatever the
+estimator gets wrong, without a second reading that could reveal it. Comparative studies have also run
 \texttt{CodeCarbon} alongside hardware wattmeters in the same setup and report
 that software estimates track sensor readings closely under controlled
 conditions while deviating more on heterogeneous
@@ -482,7 +502,7 @@ specification with six parts, and made conformance machine-checkable.
         interleaved rather than run back to back.
 \end{itemize}
 
-The specification is enforced by 57 automated checks that read the source of
+The specification is enforced by \vConformanceChecks{} automated checks that read the source of
 every ecosystem and the configuration of every tracker, and fail the build when
 a stack drifts out of conformance. This matters more than it may appear.
 A specification that lives only in a paper is a description of intent; the same
@@ -685,7 +705,7 @@ this design:
 \begin{enumerate}[label=(\roman*)]
     \item the \textbf{experiment specification} of Section~\ref{subsec:spec},
           written before the campaign and versioned with it;
-    \item the \textbf{conformance checker}, 56 executable checks that read the
+    \item the \textbf{conformance checker}, \vConformanceChecks{} executable checks that read the
           source of every ecosystem and the configuration of every tracker, and
           fail when a stack drifts out of specification;
     \item the \textbf{dual-instrument records}: every block's counter reading
@@ -701,7 +721,7 @@ pipeline and injected into the source at build time; none is transcribed.
 enforced by the conformance checks of specification S2 rather than by
 convention.}
 \label{tab:hyperparams}
-\begin{tabular}{l l}
+\begin{tabular}{@{}l p{0.52\columnwidth}@{}}
 \toprule
 \textbf{Parameter} & \textbf{Value} \\
 \midrule
@@ -1419,6 +1439,12 @@ no \\
 Host not idle &
 Whole-machine tracking charges unrelated downloads to the workload &
 no \\
+\addlinespace
+Two campaigns on one accelerator$^\ast$ &
+An orphaned driver restarted and wrote the same run directories while sharing
+the GPU: runs of 59, 60 and 43 epochs where the specification says 30, each
+measured against the other's contention &
+yes \\
 \midrule
 \multicolumn{3}{l}{\emph{Implementation}} \\
 \addlinespace
@@ -1549,11 +1575,12 @@ that returns \code{uint8} because the images it was written for were
 \code{uint8}. None is a lapse in care. A study can be executed carefully and
 land on all of them.
 
-\textbf{Some of them are ours.} Five entries were introduced while repairing the
-study, and each was caught by a mechanism rather than by attention: the
-conformance checks, the accuracy metric, or the second instrument.
+\textbf{Some of them are ours.} \vDefectOurs{} of the \vDefectCount{} entries
+were introduced while repairing the study, and each was caught by a mechanism
+rather than by attention: the conformance checks, the accuracy metric, the
+second instrument, or the campaign driver refusing to start.
 
-One of the five deserves singling out, because it is not a mistake in the usual
+One of them deserves singling out, because it is not a mistake in the usual
 sense. Moving the input transform into the loader is required by S3. Switching
 evaluation to batched inference is required by S3 as well. Each change is
 correct, and each was reviewed. Together they left a private copy of the
@@ -1594,7 +1621,7 @@ Implementation drift between stacks was the dominant internal threat in studies
 of this shape, and it is the one this design attacks directly. Under
 specification S1 the LibTorch-based ecosystems train the same exported module
 rather than four reimplementations; S2 and S3 fix the optimisation and the data
-pipeline; and 57 automated checks verify all of it against the source. Two
+pipeline; and \vConformanceChecks{} automated checks verify all of it against the source. Two
 defects introduced during development were caught by those checks rather than by
 review. We do not claim the specification is complete --- only that a
 divergence outside it now has to survive an executable check rather than an
@@ -1785,6 +1812,38 @@ The figure above excludes development, failed runs and the earlier campaign that
 motivated this design; including them would roughly double it.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{CRediT Authorship Contribution Statement}
+
+\textbf{Leonardo Pampaloni:} Conceptualization, Methodology, Software,
+Validation, Formal analysis, Investigation, Data curation, Writing --- original
+draft, Visualization.
+\textbf{Marco Pagliocca:} Methodology, Software, Validation, Investigation,
+Data curation, Writing --- original draft, Visualization.
+\textbf{Enrico Vicario:} Resources, Supervision, Funding acquisition, Writing
+--- review \& editing.
+\textbf{Roberto Verdecchia:} Conceptualization, Methodology, Validation,
+Writing --- review \& editing, Supervision, Project administration.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Declaration of Competing Interest}
+
+The authors declare that they have no known competing financial interests or
+personal relationships that could have appeared to influence the work reported
+in this paper.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Data Availability}
+
+All data and code underlying this study are public. The replication package
+contains the implementations for all \vEcosystems{} ecosystems, the shared
+measurement bridge, the experiment specification and its conformance checker,
+the campaign driver, the per-block dual-instrument records for all \vRuns{}
+runs and \vBlocks{} blocks, and the analysis pipeline that turns those records
+into every table, figure and quoted number in this manuscript. A single command
+regenerates the manuscript from the raw records, so any number here can be
+traced to the measurement it came from.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Declaration of Generative AI and AI-assisted Technologies in the Writing Process}
 During the preparation of this work the authors used generative AI assistants
 (ChatGPT and Claude) in three distinct capacities, which we separate because
@@ -1811,20 +1870,27 @@ content of the article.
 
 \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\bio{bio/leo.jpg}
-\textbf{Leonardo Pampaloni} graduated with a Master’s degree in Software Engineering from the University of Florence, Italy, achieving top marks. His research interests lie in software sustainability and energy efficiency in Artificial Intelligence, with particular emphasis on Green AI and computer vision. He has contributed to empirical studies on cross-language benchmarking of AI frameworks and optimization of DL workloads. More information is available at \url{https://github.com/Pampaj7}.
+% Author photographs. Elsevier asks for them with the final files, not with the
+% submission, and a placeholder box reading "photo missing" is worse than no
+% photo at all. cas-common's \bio accepts an empty argument and then typesets
+% the biography without a figure, so the manuscript builds either way: drop the
+% real files into paper/bio/ and they appear on the next build.
+\newcommand{\authorbio}[1]{\IfFileExists{bio/#1.jpg}{\bio{bio/#1.jpg}}{\bio{}}}
+
+\authorbio{leo}
+\textbf{Leonardo Pampaloni} graduated with a Master's degree in Software Engineering from the University of Florence, Italy, achieving top marks. His research interests lie in software sustainability and energy efficiency in Artificial Intelligence, with particular emphasis on Green AI and computer vision. He has contributed to empirical studies on cross-language benchmarking of AI frameworks and optimization of DL workloads. More information is available at \url{https://github.com/Pampaj7}.
 \endbio
 
-\bio{bio/marco.jpg}
-\textbf{Marco Pagliocca} received a Bachelor’s degree in Computer Engineering with highest honors from the University of Florence, Italy, where he is currently pursuing a Master’s degree in the same field. His research interests focus on environmental sustainability, human-centered engineering, and the use of technology as a means to improve everyday life. He believes that Artificial Intelligence can simplify mechanical tasks and encourage greater attention to meaningful aspects of human activity.
+\authorbio{marco}
+\textbf{Marco Pagliocca} received a Bachelor's degree in Computer Engineering with highest honors from the University of Florence, Italy, where he is currently pursuing a Master's degree in the same field. His research interests focus on environmental sustainability, human-centered engineering, and the use of technology as a means to improve everyday life. He believes that Artificial Intelligence can simplify mechanical tasks and encourage greater attention to meaningful aspects of human activity.
 \endbio
 
-\bio{bio/enrico.jpg}
+\authorbio{enrico}
 \textbf{Enrico Vicario} is a Professor of Computer
 Science and Engineering and the Head of the Software Technologies Laboratory of the University of Florence, Italy. His research interests include the area of software engineering, with a focus on quantitative evaluation of stochastic models, software architectures and methodologies, and on their connection through model-driven engineering practices.
 \endbio
 
-\bio{bio/roberto.jpg}
+\authorbio{roberto}
 \textbf{Roberto Verdecchia} is an Assistant Professor at the Software Technologies Laboratory (STLab) of the University of Florence, Italy. He holds a double Ph.D.\ in Computer Science, appointed by the Gran Sasso Science Institute, L'Aquila, Italy, and the Vrije Universiteit Amsterdam, the Netherlands. His research interests focus on the adoption of empirical methods to improve software development and system evolution, with particular interest in the fields of  technical debt, software architecture, software sustainability, and software testing. More information is available at \href{https://robertoverdecchia.github.io/}{robertoverdecchia.github.io}. %He was the recipient of a ACM/SIGSOFT Distinguished Paper Award (ICSE'19)...andt others?.
 \endbio
 

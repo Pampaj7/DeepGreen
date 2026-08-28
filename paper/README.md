@@ -30,12 +30,15 @@ If you still have the original `.bib`, prefer it: it is the authors' own and
 will match whatever formatting the journal expects. Use this one as a
 cross-check, or as the build input if the original is lost.
 
-**Two entries need your confirmation.** They are marked `VERIFY` in the file:
+**The two provisional keys have been resolved.** Both were inherited from the
+submitted version: one named an author who is not on the paper, the other named
+no paper at all. Each was checked against the published record and the key
+renamed to the work actually cited.
 
-| Key | What was found | Why it is uncertain |
+| Old key | Resolved to | How it was confirmed |
 |---|---|---|
-| `patterson2025optimizer` | Almog, *An Analysis of Optimizer Choice on Energy Efficiency and Performance in Neural Network Training*, arXiv:2509.13516 | The paper matches the citing sentence exactly — 360 runs, eight optimizers, CodeCarbon — but the key says "patterson" and the sole author is Almog |
-| `llmgreen2024` | Luccioni, Jernite & Strubell, *Power Hungry Processing: Watts Driving the Cost of AI Deployment?*, FAccT 2024 | Best-known 2024 large-scale LLM energy evaluation, but the key is generic and recovers no title |
+| `patterson2025optimizer` | `almog2025optimizer` — Almog, *An Analysis of Optimizer Choice on Energy Efficiency and Performance in Neural Network Training*, arXiv:2509.13516 | arXiv record read directly: sole author Almog, 360 runs over eight optimizers on MNIST/CIFAR-10/CIFAR-100, energy tracked with CodeCarbon — exactly the claim the citing sentence makes. The old key's "patterson" matched nothing |
+| `llmgreen2024` | `luccioni2024power` — Luccioni, Jernite & Strubell, *Power Hungry Processing: Watts Driving the Cost of AI Deployment?*, FAccT '24, pp. 85--99, DOI 10.1145/3630106.3658542 | ACM record for pages and DOI; the conference PDF confirms the instrument ("logs produced by Code Carbon"), which is what the citing sentence asserts |
 
 Every other entry was matched to a record where the title, the venue and the
 claim made in the citing sentence all agree.

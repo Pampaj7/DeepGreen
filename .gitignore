@@ -28,7 +28,10 @@ data/*_png/
 data/cifar-100-python*
 data/FashionMNIST/
 data/tiny-imagenet-200*
-# Replicated-campaign output
+# Replicated-campaign output: 13,000 files and 54 MB, one CodeCarbon CSV per
+# measured block. Not distributed -- scripts/consolidate_raw.py rewrites the
+# identical records as four gzipped tables under results/replication/, which
+# are committed.
 results/campaign_v2/
 # Model checkpoints
 checkpoints/
@@ -41,7 +44,8 @@ checkpoints/
 
 ### Manuscript ###
 # LaTeX build noise
-paper/build.log
+paper/*.log
+paper/*.abs
 paper/*.aux
 paper/*.out
 paper/*.bbl
@@ -50,8 +54,9 @@ paper/*.synctex.gz
 # The rejection letter: a private editorial communication that names a
 # co-author's address. Kept locally, not published with the repository.
 paper/reviewer.tex
-# Author photographs are not distributed with the source; build.sh generates
-# placeholders so the layout can be checked without them.
+# Author photographs are not distributed with the source. The manuscript wraps
+# \bio in \IfFileExists, so it builds without them and typesets the photograph
+# if you drop the file in.
 paper/bio/
 # cas-dc icon assets ship with Elsevier's template bundle, not with the class;
 # build.sh generates stand-ins.

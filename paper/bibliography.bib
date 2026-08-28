@@ -130,7 +130,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @article{gordillo2024ranking,
-  author  = {Gordillo, Alberto and Calero, Coral and Moraga, María Ángeles and
+  author  = {Gordillo, Alberto and Calero, Coral and Moraga, Mar{\'i}a {\'A}ngeles and
              García, Félix and Fernandes, João Paulo and Abreu, Rui and
              Saraiva, João},
   title   = {Programming languages ranking based on energy measurements},
@@ -538,37 +538,36 @@
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% ATTENTION -- two entries below are best-effort identifications and the
-% original authors should confirm them before submission. Every other entry in
-% this file was matched to a record that is unambiguous: the title, the venue
-% and the claim made in the citing sentence all agree. These two do not reach
-% that bar, for the reasons noted on each.
+% The two entries below carried provisional keys inherited from the submitted
+% version: one named an author who is not on the paper, the other named no
+% paper at all. Both have been resolved against the published record and the
+% keys renamed to match the works actually cited.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-@article{patterson2025optimizer,
+@article{almog2025optimizer,
   author    = {Almog, Tom},
   title     = {An Analysis of Optimizer Choice on Energy Efficiency and
                Performance in Neural Network Training},
   journal   = {arXiv preprint arXiv:2509.13516},
   year      = {2025},
-  note      = {VERIFY. The citing sentence calls for an optimizer efficiency
-               benchmark that uses CodeCarbon, and this paper is exactly that
-               -- 360 runs over eight optimizers, tracked with CodeCarbon. But
-               the key says "patterson" and the sole author is Almog, so either
-               the key was mistyped or a different paper was intended.}
+  eprint    = {2509.13516},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi       = {10.48550/arXiv.2509.13516},
+  url       = {https://arxiv.org/abs/2509.13516}
 }
 
-@inproceedings{llmgreen2024,
-  author    = {Luccioni, Sasha and Jernite, Yacine and Strubell, Emma},
+@inproceedings{luccioni2024power,
+  author    = {Luccioni, Alexandra Sasha and Jernite, Yacine and
+               Strubell, Emma},
   title     = {Power Hungry Processing: Watts Driving the Cost of {AI}
                Deployment?},
   booktitle = {Proceedings of the 2024 ACM Conference on Fairness,
-               Accountability, and Transparency (FAccT)},
+               Accountability, and Transparency (FAccT '24)},
   pages     = {85--99},
   year      = {2024},
-  doi       = {10.1145/3630106.3658542},
-  note      = {VERIFY. The citing sentence calls for a large-scale evaluation
-               of large language models instrumented with CodeCarbon; this is
-               the best-known 2024 paper of that description, but the key is
-               generic and no title is recoverable from it.}
+  publisher = {Association for Computing Machinery},
+  address   = {Rio de Janeiro, Brazil},
+  doi       = {10.1145/3630106.3658542}
+}
 }

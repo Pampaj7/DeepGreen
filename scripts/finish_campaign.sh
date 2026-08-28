@@ -47,5 +47,10 @@ fi
 echo "=== analysis, numbers and figures ==="
 PYTHON="$PY" ./results/analysis/run_all.sh | grep -E "^###|excluded|!!|wrote paper"
 
+echo "=== replication package ==="
+# The raw tree is 13,000 files and 54 MB and is not distributed; these four
+# gzipped tables carry the identical records at 2 MB and are.
+"$PY" scripts/consolidate_raw.py
+
 echo "=== manuscript ==="
 ./paper/build.sh --no-data

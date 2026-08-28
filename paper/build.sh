@@ -18,28 +18,10 @@ if [[ "${1:-}" != "--no-data" ]]; then
   PYTHON="$PY" ./results/analysis/run_all.sh
 fi
 
-# The author photographs are not in this repository. Rather than fail, stand in
-# neutral placeholders so the layout can be checked; drop the real files into
-# paper/bio/ and rebuild before submitting.
-missing=()
-for f in leo marco enrico roberto; do
-  [[ -f "paper/bio/$f.jpg" ]] || missing+=("$f")
-done
-if (( ${#missing[@]} )); then
-  echo "=== ${#missing[@]} author photograph(s) missing: generating placeholders ==="
-  mkdir -p paper/bio
-  "$PY" - "${missing[@]}" <<'PY'
-import sys
-from PIL import Image, ImageDraw
-for name in sys.argv[1:]:
-    img = Image.new("RGB", (300, 400), (232, 232, 232))
-    d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, 299, 399], outline=(190, 190, 190), width=3)
-    d.text((18, 186), f"photo missing:\n{name}.jpg", fill=(120, 120, 120))
-    img.save(f"paper/bio/{name}.jpg", quality=88)
-    print(f"  placeholder paper/bio/{name}.jpg")
-PY
-fi
+# The author photographs are not in this repository and are not needed: the
+# manuscript wraps \bio in \IfFileExists, so a missing photograph typesets the
+# biography without one. Drop the real files into paper/bio/ before sending the
+# final files to Elsevier and they appear on the next build.
 
 # The cas-dc class draws small icons next to \ead and \ead[url] from
 # thumbnails/, which ship with Elsevier's template bundle rather than with the
@@ -89,10 +71,15 @@ cd paper
   echo "Build failed. The usual causes, in order:"
   echo "  * cas-dc.cls -- fetched from the TeX Live bundle by tectonic; a first"
   echo "    build needs network access."
-  echo "  * bibliography.bib -- reconstructed here, see paper/README.md. Two"
-  echo "    entries are marked VERIFY."
+  echo "  * bibliography.bib -- reconstructed here, see paper/README.md."
   echo "  * paper/generated/ -- run without --no-data to rebuild it."
   exit 1
 }
+cd ..
+# Elsevier collects highlights through the submission form as a separate file,
+# not from the PDF. Expand the manuscript's own environment so the uploaded text
+# cannot drift from the typeset one.
+"$PY" scripts/emit_highlights.py
+
 echo
 echo "Built paper/paper.pdf"

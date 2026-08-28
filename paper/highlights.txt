@@ -1,0 +1,5 @@
+One specification, 63 automated checks: 7 stacks run the same experiment
+Every block measured twice: NVML and RAPL counters, and CodeCarbon in parallel
+210 runs, 12600 blocks; training energy spans 7.8×–19.1× across stacks
+The estimator's duration field, not the stacks, produced “faster is not greener”
+Between-run CV 0.44%; the two instruments agree on energy to 0.5%
