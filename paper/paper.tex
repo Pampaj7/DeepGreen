@@ -302,7 +302,7 @@ We ask a different and complementary question: whether a study can \emph{tell}
 when it is not. The distinction matters because the two lead to different
 remedies. If the problem is accuracy, the remedy is a better estimator or a
 correction factor. If the problem is that an estimator silently substitutes a
-model for a measurement, reports a floor in place of a duration, or degrades
+model for a measurement, pads a duration it reports as measured, or degrades
 below its own sampling interval, then no correction factor helps: what is needed
 is a second instrument over the same window, so that agreement becomes an
 observable property of each block. Our findings in
@@ -423,7 +423,7 @@ All datasets were resized to a uniform resolution of 32$\times$32 pixels.
 This preserves the relative differences in complexity (grayscale vs. color, number of classes, dataset size) while removing input resolution as a confounding factor~\cite{marini2025green,georgiou2022green}.
 In addition, standardizing input size avoids the need to modify the final classification layer of the networks for each dataset, thus keeping model architectures fixed across experiments.
 This design choice not only improves comparability of results but also reflects realistic developer practice, where pre-trained or canonical models are often reused with minimal architectural modifications~\cite{cruz2025greening,verdecchia2023systematic}.
-Finally, a common resolution improves stability across frameworks, some of which (e.g. Burn for Rust, Deeplearning4j for Java) offer more reliable performance with standardized image sizes~\cite{pereira2021ranking,gordillo2024ranking}.
+Finally, a common resolution improves stability across frameworks, some of which (e.g. \texttt{tch} for Rust, Deeplearning4j for Java) offer more reliable performance with standardized image sizes~\cite{pereira2021ranking,gordillo2024ranking}.
 Nevertheless, fixing a 32$\times$32 input resolution may interact with framework-specific memory and kernel selection strategies; therefore, conclusions should not be extrapolated to higher-resolution workloads without additional experiments.
 
 \textbf{Independent and dependent variables.}
@@ -508,8 +508,10 @@ a stack drifts out of conformance. This matters more than it may appear.
 A specification that lives only in a paper is a description of intent; the same
 specification expressed as an executable check is a property of the artefact,
 and it fails at the moment of the divergence rather than at peer review.
-Two of the defects we corrected during development were introduced by us and
-caught by these checks rather than by inspection.
+\vDefectOurs{} of the defects catalogued in Section~\ref{sec:catalogue} were
+introduced by us during development, and every one was caught by a mechanism
+rather than by inspection. Two of them are now themselves checks in this list,
+so the same divergence cannot recur.
 
 \textbf{Residual, documented divergences.} Two could not be removed and are
 reported rather than hidden. Deeplearning4j 1.0.0-M2.1 is the last release of
@@ -573,7 +575,7 @@ This package enables replication, validation, and extension under different hard
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Experimental Execution}
 \label{sec:execution}
 
@@ -990,10 +992,11 @@ set, at the same boundary.
 The inference spread is wider than the training spread
 (\vSpreadInferMin$\times$ to \vSpreadInferMax$\times$), and this is where the
 apparatus matters most. An inference pass at these dataset sizes takes well
-under a second in the fastest stacks, which places it below the reported-window
-floor characterised in Section~\ref{sec:instrument}. Any inference comparison
-drawn from an estimator's own duration field is therefore comparing floors
-rather than phases for exactly the stacks that are fastest. Our figures are
+under a second in the fastest stacks, which places it in the regime where the
+reported window carries the constant characterised in
+Section~\ref{sec:instrument}. Any inference comparison drawn from an estimator's
+own duration field is therefore comparing padding rather than phases for exactly
+the stacks that are fastest. Our figures are
 counter-bracketed and do not have this problem, but the point generalises: the
 inference phase is where a cross-ecosystem energy study is most exposed to its
 instrument, and it is also the phase practitioners deploy.
@@ -1050,8 +1053,9 @@ takes \vShortestPhaseS\,\si{\second} and is filed as
     \centering
     \includegraphics[width=\linewidth]{figures/fig_window_floor.png}
     \caption{(a) The duration reported alongside each energy figure is not the
-    interval the energy was accumulated over: it is the phase duration or a
-    floor of about four seconds, whichever is larger.
+    interval the energy was accumulated over: below about
+    \vWindowThresholdS\,\si{\second} it is the phase plus a constant
+    \vWindowConstS\,\si{\second}, and the phase itself above that.
     (b) Power obtained by dividing reported energy by reported duration is
     consequently understated for short phases and exact for long ones.}
     \label{fig:window_floor}
@@ -1194,7 +1198,8 @@ estimates where it does not. The ecosystem ranking is nonetheless unchanged in
 elsewhere:
 a modelled RAM term contributing \vCCramSharePct\,\% of the reported total that
 no counter can check and that scales with installed memory rather than with use,
-and a reported duration that is a floor rather than a measurement. Both produce
+and a reported duration that is the phase plus a constant rather than the
+accumulation window. Both produce
 plausible numbers; neither is visible without a second instrument.
 \end{tcolorbox}
 
@@ -1230,9 +1235,10 @@ training and inference rank the ecosystems alike in
 \vPhaseRhoMin{} and \vPhaseRhoMax. This matters because the opposite claim ---
 that the phases rank differently and so demand phase-aware stack selection ---
 is a natural conclusion to draw from estimator output, and we can now say why:
-inference blocks in this workload are short enough to fall under the
-reported-window floor of Section~\ref{sec:instrument}, so an inference ranking
-derived from an estimator's own duration is partly a ranking of floors. We do
+inference blocks in this workload are short enough to fall in the regime
+where the reported window carries the constant of Section~\ref{sec:instrument},
+so an inference ranking derived from an estimator's own duration is partly a
+ranking of that constant. We do
 not claim phase-dependence never occurs; we claim that establishing it requires
 an instrument whose window is known.
 
@@ -1303,7 +1309,7 @@ defect we found in building this study produced numbers of the right order of
 magnitude, in the right units, with plausible relative ordering. A learning rate
 that differs between two framework APIs, an evaluation loop written one image at
 a time, a linker dropping a CUDA dependency so that a binary runs on the CPU, an
-estimator reporting a floor where a duration belongs --- none of these announce
+estimator reporting a padded window where a duration belongs --- none of these announce
 themselves in the data. They are detectable only by a second instrument, an
 executable specification, or a quality metric that the study happened to record.
 
@@ -1621,9 +1627,10 @@ Implementation drift between stacks was the dominant internal threat in studies
 of this shape, and it is the one this design attacks directly. Under
 specification S1 the LibTorch-based ecosystems train the same exported module
 rather than four reimplementations; S2 and S3 fix the optimisation and the data
-pipeline; and \vConformanceChecks{} automated checks verify all of it against the source. Two
-defects introduced during development were caught by those checks rather than by
-review. We do not claim the specification is complete --- only that a
+pipeline; and \vConformanceChecks{} automated checks verify all of it against the source.
+\vDefectOurs{} defects introduced during development were caught by a mechanism
+--- a check, the accuracy metric, the second instrument, or the driver refusing
+to start --- rather than by review. We do not claim the specification is complete --- only that a
 divergence outside it now has to survive an executable check rather than an
 author's attention.
 
@@ -1700,18 +1707,19 @@ of the right thing.
 Where the sample is genuinely too small we say so rather than reach. The VGG-16
 collapse rates of Section~\ref{subsubsec:collapse} range from
 \vCollapseRateMin\,\% to \vCollapseRateMax\,\% across ecosystems, and a
-$\chi^2$ test on that table returns $p = 0.017$ --- which would license a claim
-that ecosystems differ in robustness. The expected cell counts are far too small
-for that approximation; a permutation test on the same data gives
-$p = \vCollapseHomogeneityP$. We report the permutation result and make no such
+$\chi^2$ test on that table returns $p = \vCollapseChiSqP$ --- which would
+license a claim that ecosystems differ in robustness. The smallest expected cell
+count is \vCollapseChiSqMinExpected, far below what that approximation needs; a
+permutation test on the same data gives $p = \vCollapseHomogeneityP$. We report the permutation result and make no such
 claim. The difference between the two is exactly the kind of small-sample
 over-confidence a reader is entitled to be warned about.
 
-Finally, the twenty Rust runs on Fashion-MNIST and Tiny ImageNet were executed
-in a separate, later time window than the rest of the campaign, after a defect
-in that stack's image loader was corrected. They are therefore not interleaved
-with the other ecosystems, and machine-state drift between the two windows is
-not controlled for them. Given the between-run coefficients of variation we
+Finally, \vLateRuns{} runs --- \vLateConfigurations{} configurations, all of
+them \vLateEcosystems{} --- were executed in a separate window \vLateGapDays{}
+days after the rest of the campaign, once defects in that stack's image loaders
+were corrected. They cover \vLateBlocks. They are therefore not interleaved with
+the other ecosystems, and machine-state drift between the two windows is not
+controlled for them. Given the between-run coefficients of variation we
 observe, we expect this to be small relative to the effects reported, but it is
 a real asymmetry in an otherwise interleaved design and we flag it rather than
 absorb it.
@@ -1756,7 +1764,7 @@ We draw a procedural conclusion from that. A cross-ecosystem energy study needs
 a written specification, a mechanism that enforces it, and a second instrument
 --- for the same reason that a performance benchmark needs a stated warm-up
 policy. Every defect we corrected in building this study produced a plausible
-number first. The specification, the shared measurement contract, the 56-check
+number first. The specification, the shared measurement contract, the \vConformanceChecks{}-check
 conformance checker and the raw dual-instrument records are part of the
 replication package, and every figure in this paper is generated from them.
 
@@ -1787,8 +1795,8 @@ say that three stacks running identical kernels differ by a large factor; we
 cannot yet say which line of the binding is responsible.
 
 Fourth, the instrument characterisation invites replication. We report the
-reported-window floor of one estimator on one platform. Whether other estimators
-share it, whether it varies with sampling interval and tracking mode, and how
+reported-window padding of one estimator on one platform. Whether other
+estimators share it, whether it varies with sampling interval and tracking mode, and how
 many published energy--time results rest on it, are answerable questions, and
 the method --- bracket every block with hardware counters and compare --- is
 cheap.

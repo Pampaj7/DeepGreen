@@ -10,8 +10,11 @@ for units, uncertainty, quality normalisation and a defensible frontier. None
 of the four survives as drawn, so this script replaces them.
 
   fig_window_floor      the instrument finding: what CodeCarbon calls a
-                        duration is max(phase, ~4 s), which is why the
-                        submitted energy-versus-time analysis cannot stand
+                        duration is the phase plus a constant below a
+                        threshold, which is why the submitted
+                        energy-versus-time analysis cannot stand. (The name is
+                        older than the fit: a floor was our first model of it,
+                        and the wrong one -- see the panel title.)
   fig_energy_ci         energy per ecosystem with genuine between-run
                         intervals, per block, on a common boundary
   fig_energy_accuracy   what the fixed-budget design hides: energy spent

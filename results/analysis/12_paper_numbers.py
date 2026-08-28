@@ -591,10 +591,49 @@ def convergence_facts() -> None:
     macro("vCollapseHomogeneityP", num(ht.permutation_p.iat[0], 2))
     macro("vCollapseNeverEcosystems",
           int((ht.n_collapsed == 0).sum()))
+    # The manuscript contrasts the permutation p with the chi-square one it
+    # declines to use. It quoted 0.017 for the latter, which belonged to an
+    # earlier version of this table; the value is 0.0065.
+    macro("vCollapseChiSqP", num(ht.chi_square_p.iat[0], 4))
+    macro("vCollapseChiSqMinExpected", num(ht.chi_square_min_expected.iat[0], 1))
 
     w = pd.read_csv(TABLES / "v2_convergence_waste.csv").iloc[0]
     macro("vWastedPct", num(w.wasted_pct, 1))
     macro("vWastedMJ", num(w.collapsed_energy_MJ, 1))
+    reexecution_facts()
+
+
+def reexecution_facts() -> None:
+    """Which runs were executed outside the main interleaved window.
+
+    The threats section owes the reader a count and a scope, and had both wrong
+    -- "the twenty Rust runs on Fashion-MNIST and Tiny ImageNet" against 25 runs
+    over five configurations including VGG-16 on CIFAR-100. Read the timestamps.
+    A run belongs to the later window if it started more than a day after the
+    campaign's last first-window start; the two windows here are eight days
+    apart, so the threshold is not delicate.
+    """
+    cc = pd.read_csv(REPO_ROOT / "results" / "replication" / "codecarbon.csv.gz",
+                     usecols=["ecosystem", "model", "dataset", "repetition",
+                              "timestamp"])
+    cc["t"] = pd.to_datetime(cc.timestamp)
+    starts = cc.groupby(["ecosystem", "model", "dataset", "repetition"]).t.min()
+    gap = starts.sort_values().diff()
+    boundary = gap.idxmax() if gap.max() > pd.Timedelta("1D") else None
+    if boundary is None:  # one contiguous window: nothing to declare
+        return
+    cutoff = starts[boundary]
+    later = starts[starts >= cutoff].reset_index()
+
+    macro("vLateRuns", len(later))
+    macro("vLateConfigurations",
+          later.groupby(["ecosystem", "model", "dataset"]).ngroups)
+    macro("vLateEcosystems",
+          ", ".join(SHORT[e] for e in sorted(later.ecosystem.unique())))
+    macro("vLateGapDays", num((cutoff - starts[starts < cutoff].max()).days, 0))
+    macro("vLateBlocks",
+          ", ".join(sorted({f"{MODEL[m]}/{DATASET[d]}"
+                            for m, d in zip(later.model, later.dataset)})))
 
 
 # ----------------------------------------------------------------- ranking --

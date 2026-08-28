@@ -40,6 +40,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import REPO_ROOT, save_table  # noqa: E402
@@ -174,6 +175,16 @@ def homogeneity_test(q: pd.DataFrame, n_permutations: int = 20000) -> pd.DataFra
     rows["collapse_pct"] = (100 * rows.n_collapsed / rows.n_runs).round(0)
     rows["overall_pct"] = round(100 * labels.mean(), 1)
     rows["permutation_p"] = round(p_value, 4)
+
+    # The chi-square the paper warns against, computed rather than quoted: the
+    # manuscript contrasts the two p-values, and a contrast is only honest if
+    # both sides come from this table.
+    contingency = np.column_stack([table["sum"].to_numpy(),
+                                   (table["size"] - table["sum"]).to_numpy()])
+    chi2, chi_p, _, expected = stats.chi2_contingency(contingency)
+    rows["chi_square"] = round(float(chi2), 3)
+    rows["chi_square_p"] = round(float(chi_p), 4)
+    rows["chi_square_min_expected"] = round(float(expected.min()), 2)
     return rows
 
 
