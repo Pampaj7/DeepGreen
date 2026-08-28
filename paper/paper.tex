@@ -245,7 +245,7 @@ In a world of limited environmental resources, the ever-growing energy required 
 Rather than framing this trend solely as a cause of concern, the field is now embracing a proactive paradigm, referred to as \emph{Green AI}~\cite{schwartz2020green,verdecchia2023systematic}. This research line promotes the development of AI systems that are not only accurate and effective but also energy-conscious and efficient. Recent surveys have highlighted advances across lightweight architectures, efficient training and inference strategies, model compression, and hardware-aware optimizations~\cite{xu2021survey,mehlin2023towards,tripp2024measuring,yarally2023uncovering}. Evidence increasingly points in the direction of energy improvements not necessarily implying a degradation of accuracy~\cite{cruz2025greening}.
 
 Beyond algorithmic efficiency, research in software sustainability has shown that the choice of programming language itself can have a substantial impact on energy usage~\cite{pereira2021ranking,georgiou2017analyzing,pereira2017energy,gordillo2024ranking,chandra2019impact,mahadevappa2021energy,maleki2017understanding}, and on the run time and memory that partly determine it~\cite{nanz2015comparative}. Nevertheless, while both Green AI and the environmental sustainability of programming languages have been independently investigated, their intersection remains largely unexplored.
-A first step was made by Georgiou \etal~\cite{georgiou2022green}, who analyzed the energy footprint of Deep Learning frameworks within Python, and by Marini \etal~\cite{marini2025green}, who studied the impact of programming languages in AI workloads.
+A first step was made by Georgiou \etal~\cite{georgiou2022green}, who analyzed the energy footprint of Deep Learning frameworks within Python, and by Marini \etal~\cite{marini2025green}, who studied the impact of programming languages in AI workloads and state explicitly that they ``purposely opted not to focus on GPU-intensive algorithms such as deep neural networks, leaving their consideration as future work''. That is the gap this study addresses.
 
 For a practitioner, however, a programming language is inseparable from its \emph{ecosystem}. Choosing a language for DL typically implies adopting a specific software stack, including language bindings, frameworks/libraries, runtimes/execution engines, and low-level driver/toolchain dependencies.
 As a result, in real-world settings it is often more meaningful to evaluate \emph{language--framework ecosystems} as they are adopted in practice, rather than attempting to isolate a ``pure'' language effect under synthetic, fully standardized conditions.
@@ -302,6 +302,14 @@ We treat execution time as a secondary metric rather than a proxy for energy.
 The prevailing position in the software-energy literature is that lower runtime
 does not imply lower energy~\cite{weber2023twins,rua2024large,pereira2021ranking},
 and we test it directly in Section~\ref{subsec:rq3} rather than assuming it.
+That position is itself under revision: van Kempen
+\etal~\cite{vankempen2025green} re-analyse language--energy rankings of this
+kind and argue that much of the reported effect is an artefact of how the
+comparison was constructed. Our argument is adjacent but not the same. Theirs
+concerns the confounds in what is being compared; ours concerns a field of the
+instrument's output, and we arrive at it from the opposite direction --- our
+counter-bracketed measurements make time a \emph{good} proxy for energy in this
+workload, where the estimator's own duration field makes it a bad one.
 Our result differs from that literature, and the difference is instructive: on
 counter-bracketed durations, energy and time rank our configurations almost
 identically. Those studies largely concern CPU-bound general-purpose benchmarks,
@@ -414,6 +422,7 @@ counts distinct language--framework combinations compared under one protocol.}
 \toprule
 \textbf{Study} & \textbf{Stacks} & \textbf{Hardware} & \textbf{Energy instrument} & \textbf{Replication} \\
 \midrule
+Li \etal~\cite{li2016evaluating} & 4 frameworks, Python only & CPU + GPU & external meter & repeated \\
 Pereira \etal~\cite{pereira2021ranking} & 27 languages, no DL & CPU & RAPL & 10 runs \\
 Gordillo \etal~\cite{gordillo2024ranking} & 8 languages, no DL & CPU & hardware meter & repeated \\
 Georgiou \etal~\cite{georgiou2022green} & 2 frameworks, Python only & CPU + GPU & RAPL + NVML & 30 runs \\
@@ -421,6 +430,7 @@ Alizadeh \& Castor~\cite{alizadeh2024energy} & 4 runtimes, Python only & CPU + G
 Li \etal~\cite{li2024bindings} & 5 bindings, 2 frameworks & CPU + GPU & none (time, memory, accuracy) & repeated \\
 Jay \etal~\cite{jay2023experimental} & software meters, not stacks & CPU + GPU & meters against a wattmeter & repeated \\
 Marini \etal~\cite{marini2025green} & 5 languages & CPU + GPU & software estimator & single run \\
+Chattaraj \etal~\cite{chattaraj2025rvspython} & 2 languages, no DL & CPU & software estimator & repeated \\
 \midrule
 This study & \vEcosystems{} stacks, 5 languages & GPU & NVML + RAPL counters, estimator alongside & \vRepetitions{} runs \\
 \bottomrule
@@ -1368,10 +1378,13 @@ flat across every duration decile from \SI{0.3}{\second} to \SI{65}{\second}.
 
 \textbf{On what is not measured, they cannot agree.} CodeCarbon's total exceeds
 the counters by \vCCtotalRatio$\times$, and the excess is entirely its RAM term
---- \vCCramSharePct\,\% of its reported total on average --- which is derived
-from installed memory capacity rather than from memory activity. The model is
-specific: a constant watts-per-DIMM, over a DIMM count inferred from total
-capacity, with decreasing marginal power above four DIMMs and a cap. On this
+--- \vCCramSharePct\,\% of its reported total on average --- which \emph{in machine
+tracking mode} --- the mode this campaign used, and the one a whole-machine
+study needs --- is derived from installed memory capacity rather than from
+memory activity. The model is specific: a constant watts-per-DIMM, over a DIMM
+count inferred from total capacity, with decreasing marginal power above four
+DIMMs and a cap. In process mode it uses the process's resident set instead, so
+the criticism here is about machine mode and should not be read past it. On this
 machine it yields a flat \SI{20}{\watt} for every block of the campaign,
 regardless of what the workload does to memory. No counter on this platform can
 confirm or refute it, because there is no DRAM RAPL domain to read.
@@ -1704,7 +1717,7 @@ Reported duration is not the accumulation window &
 no \\
 \addlinespace
 Modelled term inside a measured total &
-RAM energy from installed capacity, \vCCramSharePct\,\% of the reported total; scales with the host, not the workload &
+RAM energy from installed capacity in machine mode, \vCCramSharePct\,\% of the reported total; scales with the host, not the workload &
 no \\
 \addlinespace
 Mixed instrument versions &

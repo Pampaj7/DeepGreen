@@ -40,6 +40,16 @@ renamed to the work actually cited.
 | `patterson2025optimizer` | `almog2025optimizer` — Almog, *An Analysis of Optimizer Choice on Energy Efficiency and Performance in Neural Network Training*, arXiv:2509.13516 | arXiv record read directly: sole author Almog, 360 runs over eight optimizers on MNIST/CIFAR-10/CIFAR-100, energy tracked with CodeCarbon — exactly the claim the citing sentence makes. The old key's "patterson" matched nothing |
 | `llmgreen2024` | `luccioni2024power` — Luccioni, Jernite & Strubell, *Power Hungry Processing: Watts Driving the Cost of AI Deployment?*, FAccT '24, pp. 85--99, DOI 10.1145/3630106.3658542 | ACM record for pages and DOI; the conference PDF confirms the instrument ("logs produced by Code Carbon"), which is what the citing sentence asserts |
 
+**Every entry touched in review was checked against Crossref.** Not against a
+search engine: a reviewer's verification agent and my own web search disagreed
+about whether one entry had a journal version, and the search engine was wrong.
+Crossref is the registry, so it is the instrument. It settled six entries,
+including one where both the reviewer and I had the sixth author's given name
+wrong (Fichel, Benjamin --- not Benoit).
+
+The one entry with no Crossref record, `almog2025optimizer`, is arXiv-only; its
+identifier was verified against the arXiv abstract page directly.
+
 Every other entry was matched to a record where the title, the venue and the
 claim made in the citing sentence all agree.
 

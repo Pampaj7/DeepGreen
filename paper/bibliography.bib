@@ -607,7 +607,7 @@
 % MLPerf Tiny -- a different benchmark, on CIFAR-10, Speech Commands, Visual
 % Wake Words and ToyADMOS, and not on Tiny ImageNet at all.
 @techreport{le2015tinyimagenet,
-  author      = {Le, Ya and Yang, Xuan},
+  author      = {Le, Ya and Yang, Xuan S.},
   title       = {Tiny {ImageNet} Visual Recognition Challenge},
   institution = {Stanford University},
   number      = {CS231N course report},
@@ -620,7 +620,8 @@
 % source for the rule that a block must outlast the meter's sampling interval.
 @inproceedings{jay2023experimental,
   author    = {Jay, Mathilde and Ostapenco, Vladimir and Lef{\`e}vre, Laurent and
-               Trystram, Denis and Orgerie, Anne-C{\'e}cile and Fichel, Benoit},
+               Trystram, Denis and Orgerie, Anne-C{\'e}cile and
+               Fichel, Benjamin},
   title     = {An Experimental Comparison of Software-Based Power Meters:
                Focus on {CPU} and {GPU}},
   booktitle = {Proceedings of the 23rd IEEE/ACM International Symposium on
@@ -669,7 +670,53 @@
   journal = {ACM Transactions on Software Engineering and Methodology},
   volume  = {34},
   number  = {1},
-  pages   = {6:1--6:31},
+  pages   = {1--31},
   year    = {2024},
   doi     = {10.1145/3678168}
 }
+
+% A causal re-analysis of language-energy rankings of the Pereira kind: the one
+% paper that made an argument adjacent to ours -- that a widely cited energy
+% finding is an artefact of how it was obtained -- before we did.
+@inproceedings{vankempen2025green,
+  author    = {van Kempen, Nicolas and Kwon, Hyuk-Je and Nguyen, Dung Tuan and
+               Berger, Emery D.},
+  title     = {It's Not Easy Being Green: On the Energy Efficiency of
+               Programming Languages},
+  booktitle = {Proceedings of the 40th IEEE/ACM International Conference on
+               Automated Software Engineering (ASE)},
+  year      = {2025},
+  doi       = {10.1109/ASE63991.2025.00131},
+  eprint    = {2410.05460},
+  archivePrefix = {arXiv}
+}
+
+% Multi-framework CNN energy on CPU and GPU, and the earliest precedent in this
+% line -- predating the Python-internal framework comparisons this literature
+% usually starts from.
+@inproceedings{li2016evaluating,
+  author    = {Li, Da and Chen, Xinbo and Becchi, Michela and Zong, Ziliang},
+  title     = {Evaluating the Energy Efficiency of Deep Convolutional Neural
+               Networks on {CPUs} and {GPUs}},
+  booktitle = {Proceedings of the 2016 IEEE International Conferences on Big
+               Data and Cloud Computing (BDCloud), Social Computing and
+               Networking (SocialCom), Sustainable Computing and
+               Communications (SustainCom)},
+  pages     = {477--484},
+  year      = {2016},
+  doi       = {10.1109/BDCloud-SocialCom-SustainCom.2016.76}
+}
+
+% Two language ecosystems compared for ML energy in training and inference,
+% though on classical algorithms rather than GPU deep learning.
+@article{chattaraj2025rvspython,
+  author    = {Chattaraj, Rajrupa and Chimalakonda, Sridhar and
+               Sharma, Vibhu Saujanya and Kaulgud, Vikrant},
+  title     = {Who Wins the Race? ({R} vs {Python}) --- An Exploratory Study on
+               Energy Consumption of Machine Learning Algorithms},
+  journal   = {arXiv preprint arXiv:2508.17344},
+  eprint    = {2508.17344},
+  archivePrefix = {arXiv},
+  year      = {2025}
+}
+
