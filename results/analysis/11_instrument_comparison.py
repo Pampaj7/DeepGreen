@@ -410,14 +410,17 @@ def main() -> None:
                "Campaign-wide agreement between the two instruments")
 
     # -- 5. does the choice of instrument change the ranking? ---------------
-    train = df[df.phase == "Training"]
+    # Training only, once: the manuscript reported "4 of 6 blocks" from this
+    # table while arguing that inference is where the apparatus bites, which
+    # drew the reassurance from the phase the paper calls safe. Both phases now.
     ranks = []
-    for (model, dataset), g in train.groupby(["model", "dataset"]):
+    for (model, dataset, phase), g in df.groupby(["model", "dataset", "phase"]):
         per_eco_energy = g.groupby("ecosystem")[["hw_meas_j", "cc_total_j"]].sum()
         ranks.append(
             {
                 "model": model,
                 "dataset": dataset,
+                "phase": phase,
                 "n_ecosystems": len(per_eco_energy),
                 "rank_by_counters": " < ".join(per_eco_energy.hw_meas_j.sort_values().index),
                 "rank_by_codecarbon": " < ".join(per_eco_energy.cc_total_j.sort_values().index),
@@ -430,7 +433,7 @@ def main() -> None:
     rank_df = pd.DataFrame(ranks)
     print()
     print("--- does the instrument change the ranking? ---")
-    print(rank_df[["model", "dataset", "n_ecosystems", "identical"]].to_string(index=False))
+    print(rank_df[["model", "dataset", "phase", "n_ecosystems", "identical"]].to_string(index=False))
     save_table(rank_df, "v2_instrument_ranking",
                "Ecosystem ranking under each instrument, per block")
 

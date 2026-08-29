@@ -105,67 +105,70 @@ def save(fig, stem: str) -> None:
 
 # --------------------------------------------------------------------------
 def fig_window_floor(epochs: pd.DataFrame) -> None:
-    """CodeCarbon's reported duration against the counter-bracketed phase."""
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(10.0, 4.0),
-                                  gridspec_kw={"width_ratios": [1.15, 1],
-                                               "wspace": 0.26})
+    """What CodeCarbon calls a duration, and what that does to derived power.
 
-    for eco, g in epochs.groupby("ecosystem"):
+    Panel (a) used to draw the two-regime fit, complete with a threshold line
+    and an annotated "reported = phase + 3.28 s". That model is wrong -- the
+    excess is trimodal and block length does not decide the mode -- so drawing
+    it was drawing a claim the text withdraws two paragraphs later. It now
+    shows the modes themselves.
+
+    Panel (b) binned power differently from the table beside it in the
+    manuscript, so the headline factor appeared in one and not the other. Same
+    bins now, and the annotation is the same statistic the table prints.
+    """
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(10.0, 4.0),
+                                  gridspec_kw={"width_ratios": [1.05, 1],
+                                               "wspace": 0.28})
+
+    d = epochs.assign(excess=epochs.duration_cc_s - epochs.duration_hw_s)
+
+    # -- (a) the excess, by ecosystem, against phase length. The point of the
+    # panel is that the horizontal bands do not sort by the x axis.
+    for eco, g in d.groupby("ecosystem"):
         name = SHORT[eco]
-        ax.scatter(g.duration_hw_s, g.duration_cc_s, s=7, alpha=0.45,
+        ax.scatter(g.duration_hw_s, g.excess.clip(lower=0.008), s=7, alpha=0.45,
                    color=COLOR[name], label=name, marker=MARKER[name],
                    linewidths=0)
-
-    lim = (0.05, max(epochs.duration_hw_s.max(), epochs.duration_cc_s.max()) * 1.6)
-    x = np.geomspace(*lim, 400)
-
-    # The excess is bimodal -- a constant below a threshold, essentially nothing
-    # above it -- so the model is two regimes, not a floor. Fitting a floor to
-    # this gives a high R^2 carried entirely by the ends of the range; see
-    # 16_coverage_sensitivity.py.
-    d = epochs.assign(excess=epochs.duration_cc_s - epochs.duration_hw_s)
-    const = float(d[d.duration_hw_s < 8].excess.median())
-    by_len = (d.assign(b=pd.cut(d.duration_hw_s, np.arange(0, 30, 1)))
-              .groupby("b", observed=True).excess.median())
-    collapsed = by_len[by_len < 1.0]
-    thr = float(collapsed.index[0].left) if len(collapsed) else 11.0
-
-    ax.plot(x, x, color="0.35", lw=1.1, ls="--", zorder=5)
-    ax.plot(x, np.where(x < thr, x + const, x), color="black", lw=1.7, zorder=6)
-    ax.axvline(thr, color="black", lw=0.6, ls=":", zorder=4)
-    ax.set(xscale="log", yscale="log", xlim=lim, ylim=lim,
+    modes = (d.assign(m=pd.cut(d.excess, [-1, 0.5, 4.0, 6.0]))
+             .groupby("m", observed=True).excess.agg(["median", "size"]))
+    for med, n in modes.itertuples(index=False):
+        ax.axhline(med, color="0.35", lw=0.8, ls="--", zorder=1)
+        # Matplotlib is not TeX here: a backslash-escaped percent prints one.
+        ax.annotate(f"{med:.2f} s  ({100 * n / len(d):.0f}% of blocks)",
+                    xy=(d.duration_hw_s.max() * 0.92, med * 1.16),
+                    ha="right", fontsize=8, color="0.25")
+    ax.set(xscale="log", yscale="log",
            xlabel="phase duration, counter-bracketed (s)",
-           ylabel="duration reported by CodeCarbon (s)")
-    ax.annotate(f"reported $=$ phase $+\\ {const:.2f}\\,$s",
-                xy=(0.55, 0.55 + const), xytext=(0.075, lim[1] * 0.34),
-                fontsize=8.5,
-                arrowprops=dict(arrowstyle="->", color="0.3", lw=0.8))
-    ax.annotate(f"{thr:.0f} s", xy=(thr * 1.12, 0.13), fontsize=8, color="0.35")
-    ax.annotate("above: reported $=$ phase", xy=(thr * 3.0, thr * 3.0),
-                xytext=(thr * 0.30, thr * 12), fontsize=8.5, color="0.35",
-                arrowprops=dict(arrowstyle="->", color="0.55", lw=0.8))
-    ax.legend(markerscale=2.6, fontsize=7, loc="lower right", ncol=2,
+           ylabel="reported window $-$ phase (s)")
+    # Lower left is where the near-zero mode's own label sits.
+    ax.legend(markerscale=2.6, fontsize=7, loc="center left", ncol=2,
               handletextpad=0.3, columnspacing=0.9, borderpad=0.3)
-    ax.set_title("(a) below a threshold, the reported window is the phase plus a constant",
+    ax.set_title("(a) the excess falls in three modes, and length does not pick one",
                  fontsize=8.5, loc="left")
 
-    # -- what that does to power
-    d = epochs.copy()
-    d["p_hw"] = d.hw_meas_j / d.duration_hw_s
+    # -- (b) what that does to power, on the bins the manuscript tabulates
+    d = d.copy()
+    d["p_hw"] = d.hw_total_j / d.duration_hw_s
     d["p_cc"] = d.cc_total_j / d.duration_cc_s
-    d["bin"] = pd.cut(d.duration_hw_s, [0, 1, 3, 10, 30, np.inf],
-                      labels=["<1", "1-3", "3-10", "10-30", ">30"])
-    t = d.groupby("bin", observed=True)[["p_hw", "p_cc"]].mean()
+    d["bin"] = pd.cut(d.duration_hw_s, [0, 0.5, 1, 2, 5, 10, 30, np.inf],
+                      labels=["<0.5", "0.5-1", "1-2", "2-5", "5-10", "10-30", ">30"])
+    t = d.groupby("bin", observed=True).apply(
+        lambda g: pd.Series({"p_hw": g.p_hw.median(), "p_cc": g.p_cc.median(),
+                             "ratio": (g.p_hw / g.p_cc).median()}),
+        include_groups=False)
     idx = np.arange(len(t))
     ax2.bar(idx - 0.19, t.p_hw, 0.38, color="#2166ac", label="NVML + RAPL counters")
     ax2.bar(idx + 0.19, t.p_cc, 0.38, color="#d6a000", label="CodeCarbon energy / duration")
-    for i, (a, b) in enumerate(zip(t.p_hw, t.p_cc)):
-        ax2.annotate(f"{a / b:.1f}$\\times$", xy=(i, max(a, b) + 9),
-                     ha="center", fontsize=8)
+    for i, (a, b, r) in enumerate(zip(t.p_hw, t.p_cc, t.ratio)):
+        ax2.annotate(f"{r:.1f}$\\times$", xy=(i, max(a, b) + 9),
+                     ha="center", fontsize=7.5)
     ax2.set(xticks=idx, xticklabels=t.index, xlabel="phase duration (s)",
-            ylabel="mean power (W)", ylim=(0, max(t.p_hw.max(), t.p_cc.max()) * 1.22))
-    ax2.legend(fontsize=8, loc="upper left", bbox_to_anchor=(0.005, 0.87))
-    ax2.set_title("(b) so power is understated for short phases",
+            ylabel="median power (W)",
+            ylim=(0, max(t.p_hw.max(), t.p_cc.max()) * 1.25))
+    ax2.tick_params(axis="x", labelsize=7.5)
+    ax2.legend(fontsize=8, loc="upper left", bbox_to_anchor=(0.005, 0.99))
+    ax2.set_title("(b) so power from the reported fields is understated on short phases",
                   fontsize=8.5, loc="left")
     save(fig, "fig_window_floor")
 
