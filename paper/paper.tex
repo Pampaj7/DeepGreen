@@ -318,7 +318,7 @@ traffic and shift energy per second substantially. In a GPU-bound DL workload
 the accelerator dominates and holds a narrow band of power, so time and energy
 are close to proportional. We report this as a scope condition on the
 established finding, not a refutation of it --- and we show in
-Section~\ref{sec:instrument} that a study of exactly our shape can obtain either
+Section~\ref{subsec:rq3} that a study of exactly our shape can obtain either
 answer depending on which field of the instrument's output it reads as the
 duration.
 
@@ -634,8 +634,11 @@ and ours is missing altogether.
 
 \texttt{CodeCarbon}~\cite{codecarbon} runs over the same window as
 a second reading, in machine tracking mode at a one-second
-sampling interval, configured identically for all \vEcosystems{} stacks through
-a single shared bridge. The four non-Python ecosystems drive that bridge over a
+sampling interval and the default \code{api\_call\_interval} of
+\vMechApiCallInterval{}, configured identically for all \vEcosystems{} stacks
+through a single shared bridge. We name that last parameter because
+Section~\ref{subsec:rq3} shows it is the one that decides whether a reported
+duration is a duration. The four non-Python ecosystems drive that bridge over a
 line protocol with synchronous acknowledgement, so that a phase boundary in the
 measured process and the corresponding counter read cannot drift apart --- an
 earlier asynchronous version of the same bridge under-reported one stack's
@@ -787,10 +790,12 @@ These settings reflect canonical practices in the community while ensuring compa
 Each phase of each epoch is bracketed by two counter reads --- NVML's
 accumulated-energy register and the CPU package RAPL counter --- and is
 simultaneously tracked by \texttt{CodeCarbon} v3.3.0~\cite{codecarbon}. The two
-are started and stopped by the same code path, so their windows cannot drift
-apart. They are not identical: the counter reads are nested immediately inside
-the tracker's, which costs a fixed offset we quantify in
-Section~\ref{sec:instrument} rather than assume away.
+are started and stopped by the same code path, so the intervals they
+\emph{accumulate over} cannot drift apart. The counter reads are nested
+immediately inside the tracker's, which costs a fixed offset we quantify in
+Section~\ref{sec:instrument} rather than assume away. The interval CodeCarbon
+\emph{reports} is a different thing again, and Section~\ref{subsec:rq3} is
+about that.
 
 The four non-Python ecosystems drive the instrumentation through a single shared
 bridge: a Python process that accepts \texttt{START}, \texttt{STOP},
@@ -803,9 +808,12 @@ corresponding counter read, which under-reported one stack's training energy by
 like a bug only if someone thinks to look at it.
 
 Running the bridge out of process also isolates the measured stack from the
-instrument: a crash in the tracker cannot take down a six-hour training run, and
-the tracker's own CPU cost is attributed to the machine total rather than
-silently to the workload. All runs execute in isolation on an otherwise idle
+instrument: a crash in the tracker cannot take down a six-hour training run. It
+does not remove the tracker's own cost from the measurement --- under
+whole-machine tracking its once-per-second sampling runs inside the block and
+its package energy is inside the block's RAPL delta. That cost is a constant per
+second and identical for every stack, so it does not bias the comparison, but it
+is inside the numbers and we would rather say so. All runs execute in isolation on an otherwise idle
 host, as whole-machine tracking requires, and each block is logged with dataset,
 model, ecosystem, repetition, seed, phase, epoch, both energy readings, the
 duration and the test accuracy reached.
@@ -1049,6 +1057,14 @@ all, so for those cells there is no energy-to-target to report and the
 fixed-budget columns are the only comparison available. We show the empty cells
 rather than dropping them, because ``did not reach the target'' is the result.
 
+Those cells must not be compared with each other. Where a stack reaches the
+target in five runs of ten and another in all ten, the two medians are taken
+over differently selected subsets --- the first conditions on the runs that
+succeeded --- and a median over survivors is not an estimate of the same
+quantity. The attainment count is printed beside every such cell for that
+reason, and the like-for-like reading of this table is the Fashion-MNIST column,
+where every run of every stack reaches the target.
+
 \begin{table}[t]
 \centering
 \caption{Median training energy (kJ) to first reach a target accuracy, with the
@@ -1152,7 +1168,11 @@ would be indistinguishable from a collapse.
 We are able to state the discriminator's recall on the one instance we have,
 and it is not perfect. The defect was a deterministic code path on the training
 branch, so all \vRepetitions{} repetitions of that configuration carried it; the
-discriminator flagged \vDefectRuns{}. The remaining run finished above the
+discriminator flagged \vDefectRuns{}. The same binary family was rebuilt for
+\vLateConfigurations{} Rust configurations, but only this one drove accuracy to
+chance --- on the other blocks the corrupted input degraded quality without
+collapsing it, which is precisely why a discriminator that triggers on chance
+accuracy is a diagnostic aid and not a detector. The remaining run finished above the
 collapse threshold and so was never a candidate for the test at all. A
 discriminator calibrated on a single positive example, with a threshold chosen
 after seeing it, is a heuristic and not a detector: it separates the two failure
@@ -1240,7 +1260,12 @@ bracket a phase --- rather than on any duration reported by the estimator.
 On that basis, energy and time rank the configurations almost identically:
 Spearman $\rho = \vRhoTrain$ for training and $\vRhoInfer$ for inference, with
 \vDiscordantTrainPct\,\% and \vDiscordantInferPct\,\% of configuration pairs
-discordant respectively. Within this workload and platform, execution time is a
+discordant respectively. Those coefficients are pooled over all
+\vConfigurations{} configurations, so they are partly a statement about workload
+size: a bigger dataset costs both more time and more energy whatever the stack.
+Computed within a cell, over the \vEcosystems{} ecosystems that the research
+question actually contrasts, the coefficients are lower and still high ---
+\vPhaseRhoMin{} to \vPhaseRhoMax{} --- on seven points each. Within this workload and platform, execution time is a
 good proxy for energy, and the interesting question is why an analysis of the
 same experimental shape can conclude otherwise.
 
@@ -1522,12 +1547,14 @@ a fine agreement, and we report it as such: within the padded blocks alone it is
 $r = \vGapInstrumentRPadded$, and within the unpadded blocks
 $r = \vGapInstrumentRUnpadded$. The timestamps these gaps are computed from have
 \vGapTimestampResolutionS\,\si{\second} resolution against a median gap of
-\vGapMedianS\,\si{\second}, which is the precision this attribution has.
+\vGapMedianS\,\si{\second}, and \vGapNegativePct\,\% of the computed gaps come
+out negative before they are clipped at zero. That fraction, rather than the
+correlation, is the honest measure of what this attribution can resolve.
 
 Coverage tracks block length rather than anything about the ecosystems
-(Table~\ref{tab:coverage}): short blocks pay the tracker's fixed cost more
-often, so \vCoverageWorstEco{} with a \SI{3.2}{\second} median block is
-penalised where \vCoverageBestEco{} with a \SI{37}{\second} one is not. The
+(Table~\ref{tab:coverage}): short blocks pay the tracker's fixed cost more often, so the stacks with the
+shortest median block are penalised where those with the longest are not
+(Table~\ref{tab:coverage}). The
 untracked time is the instrument holding its window open. It would not exist in
 an uninstrumented run, and charging it to the ecosystems would charge them for
 the cost of being measured. Per-phase energy is therefore the right quantity,
@@ -1537,17 +1564,23 @@ Two caveats belong with that conclusion. The attribution is not exact --- for
 one ecosystem the instrument's share of untracked time comes out slightly above
 100\,\%, which is the one-second timestamp resolution showing through, and
 Table~\ref{tab:coverage} prints it unclamped rather than rounding it away. And the untracked time is not free. Across the campaign it amounts to
-\vUntrackedHours{} hours, which at this machine's measured idle draw of
-\vIdleTotalW\,\si{\watt} is \vUntrackedMJ~MJ --- about \vUntrackedPct\,\% of the
-energy the campaign reports, drawn from the wall and attributed to nobody. Its
-share grows as blocks get shorter, which is exactly where the instrument's other
-failure modes bite, and it is a cost anyone planning a machine-mode campaign
-should budget for rather than discover.
+\vUntrackedHours{} hours. Pricing it is a range rather than a number: at this
+machine's measured idle draw of \vIdleTotalW\,\si{\watt} it is
+\vUntrackedMJ~MJ, about \vUntrackedPct\,\% of the energy the campaign reports,
+and that is a floor --- the interval begins microseconds after an epoch ends,
+with the accelerator not yet clocked down, so the true figure lies between that
+and the several times larger number the campaign's mean block power would give.
+Its share grows as blocks get shorter. It is also avoidable, now that we know
+what it is: it is not an intrinsic cost of machine-mode tracking but of leaving
+one configuration parameter at its default.
 
 \begin{table}[t]
 \centering
-\caption{Tracked share of each run's wall time, and how much of the remainder is
-the instrument's own window. Coverage follows block length, not the ecosystem.}
+\caption{Tracked share of the interval from a run's first block to its last,
+and how much of the remainder is the instrument's own window. Not wall time: the
+denominator excludes start-up, dataset construction and teardown. Coverage
+follows block length, not the ecosystem --- with \vWindowUnpaddedEco{} the
+exception, whose untracked time is almost none of it.}
 \label{tab:coverage}
 \resizebox{\columnwidth}{!}{\input{generated/tab_coverage.tex}}
 \end{table}
@@ -1739,40 +1772,49 @@ give us the least confidence in.
 
 \textbf{Inference phase (hyperscale workload, fixed work).}
 Let PyTorch serve a fixed daily inference volume on $N=100{,}000$ accelerators
-running continuously for 24 hours at an average inference-attributable draw of
-$P=0.4$~kW each: $\vScenarioBaselineMWh$~MWh/day, or
-\vScenarioBaselineCost~\euro\ per day at
+running continuously for 24 hours. We take the per-card draw from the campaign
+rather than assuming one: PyTorch's inference blocks measure
+\vScenarioBaselineW\,\si{\watt} at the accelerator, giving
+\vScenarioBaselineMWh~MWh/day, or \vScenarioBaselineCost~\euro{} per day at
 \SI{100}{\euro\per\mega\watt\hour}.
 
-Two things about how that scales. First, the quantity a less efficient stack
-needs more of is \emph{accelerator-hours}, not watts: at a fixed service target
-it needs a larger fleet, or the same fleet for longer, and
-Table~\ref{tab:industrial_inference} states it that way. Multiplying energy at a
-fixed fleet and fixed hours would imply a per-card draw several times the board
-limit of the accelerator we measured, which is not a thing that can happen.
-Second, the multipliers are computed from \emph{accelerator energy alone}, to
-match the per-accelerator power budget the scenario assumes; taking them at the
-board-and-package boundary instead moves the ecosystem spread from
-\vScenarioSpreadGpu$\times$ to \vScenarioSpreadTotal$\times$. This matters
-because the submitted version of this paper multiplied a per-GPU board power by
-a ratio derived from CPU, GPU and modelled RAM energy together --- different
-boundaries, and their product is not a quantity.
+Scaling that to another ecosystem takes two measured quantities, not one, and an
+earlier version of this scenario used only the first. At a fixed service target
+a less efficient stack needs more \emph{accelerator-hours}, so the fleet scales
+with the time multiplier; and it draws its own power while doing so, which is
+not the baseline's. Both matter here, and they pull in opposite directions for
+the extreme case: \vScenarioWorst{} needs \vScenarioWorstTimeMult$\times$ the
+accelerator-hours but draws only \vScenarioWorstW\,\si{\watt} per card against
+the baseline's \vScenarioBaselineW\,\si{\watt}, so its energy multiplier is
+\vScenarioWorstMult$\times$ rather than \vScenarioWorstTimeMult$\times$.
+Multiplying energy at a fixed fleet and a fixed per-card draw --- as we did ---
+would have asserted a draw for \vScenarioWorst{} that its own measurements
+contradict, and one several times the board limit of the card.
+
+Table~\ref{tab:industrial_inference} therefore gives fleet size, measured draw
+and the energy that follows. The multipliers are computed from accelerator
+energy alone, matching the per-accelerator quantity the scenario scales; at the
+board-and-package boundary the ecosystem spread is \vScenarioSpreadTotal$\times$
+rather than \vScenarioSpreadGpu$\times$. Note that the spread in
+accelerator-hours, \vScenarioSpreadTime$\times$, is wider than the spread in
+energy: a fleet-sizing decision and an electricity bill are not the same
+comparison.
 
 On that basis \vScenarioBest{} serves the same volume at
 \vScenarioBestMult$\times$ the baseline energy and \vScenarioWorst{} at
-\vScenarioWorstMult$\times$. We note that the inference blocks these multipliers
-come from are sub-second in most stacks, which is the regime
+\vScenarioWorstMult$\times$. The inference blocks these multipliers come from
+are sub-second in most stacks, which is the regime
 Section~\ref{sec:instrument} identifies as least reliable for any instrument;
 they are counter-bracketed and so do not carry the estimator's padding, but they
 are the shortest measurements in the campaign and the ratios inherit that.
 
 \begin{table*}[t]
 \centering
-\caption{Projected daily energy and cost for large-scale inference
-($10^5$ accelerators, 24\,h, electricity at
-\SI{100}{\euro\per\mega\watt\hour}), scaling the \emph{relative} inference
-energy measured in this campaign with Python/PyTorch as the baseline. These are
-scenario arithmetic on measured multipliers, not forecasts.}
+\caption{Projected daily energy and cost for large-scale inference at a fixed
+service target ($10^5$ baseline accelerators, 24\,h, electricity at
+\SI{100}{\euro\per\mega\watt\hour}). Fleet size scales with measured
+accelerator-hours; energy is that fleet at each stack's own measured draw. These
+are scenario arithmetic on measured quantities, not forecasts.}
 \label{tab:industrial_inference}
 \resizebox{0.8\textwidth}{!}{\input{generated/tab_industrial.tex}}
 \end{table*}

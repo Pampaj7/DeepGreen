@@ -52,10 +52,12 @@ from pathlib import Path
 RAPL_ROOT = Path("/sys/class/powercap")
 J_PER_UJ = 1e-6
 # A lower bound on package power while a measured block is running. Used only to
-# decide whether a block could have wrapped the RAPL counter twice: at this
-# machine's ~50 W package draw the range is a quarter of an hour, and the
-# longest block in the campaign is under two minutes.
-_MIN_WRAP_W = 10.0
+# decide whether a block could have wrapped the RAPL counter twice. It has to be
+# a real floor: this machine's measured idle package draw is 38.7 W, so 10 W
+# would put the guard three times further out than the hardware allows and it
+# would not do what its docstring says. At 35 W the 65.5 kJ range wraps in about
+# half an hour, and the longest block in the campaign is under two minutes.
+_MIN_WRAP_W = 35.0
 
 
 class CounterReset(RuntimeError):

@@ -57,15 +57,27 @@ RAM energy counter to read.
   not determine. Power derived from that field is understated by up to 11.2× on
   blocks under half a second. `duration_s` in the counters table is the phase.
 * **Twelve of the 105 VGG-16 runs never left chance accuracy.** They are here
-  because they happened; they are excluded from the accuracy analysis and
-  flagged by `results/analysis/15_convergence.py`. Filter on `test_acc`, not on
-  the ecosystem.
+  because they happened. The manuscript reports accuracy both with and without
+  them rather than excluding them, and `results/analysis/15_convergence.py`
+  flags them. Filter on `test_acc`, not on the ecosystem.
 * **`longitude`/`latitude`/`country_name`** are CodeCarbon's IP geolocation of
   the measuring machine, resolved to a region rather than a place. They set the
-  grid carbon intensity used for the CO₂e figures and nothing else.
-* **The `Rust/tch` runs on five of the six blocks were re-executed later.**
-  The originals trained on all-zero images through a defect of ours and were
-  discarded; the evidence is kept at
-  `results/revision/record/vgg_fashion_pipeline_defect.csv`. They ran in a
-  later time window than the rest of the campaign, on the same machine and the
-  same idle conditions. The manuscript states this as a threat.
+  grid carbon intensity used for the CO₂e figures — and, less obviously, they
+  are why `duration` is wrong: fetching them is a blocking network call inside
+  `stop()`. See `scripts/probe_reported_window.py`.
+
+* **`Java/DL4J` has no `test_loss`.** Our Java harness records test accuracy per
+  epoch and not test loss, so that column is empty for all 900 of its rows. The
+  conformance checker reports this as a failing check rather than tolerating
+  it.
+* **The `Rust/tch` runs on five of the six blocks were re-executed later**, in a
+  window five days after the rest of the campaign, on the same machine under the
+  same idle conditions. On one of those blocks (VGG-16 / Fashion-MNIST) the
+  originals trained on all-zero images through a defect of ours and reached
+  chance accuracy; the evidence is kept at
+  `results/revision/record/vgg_fashion_pipeline_defect.csv`. On the others the
+  same loader defect degraded quality without collapsing it. The between-window
+  drift is measured rather than assumed —
+  `results/analysis/17_window_calibration.py`, and
+  `results/revision/tables/v2_window_calibration.*` — at 0.2 % on training
+  energy and 10.6 % on inference.

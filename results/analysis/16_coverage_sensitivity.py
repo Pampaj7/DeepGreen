@@ -48,8 +48,9 @@ def per_block() -> pd.DataFrame:
     out = []
     for _, g in d.groupby(["ecosystem", "model", "dataset", "repetition"]):
         g = g.sort_values("_ts")
-        gap = (g._ts.diff().dt.total_seconds() - g.duration_hw_s).clip(lower=0)
-        out.append(g.assign(gap_s=gap))
+        raw_gap = g._ts.diff().dt.total_seconds() - g.duration_hw_s
+        gap = raw_gap.clip(lower=0)
+        out.append(g.assign(gap_s=gap, gap_raw_s=raw_gap))
     a = pd.concat(out)
     a["window_excess_s"] = a.duration_cc_s - a.duration_hw_s
     return a
@@ -76,6 +77,9 @@ def gap_is_instrument(a: pd.DataFrame) -> pd.DataFrame:
         "pearson_r_unpadded_only": round(
             float(g[~padded].gap_s.corr(g[~padded].window_excess_s)), 4),
         "timestamp_resolution_s": 1 if ts.dt.microsecond.nunique() == 1 else 0,
+        # Negative before clipping: one-second timestamps against three-second
+        # gaps. This is what the attribution can actually resolve.
+        "negative_gap_pct": round(100 * float((g.gap_raw_s < 0).mean()), 1),
         "median_gap_s": round(float(g.gap_s.median()), 3),
         "median_window_excess_s": round(float(g.window_excess_s.median()), 3),
         "median_abs_difference_s": round(
