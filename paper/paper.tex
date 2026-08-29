@@ -1234,9 +1234,10 @@ modes and nothing lies between them. \vWindowModeOnePct\,\% of blocks carry an
 excess of \vWindowModeOneS\,\si{\second} --- that is, none;
 \vWindowModeTwoPct\,\% carry \vWindowModeTwoS\,\si{\second}; and
 \vWindowModeThreePct\,\% carry \vWindowModeThreeS\,\si{\second}. The widest of
-the three modes spans \vWindowModeWidestS\,\si{\second}. Two thirds of the
-campaign's blocks are therefore reported with a window that is seconds longer
-than the interval over which their energy was accumulated.
+the three modes spans \vWindowModeWidestS\,\si{\second}.
+\vWindowPaddedPct\,\% of the campaign's blocks are therefore reported with a
+window seconds longer than the interval over which their energy was
+accumulated.
 
 \emph{What decides which mode a block lands in is not its length.} Short blocks
 are padded far more often than long ones, and it is tempting --- we were tempted
@@ -1291,14 +1292,13 @@ instrument is divided by itself.}
     \label{fig:window_floor}
 \end{figure*}
 
-Panel (b) shows the consequence. Power computed as reported energy over reported
-duration is understated by \vPowerUnderstatedWorst$\times$ on the shortest
-blocks (\vPowerReportedWorstW\,W against a measured \vPowerMeasuredWorstW\,W)
-and is correct above ten seconds. The bias is not random and it is not uniform:
-it is monotone in phase length, so it falls hardest on the fastest ecosystems
-and on the inference phase, and it stretches their apparent time axis while
-leaving their energy untouched. That is precisely the shape of an artefactual ``fast but
-energy-hungry'' finding.
+Panel (b) plots the same quantity per block. What matters about it is the
+\emph{shape}: the bias is neither random nor uniform but monotone in phase
+length, so it falls hardest on the fastest ecosystems and on the inference
+phase, and it stretches their apparent time axis while leaving their energy
+untouched. That is precisely the shape of an artefactual ``fast but
+energy-hungry'' finding, and it is why a study can obtain that result from
+correct energy measurements.
 
 \begin{tcolorbox}[colback=gray!5!white, colframe=gray!40!black, title=\textbf{RQ3 Findings: Energy and Time}]
 \small
