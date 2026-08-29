@@ -12,7 +12,11 @@
 # measurements.
 set -euo pipefail
 cd "$(dirname "$0")"
-PY="${PYTHON:-python3}"
+# The campaign interpreter, not whatever `python3` resolves to. The system
+# interpreter has no pandas, and under it check_consistency.py reports a clean
+# run on a repository it has not finished checking.
+PY="${PYTHON:-$(cd ../.. && pwd)/.venv-deepgreen/bin/python}"
+[ -x "$PY" ] || { echo "no interpreter at $PY; set PYTHON=..." >&2; exit 2; }
 
 run() { echo "### $1"; "$PY" "$1"; echo; }
 

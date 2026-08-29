@@ -51,13 +51,25 @@ from pathlib import Path
 
 RAPL_ROOT = Path("/sys/class/powercap")
 J_PER_UJ = 1e-6
-# A lower bound on package power while a measured block is running. Used only to
-# decide whether a block could have wrapped the RAPL counter twice. It has to be
-# a real floor: this machine's measured idle package draw is 38.7 W, so 10 W
-# would put the guard three times further out than the hardware allows and it
-# would not do what its docstring says. At 35 W the 65.5 kJ range wraps in about
-# half an hour, and the longest block in the campaign is under two minutes.
-_MIN_WRAP_W = 35.0
+# A lower bound on a domain's power while a measured block is running. Used only
+# to decide whether a block could have wrapped the RAPL counter twice. It has to
+# be a real floor, and the floor is per domain: this machine's measured idle
+# package draw is 38.7 W, so 10 W would put the package guard three times
+# further out than the hardware allows, while its `core` child idles at 0.76 W
+# and a 35 W floor would put *that* guard 46x too close. At 35 W the package's
+# 65.5 kJ range wraps in about half an hour, and the longest block in the
+# campaign is under two minutes.
+_MIN_WRAP_W = {"package": 35.0}
+_MIN_WRAP_W_DEFAULT = 0.5
+
+
+def _wrap_floor_w(key: str) -> float:
+    """The power floor to use for a domain, by its powercap name."""
+    name = key.split("@", 1)[0]
+    for prefix, watts in _MIN_WRAP_W.items():
+        if name.startswith(prefix):
+            return watts
+    return _MIN_WRAP_W_DEFAULT
 
 
 class CounterReset(RuntimeError):
@@ -167,19 +179,24 @@ class HardwareCounters:
             if key not in b.rapl_uj:
                 continue
             raw = b.rapl_uj[key] - a.rapl_uj[key]
-            if raw < 0:
-                # A single wrap is correctable; two are indistinguishable from
-                # one, so refuse blocks long enough for that to be possible.
-                rng_check = self._rapl_range.get(key, 0)
-                if rng_check > 0 and out["duration_s"] > rng_check / _MIN_WRAP_W:
+            rng = self._rapl_range.get(key, 0)
+            # A single wrap is correctable; two are indistinguishable from one,
+            # so refuse any block long enough for two to be possible. This is
+            # checked whatever the sign of the delta: two wraps land *above* the
+            # opening reading as often as below, and a positive delta is exactly
+            # the case the correction below would not even notice.
+            if rng > 0:
+                wrap_s = rng * J_PER_UJ / _wrap_floor_w(key)
+                if out["duration_s"] > wrap_s:
                     raise CounterReset(
-                        f"block of {out['duration_s']:.0f} s is long enough for "
-                        f"{key} to wrap more than once; the correction below "
-                        f"cannot tell one wrap from two.")
+                        f"block of {out['duration_s']:.0f} s exceeds the "
+                        f"{wrap_s:.0f} s in which {key} could wrap twice at its "
+                        f"{_wrap_floor_w(key):.1f} W floor; one wrap cannot be "
+                        f"told from two.")
+            if raw < 0:
                 # RAPL wraps at max_energy_range_uj. Without this correction a
                 # wrap turns into a large negative energy, or is dropped, and a
                 # whole epoch is lost from the record.
-                rng = self._rapl_range.get(key, 0)
                 if rng <= 0:
                     continue  # cannot correct honestly: omit rather than invent
                 raw += rng

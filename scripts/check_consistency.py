@@ -42,12 +42,24 @@ def read(rel: str) -> str:
     return p.read_text(errors="replace") if p.exists() else ""
 
 
-def glob_read(pattern: str) -> dict[str, str]:
-    return {
-        str(p.relative_to(REPO)): p.read_text(errors="replace")
-        for p in sorted(REPO.glob(pattern))
-        if p.is_file()
-    }
+def glob_read(*patterns: str, exclude: tuple[str, ...] = ()) -> dict[str, str]:
+    """Read every file matching any of `patterns`, minus `exclude`d basenames.
+
+    Several patterns rather than brace expansion, because pathlib does not
+    expand braces and would silently match nothing -- which in a checker turns
+    into a SKIP that reads like a pass.
+
+    `exclude` is for files that match a glob but carry none of the behaviour it
+    is about -- a Rust `mod.rs` that only re-exports, say. Use it sparingly: a
+    checker whose globs are narrowed until they pass is the thing this script
+    exists to prevent.
+    """
+    out: dict[str, str] = {}
+    for pattern in patterns:
+        for p in sorted(REPO.glob(pattern)):
+            if p.is_file() and p.name not in exclude:
+                out[str(p.relative_to(REPO))] = p.read_text(errors="replace")
+    return out
 
 
 def strip_comments(files: dict[str, str]) -> dict[str, str]:
@@ -79,26 +91,116 @@ def strip_comments(files: dict[str, str]) -> dict[str, str]:
     return out
 
 
-def check_regex(eco, name, files, pattern, expect=True, detail_ok="", flags=0):
-    """PASS if `pattern` is found (expect=True) or absent (expect=False)."""
-    hits = []
+def check_regex(eco, name, files, pattern, expect=True, detail_ok="", flags=0,
+                every=True):
+    """PASS if `pattern` is found (expect=True) or absent (expect=False).
+
+    The specification is universal -- "the learning rate is 1e-4 in every stack"
+    -- so the default is universal too: with expect=True and every=True the check
+    passes only when *every* file in the glob carries the pattern. An existential
+    check ("some file in this glob says 1e-4") is not a conformance test: it
+    cannot see a divergent sibling, and it will cite as evidence a file the
+    campaign never executes. That is not hypothetical -- it is how a tree of
+    unexecuted Java classes carrying lrAdam = 1e-3 sat under a passing check.
+
+    Pass every=False only where the pattern legitimately lives in one file of a
+    multi-file glob, and say why at the call site.
+    """
+    hits, missing = [], []
     for path, text in files.items():
+        found_here = False
         for m in re.finditer(pattern, text, flags):
             line = text[: m.start()].count("\n") + 1
             hits.append(f"{path}:{line}")
-    found = bool(hits)
-    ok = found == expect
+            found_here = True
+        if not found_here:
+            missing.append(path)
     if not files:
         return Result(eco, name, SKIP, "no source files matched")
-    if ok:
-        return Result(eco, name, PASS, detail_ok or (hits[0] if hits else "absent"))
-    if expect:
-        return Result(eco, name, FAIL, "pattern not found")
-    return Result(eco, name, FAIL, "found at " + ", ".join(hits[:3]))
+
+    if not expect:                      # universal by construction: no file may match
+        if hits:
+            return Result(eco, name, FAIL, "found at " + ", ".join(hits[:3]))
+        return Result(eco, name, PASS, detail_ok or f"absent from {len(files)} file(s)")
+
+    if every:
+        if missing:
+            return Result(eco, name, FAIL,
+                          f"missing from {len(missing)} of {len(files)}: "
+                          + ", ".join(sorted(missing)[:3]))
+        return Result(eco, name, PASS,
+                      detail_ok or f"in all {len(files)} file(s), e.g. {hits[0]}")
+
+    if hits:
+        return Result(eco, name, PASS, detail_ok or hits[0])
+    return Result(eco, name, FAIL, "pattern not found")
 
 
 def bench_src() -> str:
     return read("tools/deepgreen_bench.py")
+
+
+def _check_run_dir_contract() -> list[Result]:
+    """Resolve both output paths with DEEPGREEN_RUN_DIR set, and see where they go.
+
+    The campaign has two code paths that choose an output directory: the Python
+    stacks resolve `RunContext.out_dir` in process, the other four go through
+    `deepgreen_tracker.run_dir()`. They once disagreed -- the tracker honoured
+    the run contract and the bench hardcoded the campaign directory -- and a
+    calibration re-execution overwrote three of the campaign's own runs.
+
+    So this asks the question that incident poses: with the variable set, does
+    each path resolve *inside* it, and does neither fall back to the campaign
+    directory? Anything short of executing them is a proxy for that question.
+    """
+    import importlib
+    import os
+    import tempfile
+
+    out: list[Result] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "run"
+        env_before = os.environ.get("DEEPGREEN_RUN_DIR")
+        sys.path.insert(0, str(REPO / "tools"))
+        os.environ["DEEPGREEN_RUN_DIR"] = str(target)
+        try:
+            for name, resolve in (
+                ("deepgreen_bench", lambda m: m.RunContext(
+                    ecosystem="Python/PyTorch", model="resnet18",
+                    dataset="fashionmnist", repetition=0).out_dir),
+                ("deepgreen_tracker", lambda m: m.run_dir()),
+            ):
+                try:
+                    mod = importlib.import_module(name)
+                    importlib.reload(mod)
+                    got = Path(resolve(mod)).resolve()
+                    inside = got == target.resolve() or target.resolve() in got.parents
+                    campaign = (REPO / "results" / "campaign_v2").resolve()
+                    escaped = got == campaign or campaign in got.parents
+                    if inside and not escaped:
+                        out.append(Result("all", f"S5 {name} honours DEEPGREEN_RUN_DIR",
+                                          PASS, "resolves inside the run contract"))
+                    else:
+                        out.append(Result("all", f"S5 {name} honours DEEPGREEN_RUN_DIR",
+                                          FAIL, f"resolved to {got}"))
+                except Exception as exc:
+                    out.append(Result("all", f"S5 {name} honours DEEPGREEN_RUN_DIR",
+                                      FAIL, f"{type(exc).__name__}: {exc}"))
+        finally:
+            if env_before is None:
+                os.environ.pop("DEEPGREEN_RUN_DIR", None)
+            else:
+                os.environ["DEEPGREEN_RUN_DIR"] = env_before
+            sys.path.remove(str(REPO / "tools"))
+
+    # And the fallback is still the campaign directory when nothing is set,
+    # so honouring the contract has not quietly changed the default.
+    bench = read("tools/deepgreen_bench.py")
+    out.append(Result("all", "S5 campaign_v2 is the fallback, not a second path",
+                      PASS if bench.count('"campaign_v2"') == 1 else FAIL,
+                      f'"campaign_v2" appears {bench.count(chr(34) + "campaign_v2" + chr(34))}x '
+                      f"in deepgreen_bench.py"))
+    return out
 
 
 def run() -> list[Result]:
@@ -120,7 +222,7 @@ def run() -> list[Result]:
     r.append(check_regex("R/torch", "S2 lr=1e-4",
                          glob_read("R/models/*.r"), r"optim_adam\([^)]*lr = 1e-4"))
     r.append(check_regex("Java/DL4J", "S2 lr=1e-4",
-                         glob_read("Java/**/expt/**/*.java"), r"lrAdam\s*=\s*1e-4"))
+                         glob_read("Java/**/expt/resnet18/*.java", "Java/**/expt/vgg16/*.java"), r"lrAdam\s*=\s*1e-4"))
 
     # ---------------- S3: loader parallelism -------------------------------
     r.append(check_regex("Python/PyTorch", "S3 loader workers = 2",
@@ -135,7 +237,7 @@ def run() -> list[Result]:
                          glob_read("Java/**/dataloader/PNGDataloader.java"),
                          r"AsyncDataSetIterator\([^,]+,\s*2\)"))
     r.append(check_regex("Rust/tch", "S3 loader pool bounded",
-                         glob_read("rust/src/datasets/*.rs"), r"init_loader_pool\(\)"))
+                         glob_read("rust/src/datasets/*.rs", exclude=("mod.rs",)), r"init_loader_pool\(\)"))
 
     # The input transform lives in the loader and nowhere else.
     #
@@ -167,7 +269,7 @@ def run() -> list[Result]:
 
     # ---------------- S3: input scaling ------------------------------------
     r.append(check_regex("Rust/tch", "S3 normalisation gated off by default",
-                         glob_read("rust/src/datasets/*.rs"), r"crate::normalize_inputs\(\)"))
+                         glob_read("rust/src/datasets/*.rs", exclude=("mod.rs",)), r"crate::normalize_inputs\(\)"))
     r.append(check_regex("Rust/tch", "S3 default is raw [0,1]",
                          glob_read("rust/src/lib.rs"),
                          r'DEEPGREEN_NORMALIZE[\s\S]{0,120}?unwrap_or\(false\)'))
@@ -224,7 +326,7 @@ def run() -> list[Result]:
         ("Python/JAX", glob_read("python/jax/models/*.py"), r"batch_size=128"),
         ("Rust/tch", glob_read("rust/src/bin/*.rs"), r"let batch_size = 128"),
         ("R/torch", glob_read("R/models/*.r"), r"batch_size = 128"),
-        ("Java/DL4J", glob_read("Java/**/expt/**/*.java"), r"batchSize\s*=\s*128"),
+        ("Java/DL4J", glob_read("Java/**/expt/resnet18/*.java", "Java/**/expt/vgg16/*.java"), r"batchSize\s*=\s*128"),
         ("C++/LibTorch", glob_read("cpp/src/train/**/train_*.cpp"), r"kTrainBatchSize = 128"),
     ]:
         r.append(check_regex(eco, "S2 batch size = 128", files, pat))
@@ -411,16 +513,13 @@ def run() -> list[Result]:
     # deepgreen_bench.py hardcoded the campaign directory. Redirecting the
     # driver moved the lock and left the Python stacks writing over the
     # campaign. Both paths must read the same variable.
-    for name in ("tools/deepgreen_bench.py", "tools/deepgreen_tracker.py"):
-        src = read(name)
-        r.append(Result("all", f"S5 {Path(name).stem} honours DEEPGREEN_RUN_DIR",
-                        PASS if "DEEPGREEN_RUN_DIR" in src else FAIL, name))
-    bench = read("tools/deepgreen_bench.py")
-    hardcoded = re.search(r'"results"\s*/\s*"campaign_v2"', bench) is not None
-    unconditional = hardcoded and "DEEPGREEN_RUN_DIR" not in bench
-    r.append(Result("all", "S5 output path is not hardcoded past the contract",
-                    FAIL if unconditional else PASS,
-                    "campaign_v2 appears only as the fallback"))
+    # Tested by execution, not by grep. The grep form of this check was
+    # tautological -- it asked whether the variable was mentioned in a file
+    # whose mention of it the previous check already asserted -- so it could
+    # never fire on its own, and a second output path added beside the first
+    # would have left it printing [ok]. Resolving both paths against a
+    # temporary directory is what actually catches that.
+    r.extend(_check_run_dir_contract())
 
     # ---------------- scope -------------------------------------------------
     rc = read("scripts/run_campaign.py")
@@ -430,10 +529,27 @@ def run() -> list[Result]:
     return r
 
 
+#: How many checks this script defines. Asserted at the end of every run, so a
+#: check that silently stops running -- a glob that matches nothing, a guarded
+#: import that turns into a SKIP -- fails the gate instead of shrinking the
+#: total. Raise it deliberately when you add a check.
+EXPECTED_CHECKS = 73
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args()
+
+    try:
+        import pandas  # noqa: F401
+    except ModuleNotFoundError:
+        print("check_consistency.py needs pandas: three checks read the campaign's\n"
+              "own records, and without them this script reports a clean run on a\n"
+              "repository it has not finished checking. Use the campaign "
+              "interpreter:\n\n    .venv-deepgreen/bin/python scripts/check_consistency.py\n",
+              file=sys.stderr)
+        return 2
 
     results = run()
     width = max(len(x.ecosystem) for x in results)
@@ -448,11 +564,17 @@ def main() -> int:
     counts = {s: sum(1 for x in results if x.status == s) for s in (PASS, FAIL, WARN, SKIP)}
     print("\n" + "-" * 100)
     print(f"  {counts[PASS]} pass, {counts[FAIL]} fail, {counts[WARN]} warn, {counts[SKIP]} skip")
-    if counts[FAIL] or counts[WARN]:
+    miscount = len(results) != EXPECTED_CHECKS
+    if miscount:
+        print(f"\n  {len(results)} checks ran, {EXPECTED_CHECKS} expected. A check that "
+              f"stops running is\n  indistinguishable from one that passes; treat this "
+              f"as a failure.")
+    if counts[FAIL] or counts[WARN] or counts[SKIP]:
         print("\n  Anything not PASS is an inconsistency between ecosystems and invalidates")
         print("  a cross-ecosystem comparison until it is resolved or explicitly justified.")
     print("-" * 100)
-    return 1 if (args.strict and counts[FAIL]) else 0
+    # SKIP counts against --strict too: a check that did not run has not passed.
+    return 1 if (args.strict and (counts[FAIL] or counts[SKIP] or miscount)) else 0
 
 
 if __name__ == "__main__":
