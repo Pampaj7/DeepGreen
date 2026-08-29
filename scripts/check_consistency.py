@@ -330,6 +330,32 @@ def run() -> list[Result]:
                          r"/home/(pampaj|marcopaglio)/", expect=False,
                          detail_ok="none outside comments"))
 
+    # ---------------- S5: the metrics are persisted, and populated -----------
+    # The checker verified that every binary calls log_metric. It did not
+    # verify that the values arrive: Java wrote NaN for test_loss in all 900 of
+    # its epoch rows, which left half the collapse/pipeline discriminator blind
+    # for the stack contributing five of the twelve collapses.
+    records = REPO / "results" / "replication" / "metrics.csv.gz"
+    if records.exists():
+        try:
+            import pandas as _pd
+            met = _pd.read_csv(records)
+            for column in ("test_acc", "test_loss", "train_loss"):
+                if column not in met:
+                    r.append(Result("all", f"S5 {column} present in metrics",
+                                    FAIL, "column missing"))
+                    continue
+                missing = met.groupby("ecosystem")[column].apply(
+                    lambda x: float(x.isna().mean()))
+                worst = missing.idxmax()
+                pct = 100 * missing.max()
+                r.append(Result(
+                    "all", f"S5 {column} populated by every stack",
+                    PASS if pct == 0 else FAIL,
+                    "all stacks" if pct == 0 else f"{worst} missing {pct:.0f}%"))
+        except Exception as exc:
+            r.append(Result("all", "S5 metrics populated", SKIP, str(exc)[:60]))
+
     # ---------------- S6: replication ---------------------------------------
     # The specification has six parts and the checker covered five of them, so
     # the one guarantee no static check can be assumed to hold -- that the runs

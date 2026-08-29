@@ -149,8 +149,10 @@ def fig_window_floor(epochs: pd.DataFrame) -> None:
 
     # -- (b) what that does to power, on the bins the manuscript tabulates
     d = d.copy()
-    d["p_hw"] = d.hw_total_j / d.duration_hw_s
-    d["p_cc"] = d.cc_total_j / d.duration_cc_s
+    # The terms both instruments measure, so the panel isolates the duration
+    # artefact rather than mixing it with the modelled RAM term.
+    d["p_hw"] = d.hw_meas_j / d.duration_hw_s
+    d["p_cc"] = d.cc_meas_j / d.duration_cc_s
     d["bin"] = pd.cut(d.duration_hw_s, [0, 0.5, 1, 2, 5, 10, 30, np.inf],
                       labels=["<0.5", "0.5-1", "1-2", "2-5", "5-10", "10-30", ">30"])
     t = d.groupby("bin", observed=True).apply(

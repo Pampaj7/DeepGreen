@@ -87,23 +87,32 @@ def gap_is_instrument(a: pd.DataFrame) -> pd.DataFrame:
 
 
 def window_model(a: pd.DataFrame) -> pd.DataFrame:
-    """What the reported window actually is, characterised rather than modelled.
+    """What the reported window actually is, and why.
 
-    Two models were tried here and both were wrong, in the same way and for the
-    same reason. The first was a floor, ``max(phase, 3.99 s)``, R^2 = 0.993. The
-    second was two regimes, ``phase + 3.28 s below 11 s``, R^2 = 0.998 -- better,
-    and still a curve fitted to a predictor that does not govern the phenomenon.
+    ``EmissionsTracker.stop()`` resolves cloud metadata and then the host's
+    geolocation over the network -- two blocking requests, made after the final
+    energy reading, which is why only the duration is affected. Both are cached
+    on the tracker, and a background thread makes the same call once
+    ``api_call_interval`` measurements have accumulated (8, at one second). So a
+    block pays for however many lookups remain outstanding when it ends: three
+    modes, and a threshold near eleven seconds.
+    ``scripts/probe_reported_window.py`` measures that directly.
 
-    The excess is *trimodal*, and the modes are tight: about 0.014 s, about
-    3.27 s and about 4.56 s, with nothing in between. Block length predicts
-    which mode a block lands in, but does not determine it: R/torch, whose
-    blocks are the longest in the campaign, is unpadded in all 1800 of them,
-    while C++ training at a 10 s median is padded in all 900. So the excess is a
-    property of the tracker's lifetime in that process, not a function of the
-    phase it brackets, and no threshold model can be right.
+    Two models were fitted here before the mechanism was known, and then both
+    were rejected -- the second one wrongly. A floor, max(phase, 3.99 s),
+    R^2 = 0.993, is wrong in the middle of the range. A threshold, phase plus a
+    constant below 11 s, R^2 = 0.998, is essentially right, and the mechanism
+    says why. The rejection rested on exceptions we could not explain, of which
+    the load-bearing one was void: R/torch is unpadded in all 1800 of its blocks
+    and its shortest block is 11.8 s, so it sits above the threshold and is
+    consistent with the model rather than against it. The real exception is C++
+    training, padded at durations where every other stack is not, and it is
+    still unexplained.
 
-    This function therefore reports the modes and their occupancy, and keeps the
-    two rejected fits beside them so a reader can see what a high R^2 bought.
+    This function reports the modes and their occupancy, and keeps both rejected
+    fits beside them, because the route matters: a high R^2 on a skewed
+    predictor is not evidence of the right functional form, and a scatter of
+    exceptions is not evidence against one. Only a mechanism settled it.
     """
     y = a.duration_cc_s.to_numpy()
     phase = a.duration_hw_s.to_numpy()
@@ -170,8 +179,13 @@ def power_distortion(a: pd.DataFrame) -> pd.DataFrame:
     compare. No fit, no threshold, no functional form to get wrong.
     """
     g = a[(a.duration_cc_s > 0) & (a.duration_hw_s > 0)].copy()
-    g["power_reported_w"] = g.cc_total_j / g.duration_cc_s
-    g["power_measured_w"] = g.hw_total_j / g.duration_hw_s
+    # Like for like. Using CodeCarbon's *total* here puts its modelled RAM term
+    # in the numerator, which is why the long-block rows came out at 0.93 --
+    # the estimator overstating power because of the RAM model, not because of
+    # the duration. This table is about the duration, so compare the terms both
+    # instruments measure. The RAM term is criticised on its own two pages on.
+    g["power_reported_w"] = g.cc_meas_j / g.duration_cc_s
+    g["power_measured_w"] = g.hw_meas_j / g.duration_hw_s
     g["bin"] = pd.cut(g.duration_hw_s, [0, 0.5, 1, 2, 5, 10, 30, np.inf],
                       labels=["<0.5 s", "0.5-1 s", "1-2 s", "2-5 s", "5-10 s",
                               "10-30 s", ">30 s"])

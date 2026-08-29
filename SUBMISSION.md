@@ -7,7 +7,7 @@ before uploading; nothing here should be edited by hand.
 
 | Elsevier item | File | State |
 |---|---|---|
-| Manuscript | `paper/paper.pdf` (27 pp., `cas-dc`) | ready |
+| Manuscript | `paper/paper.pdf` (`cas-dc`) | ready |
 | LaTeX source | `paper/paper.tex`, `paper/bibliography.bib`, `paper/generated/`, `paper/figures/` | ready |
 | Highlights | `paper/highlights.txt` (5 bullets, all ≤ 85 characters) | ready |
 | Cover letter | `paper/cover_letter.md` | ready |
@@ -41,7 +41,7 @@ before uploading; nothing here should be edited by hand.
 ## What the manuscript claims, and where each claim comes from
 
 Every quantity is a macro from `paper/generated/numbers.tex`, written by
-`results/analysis/12_paper_numbers.py`. There are 213 of them. No number in the
+`results/analysis/12_paper_numbers.py`. There are 269 of them. No number in the
 text is typed by an author — including the count of conformance checks and the
 size of the defect catalogue, both of which had already drifted (57 quoted against 63 run; five defects claimed as ours against four marked)
 before they were made generated. A three-reviewer pass found more of the same
@@ -52,7 +52,7 @@ the number of runs that were interleaved.
 Verify the whole chain with:
 
 ```bash
-python3 scripts/check_consistency.py            # 67 pass, 0 fail
+python3 scripts/check_consistency.py            # 72 pass, 1 fail (disclosed)
 python3 scripts/consolidate_raw.py --check      # package matches the raw tree
 ./paper/build.sh                                # analysis + numbers + figures + PDF
 ```
@@ -62,7 +62,7 @@ python3 scripts/consolidate_raw.py --check      # package matches the raw tree
 * 0 undefined references, 0 undefined citations, 0 oversized floats.
 * 1 overfull hbox, 123.6 pt, in the `cas-dc` front-matter e-mail block. It is
   the class's own box and does not print into the margin.
-* 54 bibliography entries, all with a DOI or arXiv identifier where the source
+* 57 bibliography entries, all with a DOI or arXiv identifier where the source
   exposes one. The two provisional keys inherited from the submitted version
   (`patterson2025optimizer`, `llmgreen2024`) are resolved and renamed, and four
   miscitations found in review are corrected: CodeCarbon was cited to the paper

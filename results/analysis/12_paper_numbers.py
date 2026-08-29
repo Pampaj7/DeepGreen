@@ -88,7 +88,14 @@ def apparatus_facts() -> None:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import check_consistency  # noqa: E402  -- path set immediately above
 
-    macro("vConformanceChecks", len(check_consistency.run()))
+    results = check_consistency.run()
+    macro("vConformanceChecks", len(results))
+    failing = [x for x in results if x.status == check_consistency.FAIL]
+    macro("vConformanceFailing", len(failing))
+    macro("vConformancePassing", len(results) - len(failing))
+    if failing:
+        macro("vConformanceFailName", failing[0].check.replace("_", r"\_"))
+        macro("vConformanceFailDetail", failing[0].detail.split(" missing")[0])
     catalogue_facts()
 
 
@@ -172,6 +179,21 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
         macro("vIdleGpuSharePct", num(100 * idle["gpu_w"] / gpu_w.mean(), 0))
         block_w = (epochs.hw_total_j / epochs.duration_hw_s)
         macro("vIdleShareOfBlockPct", num(100 * idle["total_w"] / block_w.mean(), 0))
+
+    # The paper's own CPU-fallback signature, applied to the paper's own
+    # campaign. The lowest mean GPU power is named in the defect catalogue as
+    # the signature of a stack that silently ran on the host; one stack here
+    # trips it, and the CPU term is what clears it.
+    pw = epochs.assign(gpu_w=epochs.hw_gpu_j / epochs.duration_hw_s,
+                       cpu_w=epochs.hw_cpu_j / epochs.duration_hw_s)
+    by_eco = pw.groupby("ecosystem")[["gpu_w", "cpu_w"]].mean()
+    lowest = by_eco.gpu_w.idxmin()
+    macro("vLowestGpuEco", SHORT[lowest])
+    macro("vLowestGpuW", num(by_eco.gpu_w.min(), 0))
+    macro("vHighestGpuW", num(by_eco.gpu_w.max(), 0))
+    macro("vLowestGpuEcoCpuW", num(by_eco.loc[lowest, "cpu_w"], 0))
+    macro("vCpuPowerAcrossMinW", num(by_eco.cpu_w.min(), 0))
+    macro("vCpuPowerAcrossMaxW", num(by_eco.cpu_w.max(), 0))
 
     diff = (epochs.cc_meas_j - epochs.hw_meas_j).abs()
     macro("vOffsetMedianJ", num(diff.median(), 2))
@@ -997,6 +1019,8 @@ def collapse_mechanism_facts() -> None:
     discordant = int(per_cell.apply(lambda x: 0 < x.sum() < len(x)).sum())
     macro("vCollapseDiscordantCells", discordant)
     macro("vCollapseSharedStacks", len(shared))
+    java = final[final.collapsed & (final.ecosystem == "Java/DL4J")]
+    macro("vSigCollapseJava", len(java))
 
 
 def reexecution_facts() -> None:
@@ -1031,6 +1055,22 @@ def reexecution_facts() -> None:
           ", ".join(sorted({f"{MODEL[m]}/{DATASET[d]}"
                             for m, d in zip(later.model, later.dataset)})))
     macro("vInterleavedRuns", len(starts) - len(later))
+
+    # The between-window drift, measured rather than asserted: one configuration
+    # re-executed in a third window and compared with its original runs.
+    cal_path = TABLES / "v2_window_calibration.csv"
+    if cal_path.exists():
+        cal = pd.read_csv(cal_path)
+        macro("vCalibConfig", f"{SHORT[cal.ecosystem.iat[0]]}, "
+                              f"{MODEL[cal.model.iat[0]]} on {DATASET[cal.dataset.iat[0]]}")
+        for phase, tag in (("Training", "Train"), ("Inference", "Infer")):
+            row = cal[cal.phase == phase]
+            if row.empty:
+                continue
+            r = row.iloc[0]
+            macro(f"vCalib{tag}DiffPct", num(abs(r.difference_pct), 1))
+            macro(f"vCalib{tag}SD", num(r.difference_in_sd, 1))
+            macro(f"vCalib{tag}CVPct", num(r.within_window_cv_pct, 1))
 
 
 # ----------------------------------------------------------------- ranking --

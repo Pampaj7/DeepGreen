@@ -222,15 +222,17 @@ def duration_agreement(df: pd.DataFrame) -> pd.DataFrame:
 def agreement_by_phase_length(df: pd.DataFrame) -> pd.DataFrame:
     """The campaign-wide agreement figure hides where it comes from.
 
-    CodeCarbon samples at a fixed interval, one second here. When a measurement
-    block is long relative to that interval the two instruments are reading the
-    same accumulating counters and agree to a hundredth of a percent. When the
-    block is shorter than the interval there is nothing to accumulate, the
-    estimator interpolates from sampled power, and the disagreement grows.
+    Both readings come from the same registers on this platform, so the residual
+    is not an accuracy gap. It is a near-constant ~0.5 J offset in the CPU term,
+    from nesting the counter reads inside the tracker's window, uncorrelated
+    with block duration. Expressed as a percentage that constant grows without
+    bound as blocks shorten, which is why the mean error is 0.01% above 30 s and
+    1.3% below one second.
 
-    Reporting only the mean over all blocks would therefore overstate how well an
-    estimator does on exactly the blocks a cross-ecosystem study cares about --
-    the inference passes, and the epochs of the fastest stacks.
+    An earlier version of this docstring read the same numbers as the estimator
+    "interpolating from sampled power" below its sampling interval. There is no
+    such transition: the absolute residual is flat across every duration decile
+    from 0.3 s to 65 s. The percentage is arithmetic on a constant.
     """
     d = df.copy()
     d["phase_length"] = pd.cut(
@@ -248,14 +250,20 @@ def agreement_by_phase_length(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def duration_floor_model(df: pd.DataFrame) -> tuple[pd.DataFrame, float]:
-    """CodeCarbon will not report a window shorter than a fixed floor.
+    """The reported window is the phase plus the tracker's outstanding network I/O.
 
-    The two instruments agree on *energy* to within half a percent, but the
-    ``duration`` CodeCarbon writes next to that energy is not the duration the
-    energy was accumulated over. Whenever the phase is longer than roughly four
-    seconds the two windows coincide to 15 ms; below that, CodeCarbon reports
-    its floor instead of the phase. A JAX inference epoch that takes 0.31 s is
-    filed as 3.98 s.
+    NOTE: the name is older than the explanation and the floor model it names is
+    wrong. ``EmissionsTracker.stop()`` resolves cloud metadata and then the
+    host's geolocation over the network, after the final energy reading; both
+    are cached, and a background thread makes the same call once
+    ``api_call_interval`` measurements have accumulated. So a block pays for
+    whichever lookups are still outstanding, and blocks past about eleven
+    seconds pay nothing. See scripts/probe_reported_window.py, which measures
+    this directly, and 16_coverage_sensitivity.py for the campaign-wide view.
+
+    The two readings agree on *energy*, but the ``duration`` CodeCarbon writes
+    next to that energy is not the duration the energy was accumulated over. A
+    JAX inference epoch that takes 0.31 s is filed as 3.98 s.
 
     This matters because power is energy over time. Anything derived by dividing
     a CodeCarbon energy by a CodeCarbon duration -- the energy-versus-time

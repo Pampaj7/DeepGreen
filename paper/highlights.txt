@@ -1,4 +1,4 @@
-One specification, 70 automated checks: 7 stacks run the same experiment
+One specification, 73 automated checks: 7 stacks run the same experiment
 210 runs, 12600 blocks; training energy spans 7.8×–18.2× across stacks
 Among 3 stacks running identical kernels the spread is 1.1×–3.8×
 The estimator's duration field, not the stacks, produced “faster is not greener”

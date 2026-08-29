@@ -273,7 +273,7 @@ excluding them takes the cross-ecosystem spread on \vCondBlockName{} from
 run per configuration reports whichever of the two outcomes its single seed
 produced.
 
-The two readings agree on \emph{energy} to \vCCmeasDisagreementPct\,\% over \vBlocks{} blocks --- on this platform the estimator reads the same two registers we do, so its energy is not an estimate at all, and that relocates the difficulty with software-based estimation rather than dissolving it. What does not agree is time. The duration CodeCarbon reports beside each energy figure is not the interval the energy was accumulated over: \vWindowPaddedPct\,\% of blocks carry seconds of tracker lifetime that no energy was drawn in, in \vWindowModes{} discrete modes that block length predicts but does not fully determine. Power derived by dividing the one field by the other is therefore understated by up to \vPowerUnderstatedWorst$\times$ on the shortest blocks and a few per cent high on the longest --- a bias that lands squarely on the fastest ecosystems and on the inference phase, which is to say on precisely the comparisons such a study exists to make.
+The two readings agree on \emph{energy} to \vCCmeasDisagreementPct\,\% over \vBlocks{} blocks --- on this platform the estimator reads the same two registers we do, so its energy is not an estimate at all, and that relocates the difficulty with software-based estimation rather than dissolving it. What does not agree is time. The duration CodeCarbon reports beside each energy figure is not the interval the energy was accumulated over: \vWindowPaddedPct\,\% of blocks carry seconds of tracker lifetime that no energy was drawn in, in \vWindowModes{} discrete modes that block length predicts but does not fully determine. Power derived by dividing the one field by the other is therefore understated by up to \vPowerUnderstatedWorst$\times$ on the shortest blocks and exact on the longest --- a bias that lands squarely on the fastest ecosystems and on the inference phase, which is to say on precisely the comparisons such a study exists to make.
 
 The contributions of this work are as follows:
 \begin{itemize}
@@ -585,6 +585,22 @@ and it fails at the moment of the divergence rather than at peer review.
 introduced by us during development, and every one was caught by a mechanism
 rather than by inspection. Two are now enforced by checks under S3 and S5, so
 the same divergence cannot recur.
+
+\textbf{One check fails, and we leave it failing.} Of the
+\vConformanceChecks{} checks, \vConformancePassing{} pass and
+\vConformanceFailing{} fails: \emph{\vConformanceFailName{}}, for
+\vConformanceFailDetail{}. Our Java harness records test accuracy per epoch but
+not test loss, so one column of the metric file is empty for that stack. It
+costs something specific, which we state in Section~\ref{subsubsec:collapse}:
+the discriminator that separates a failed recipe from a broken data pipeline
+uses test loss as one of its two arms, and for Java it runs on the other arm
+alone.
+
+We report this as a failing check rather than repairing the checker, because a
+specification whose checks are relaxed until they pass is a description of
+intent again. Closing it means re-executing Java, which we judged not to be
+worth a further \SI{6}{\kilo\watt\hour} for a diagnostic column; that is a
+choice, and the check records that we made it.
 
 \textbf{Residual, documented divergences.} Two could not be removed and are
 reported rather than hidden. Deeplearning4j 1.0.0-M2.1 is the last release of
@@ -1126,6 +1142,13 @@ result, and the discarded runs no longer exist in the campaign, their signature
 is preserved as a record in the replication package rather than quoted from
 memory.
 
+One stack cannot be tested on both arms. Our Java harness does not record test
+loss (Section~\ref{subsec:spec}), so for the \vSigCollapseJava{} Java collapses
+the discriminator rests on the training-loss arm alone --- which does hold: all
+of them sit at $\ln N$ to within \vCollapseLossDeviationMax{}. A Java pipeline
+defect that fitted its training set would still be caught; one that did not
+would be indistinguishable from a collapse.
+
 We are able to state the discriminator's recall on the one instance we have,
 and it is not perfect. The defect was a deterministic code path on the training
 branch, so all \vRepetitions{} repetitions of that configuration carried it; the
@@ -1319,10 +1342,12 @@ The consequence needs no model at all, which is the point.
 Table~\ref{tab:power_distortion} divides each instrument's own energy by its own
 duration. Below half a second the estimator's fields give
 \vPowerReportedWorstW\,W where the counters measure
-\vPowerMeasuredWorstW\,W, a factor of \vPowerUnderstatedWorst. The distortion falls monotonically with block length, crosses unity near ten
-seconds, and settles slightly \emph{below} it --- the estimator's derived power
-overstates by a few per cent on the longest blocks, because its total carries
-the modelled RAM term while its duration is by then correct. The
+\vPowerMeasuredWorstW\,W, a factor of \vPowerUnderstatedWorst. The distortion falls monotonically with block length and reaches unity above
+ten seconds, where the reported window is the accumulation window and the two
+agree exactly. Both sides of that comparison are the terms the two instruments
+both measure; putting CodeCarbon's total in the numerator instead would mix this
+artefact with the modelled RAM term criticised in Section~\ref{sec:instrument},
+and did, in an earlier version of this table. The
 shortest phase in the campaign takes \vShortestPhaseS\,\si{\second} and is filed
 as \vShortestPhaseReportedS\,\si{\second}, a factor of \vShortestPhaseFactor.
 
@@ -1330,7 +1355,9 @@ as \vShortestPhaseReportedS\,\si{\second}, a factor of \vShortestPhaseFactor.
 \centering
 \caption{Power derived from the estimator's own energy and duration fields
 against power from the counters, by phase length. No model is fitted: each
-instrument is divided by itself.}
+instrument is divided by itself, on the terms both of them measure. The last
+column is the median of the per-block ratios, not the quotient of the two
+medians beside it.}
 \label{tab:power_distortion}
 \resizebox{\columnwidth}{!}{\input{generated/tab_power_distortion.tex}}
 \end{table}
@@ -1343,9 +1370,8 @@ instrument is divided by itself.}
     \vWindowModes{} discrete modes, one per outstanding network lookup in
     \texttt{stop()}, with a threshold near \vWindowThresholdS\,\si{\second}.
     (b) Power obtained by dividing reported energy by reported duration is
-    consequently understated for short phases; above ten seconds it crosses
-    unity and settles a few per cent high, which is the modelled RAM term rather
-    than the duration.}
+    consequently understated for short phases and exact above ten seconds. Both
+    instruments are compared on the terms both measure.}
     \label{fig:window_floor}
 \end{figure*}
 
@@ -1424,7 +1450,18 @@ worrying about are not in the arithmetic but in the configurations where the
 counters are \emph{not} exposed and the substitution is silent, and in the
 fields beside the energy. Both are what the rest of this section is about.
 
-It also means one figure we reported must be read carefully. Expressed as a
+Two caveats belong with that. The first is that our reference is not
+arbitrarily fine either: NVML's accumulated-energy register advances about ten
+times a second on this device, so a block is quantised to roughly
+\SI{100}{\milli\second} of accumulation. At training power that is tens of
+joules per block, which is why the accelerator terms agree to a median of
+\vOffsetGpuMedianMJ\,\si{\milli\joule} but not to that in the tail. It does not
+affect the run-level means this paper reports --- the quantisation is unbiased
+and averages over thirty blocks --- but a per-block agreement claim on a
+sub-second phase is at the resolution of the instrument, and the inference
+figures of Section~\ref{subsec:rq2} should be read with that in mind.
+
+The second is that one figure we reported must be read carefully. Expressed as a
 percentage, a fixed \vOffsetMedianJ\,\si{\joule} offset grows without bound as
 blocks shorten: the mean per-block error is \vAgreeLongPct\,\% above
 \SI{30}{\second} and \vAgreeShortPct\,\% below one second. That is arithmetic on
@@ -1439,12 +1476,19 @@ the counters by \vCCtotalRatio$\times$, and the excess is entirely its RAM term
 tracking mode} --- the mode this campaign used, and the one a whole-machine
 study needs --- is derived from installed memory capacity rather than from
 memory activity. The model is specific: a constant watts-per-DIMM, over a DIMM
-count inferred from total capacity, with decreasing marginal power above four
-DIMMs and a cap. In process mode it uses the process's resident set instead, so
-the criticism here is about machine mode and should not be read past it. On this
-machine it yields a flat \SI{20}{\watt} for every block of the campaign,
+count \emph{inferred} from total capacity, with decreasing marginal power above
+four DIMMs and a cap. In process mode it uses the process's resident set
+instead, so the criticism here is about machine mode and should not be read past
+it. On this machine it infers four modules from \SI{30.2}{\giga\byte} and
+yields a flat \SI{20}{\watt} for every block of the campaign,
 regardless of what the workload does to memory. No counter on this platform can
-confirm or refute it, because there is no DRAM RAPL domain to read.
+confirm or refute it, because there is no DRAM RAPL domain to read. We could not
+read the machine's memory table to check the inferred count either --- that
+needs privileges the measurement account does not have --- and we note only that
+a desktop reporting this capacity is at least as likely to hold two modules as
+four, in which case the same model would charge half as much. The objection is
+not the factor but that the input is a guess about the hardware rather than a
+reading of it.
 
 The number is not wrong so much as it is not a measurement, and it is added
 silently to a figure otherwise composed of measurements. On a machine with more
@@ -1997,6 +2041,24 @@ to start --- rather than by review. We do not claim the specification is complet
 divergence outside it now has to survive an executable check rather than an
 author's attention.
 
+\textbf{We applied our own fallback diagnostic to this campaign.} The defect
+catalogue names the lowest mean accelerator power among the stacks as the
+signature of a stack that silently ran on the host, and in this campaign one
+stack trips it: \vLowestGpuEco{} draws \vLowestGpuW\,\si{\watt} at the
+accelerator against up to \vHighestGpuW\,\si{\watt} for the others, on a
+\SI{350}{\watt} card. A reader applying our criterion would suspect the stack
+that produces our largest reported ratios.
+
+The CPU term clears it. If \vLowestGpuEco{} were running the workload on the
+host its package power would rise, and it does not:
+\vLowestGpuEcoCpuW\,\si{\watt}, inside the
+\vCpuPowerAcrossMinW--\vCpuPowerAcrossMaxW\,\si{\watt} band every other stack
+occupies, and the accelerator assertion of S4 refuses a CPU device at startup.
+\vLowestGpuEco{} is waiting on the accelerator, not replacing it --- its epochs
+are the longest in the campaign at a low duty cycle. We state this because a
+diagnostic published in a paper should be run against that paper's own data, and
+because the exoneration is a measurement rather than an assurance.
+
 Accelerator placement was verified rather than assumed. Every harness asserts
 the device at startup and refuses to fall back to the CPU. This is not
 hypothetical: linking a Rust binary against a CUDA LibTorch produces, by default,
@@ -2149,10 +2211,25 @@ them \vLateEcosystems{} --- were executed in a separate window \vLateGapDays{}
 days after the rest of the campaign, once defects in that stack's image loaders
 were corrected. They cover \vLateBlocks. They are therefore not interleaved with
 the other ecosystems, and machine-state drift between the two windows is not
-controlled for them. Given the between-run coefficients of variation we
-observe, we expect this to be small relative to the effects reported, but it is
-a real asymmetry in an otherwise interleaved design and we flag it rather than
-absorb it.
+controlled for them by the design.
+
+We measured it rather than reasoning about it, because the reassurance the
+argument wants --- that the between-run variability is small --- bounds
+variability \emph{within} a window and says nothing about drift across days. We
+re-executed one already-completed configuration (\vCalibConfig) in a third
+window, on the same machine under the same idle conditions and with the same
+seeds, and compared it run for run with its originals. Training energy differs
+by \vCalibTrainDiffPct\,\%, which is \vCalibTrainSD{} standard deviations of the
+within-window spread: below the noise the design already carries. Inference
+differs by \vCalibInferDiffPct\,\%, or \vCalibInferSD{} standard deviations
+against a within-window coefficient of variation of \vCalibInferCVPct\,\% ---
+larger, and consistent with inference blocks being sub-second and the noisiest
+measurement in the campaign.
+
+We therefore treat the late-window training figures as comparable and the
+late-window inference figures as carrying an additional uncertainty of about
+ten per cent. That is a bound, obtained from one configuration; it is not a
+guarantee for the other four.
 
 \section{Conclusion}
 \label{sec:conclusion}
