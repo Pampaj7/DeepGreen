@@ -175,6 +175,38 @@ def bench_src() -> str:
     return read("tools/deepgreen_bench.py")
 
 
+def _check_rust_links_cuda() -> list[Result]:
+    """Every released Rust binary must carry a NEEDED entry for torch_cuda."""
+    import subprocess
+
+    out: list[Result] = []
+    binaries = sorted(p for p in (REPO / "rust" / "target" / "release").glob("*")
+                      if p.is_file() and p.stat().st_mode & 0o111
+                      and not p.suffix and p.name not in ("build",))
+    if not binaries:
+        return [Result("Rust/tch", "S4 binaries link CUDA", SKIP,
+                       "no release build; run scripts/build_rust_cuda.sh")]
+    missing = []
+    for b in binaries:
+        try:
+            elf = subprocess.run(["readelf", "-d", str(b)], capture_output=True,
+                                 text=True, timeout=30).stdout
+        except Exception as exc:
+            return [Result("Rust/tch", "S4 binaries link CUDA", FAIL,
+                           f"{type(exc).__name__}: {exc}")]
+        if "cuda" not in elf.lower():
+            missing.append(b.name)
+    if missing:
+        out.append(Result("Rust/tch", "S4 binaries link CUDA", FAIL,
+                          f"{len(missing)} of {len(binaries)} link no CUDA library: "
+                          + ", ".join(missing[:4])
+                          + " -- rebuild with scripts/build_rust_cuda.sh"))
+    else:
+        out.append(Result("Rust/tch", "S4 binaries link CUDA", PASS,
+                          f"all {len(binaries)} carry a torch_cuda NEEDED entry"))
+    return out
+
+
 def _check_run_dir_contract() -> list[Result]:
     """Resolve both output paths with DEEPGREEN_RUN_DIR set, and see where they go.
 
@@ -367,6 +399,19 @@ def run() -> list[Result]:
         r.append(check_regex(eco, "S2 batch size = 128", files, pat))
     r.append(check_regex("C++/LibTorch", "S2 eval batch = train batch",
                          glob_read("cpp/src/train/**/train_*.cpp"), r"kTestBatchSize = 128"))
+
+    # ---------------- S4: the Rust binaries actually link CUDA -------------
+    #
+    # `cargo build` against a CUDA LibTorch produces a binary that silently runs
+    # on the CPU: torch-sys asks the linker for torch_cuda, nothing in the Rust
+    # code references a symbol from it, and --as-needed drops the dependency.
+    # tch::Device::cuda_if_available() then reports Cpu and the stack trains on
+    # the host while looking entirely normal. scripts/build_rust_cuda.sh exists
+    # to prevent exactly this and says so in its header -- and a rebuild with
+    # plain cargo walked into it anyway, costing a day's measurements: 29x
+    # slower on CIFAR-100, with the accelerator drawing 23 W against a 24 W
+    # idle floor. Nothing checked the built artefact, so nothing noticed.
+    r.extend(_check_rust_links_cuda())
 
     # ---------------- S4: one precision policy, all seven stacks -----------
     #
@@ -682,7 +727,7 @@ def run() -> list[Result]:
 #: check that silently stops running -- a glob that matches nothing, a guarded
 #: import that turns into a SKIP -- fails the gate instead of shrinking the
 #: total. Raise it deliberately when you add a check.
-EXPECTED_CHECKS = 90
+EXPECTED_CHECKS = 91
 
 
 def main() -> int:

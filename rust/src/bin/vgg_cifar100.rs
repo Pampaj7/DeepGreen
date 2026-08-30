@@ -55,7 +55,7 @@ fn main() {
     // which images it holds depends on the order the loader enumerates files --
     // so a per-batch fingerprint measures enumeration order and pixel handling
     // together. Over every image it depends on the set, not the order.
-    {
+    if std::env::var("DEEPGREEN_DATA_FINGERPRINT").as_deref() != Ok("0") {
         let (mut n, mut sum, mut sumsq) = (0i64, 0f64, 0f64);
         let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
         for batch in test_data.iter_batches(batch_size) {

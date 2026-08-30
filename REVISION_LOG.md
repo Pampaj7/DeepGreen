@@ -570,6 +570,59 @@ no longer an assumption.
 
 ---
 
+## 18. A day lost to a CPU fallback, and what it cost to find
+
+After the datasets were pre-resized, Rust appeared to become 11x slower at
+training on Tiny ImageNet -- 24 s to 266 s -- while every other stack got
+faster. It blocked the campaign for a day. Five hypotheses, in order, each
+plausible and each refuted by measurement:
+
+1. **The data-fingerprint loop I had just added.** Refuted: with it disabled the
+   epoch still took 266.02 s against 262.38 s with it on.
+2. **The resize guard.** Refuted: runs with and without were both ~265 s.
+3. **Machine contention.** Real -- a stray `resnet_tiny` from a killed background
+   job was found at 818% CPU with the load average at 27.9 on 24 threads, and
+   another agent independently flagged the same thing. But refuted as the cause:
+   on a quiet machine, load 1.99, the epoch still took 266.86 s.
+4. **The pre-resized data.** Refuted by the differential nobody had run: the same
+   binary against the original 64x64 tree took 278 s, slightly *slower*.
+5. **`NVIDIA_TF32_OVERRIDE`.** Refuted: 132.48 s with it unset against 132.45 s
+   with it set.
+
+What the measurements were actually saying, and what should have been read
+sooner: the cost was flat at 2.66 ms per image whether the images were 32x32 or
+64x64, which is not what decode looks like; a micro-benchmark put the whole load
+path at 0.051 ms per image, faster than the campaign's own figure; and the
+accelerator was drawing **23.4 W against a 24.3 W idle floor** while the CPU
+package sat 26 W above its.
+
+The stack was training on the CPU. `readelf -d` on the Rust binaries showed no
+CUDA library at all.
+
+The cause was mine. `cargo build` against a CUDA LibTorch produces a binary that
+silently runs on the host: torch-sys asks the linker for `torch_cuda`, nothing
+in the Rust code references a symbol from it, `--as-needed` drops the
+dependency, and `tch::Device::cuda_if_available()` reports `Cpu`.
+`scripts/build_rust_cuda.sh` exists for precisely this reason and says so in its
+first paragraph -- and I rebuilt with plain cargo five or six times over the
+day. Rebuilt through the script: `Using device: Cuda(0)`, two CUDA libraries
+linked, 5.07 s per epoch against the campaign's 4.58 s.
+
+**The check that would have caught it in a second now exists.** `readelf -d` on
+every released Rust binary, asserting a `NEEDED` entry for a CUDA library. It
+immediately found two stale scratch binaries left behind by this investigation
+as well.
+
+Worth stating plainly for the manuscript, because it is the paper's own thesis
+turned on the paper twice more. A silent CPU fallback is the defect the
+catalogue already documents for this stack; the specification had a clause about
+device placement; and the checker verified that a *definition string* appeared
+in a source file rather than that the *built artefact* could reach the
+accelerator. An unenforced clause is a clause that will drift, and a clause
+enforced against source rather than artefact is barely enforced at all.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number.
