@@ -46,6 +46,18 @@ sys.path.insert(0, str(REPO_ROOT))
 from tools.deepgreen_bench import RunContext, expected_parameters  # noqa: E402
 
 MODELS = ["resnet18", "vgg16"]
+#: Pre-resized to the training resolution by
+#: scripts/normalise_dataset_resolution.py, so that no stack resizes anything.
+#: The seven ecosystems used four different resamplers and did not agree: over
+#: Tiny ImageNet's whole test split the pixel standard deviation was 0.2639 in
+#: C++, Java and R, 0.2584 in Rust and 0.2561 in PyTorch and TensorFlow, with
+#: the means agreeing to 0.1% -- the signature of a filter, not of content.
+#: Every image is 32x32 on disk now, so each stack's resize is a no-op and they
+#: decode identical pixels, which is the position CIFAR-100 was already in.
+#: The directory names are unchanged deliberately: the resolution is hardcoded
+#: at some thirty sites across Rust, R, Java and the Python wrappers, and thirty
+#: edits is how a constant drifts. The originals are kept beside them with an
+#: _original suffix.
 DATASETS = {
     "fashionmnist": "data/fashion_mnist_png",
     "cifar100": "data/cifar100_png",

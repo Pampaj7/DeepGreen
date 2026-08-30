@@ -514,6 +514,62 @@ with the two new parity verifiers.
 
 ---
 
+## 17. The pixels, proved for all seven
+
+Instrumenting the four non-Python stacks turned out to be worth it three times
+over, and each time the first reading was wrong for a reason worth recording.
+
+**A per-batch fingerprint measures the wrong thing.** Rust looked 4.9% away from
+PyTorch in standard deviation; equalising the sample -- 393,216 values each
+rather than 393,216 against 786,432 -- brought it to 1.0%. And at one batch
+each, C++ still sat 1.7% away in the mean, which is not a resize difference at
+all: the test split is enumerated in class order and unshuffled, so the first
+128 files are one or two classes and two loaders that enumerate differently are
+summarising different pictures. Over the whole split the statistic depends on
+the set and not the order, which is the question worth asking.
+
+**Then the real finding.** Over Tiny ImageNet's whole test split, 30,720,000
+values apiece:
+
+| standard deviation | stacks |
+|---|---|
+| 0.263919 – 0.263923 | C++, Java, R |
+| 0.258406 | Rust |
+| 0.256103 – 0.256110 | PyTorch, TensorFlow |
+
+Means agreeing to 0.1% while variances differ by 3.0% is the signature of a
+resampling filter, not of different content -- and on a controlled 600 images
+the choice spans 0.2483 (bilinear, antialiased), 0.2560 (bilinear) and 0.2699
+(nearest), 8.7%. Four stacks of seven were seeing different pixels on a third of
+the campaign.
+
+**The fix removes the question rather than aligning four answers.** Every image
+is resized once, offline, to 32x32 -- `scripts/normalise_dataset_resolution.py`,
+240,000 images -- so each stack's own resize is a no-op and they decode
+identical pixels, which is the position CIFAR-100 was always in. Expressing one
+filter in four libraries would have meant discovering whether DataVec and R can
+express it at all.
+
+Two implementation choices worth stating. The directories keep their names and
+the originals move aside with an `_original` suffix, because the resolution is
+hardcoded at some thirty sites across Rust, R, Java and the Python wrappers and
+thirty edits is how a constant drifts. And the converters in `dataloader/` now
+produce 32x32 as well, so the invariant holds however the data is made rather
+than only when someone remembers the script.
+
+**Two residues, both real, both surfaced by the change rather than hidden.**
+Rust still called `tch::vision::image::resize` on an already-32x32 image, which
+is not the identity: it resamples in uint8 and rounds, and that alone held it
+1.3% away from the other six. And C++ could not start at all, because the
+resize script copied only images and Tiny ImageNet ships a `classes.json` its
+loader reads -- my omission, now fixed both in the script and on disk.
+
+**Result.** All seven stacks report mean 0.443782 and standard deviation
+0.256110 over 30,720,000 values, identical to six decimal places. The pixels are
+no longer an assumption.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number.
@@ -527,9 +583,6 @@ with the two new parity verifiers.
 - Make the replication package round-trip (13,037 of ~13,230 files differ on
   restore: float truncation, manifest type coercion, list flattening, row order).
 - Re-run the claim-evidence review that stopped on a rate limit.
-- Send `DATAFP` from the four non-Python stacks; until then their loaders'
-  output is unmeasured and their data parity rests on the cross-stack accuracy
-  agreement.
 - R's architecture is asserted by parameter count at startup but not verified
   shape for shape, because its `torch` will not load Lantern outside the
   campaign environment.

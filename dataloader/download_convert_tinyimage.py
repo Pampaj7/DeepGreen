@@ -7,6 +7,13 @@ import json
 from tqdm import tqdm
 import sys
 
+#: Every stack trains at this resolution, and the seven of them used four
+#: different resamplers to get there -- so the resize happens once, here, and
+#: each stack's own resize is a no-op. See scripts/normalise_dataset_resolution.py
+#: for the measurements that made this necessary.
+TRAIN_RESOLUTION = (32, 32)
+
+
 
 def download_and_extract_tiny_imagenet(dest_dir="./data"):
     url = "http://cs231n.stanford.edu/tiny-imagenet-200.zip"
@@ -57,7 +64,7 @@ def convert_tiny_imagenet_to_png(dataset_root=os.path.join(os.environ.get("DEEPG
         for i, img_file in enumerate(os.listdir(images_dir)):
             img_path = os.path.join(images_dir, img_file)
             img = Image.open(img_path)
-            img.save(os.path.join(class_dir, f"{wnid}_{i:05d}.png"))
+            img.convert('RGB').resize(TRAIN_RESOLUTION, Image.BILINEAR).save(os.path.join(class_dir, f"{wnid}_{i:05d}.png"))
 
     # Process validation images
     print("Converting validation images...")
@@ -78,7 +85,7 @@ def convert_tiny_imagenet_to_png(dataset_root=os.path.join(os.environ.get("DEEPG
         src_path = os.path.join(val_img_dir, img_file)
         dst_path = os.path.join(class_dir, img_file.replace(".JPEG", ".png"))
         img = Image.open(src_path)
-        img.save(dst_path)
+        img.convert('RGB').resize(TRAIN_RESOLUTION, Image.BILINEAR).save(dst_path)
 
 
 if __name__ == "__main__":

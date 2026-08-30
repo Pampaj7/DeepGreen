@@ -116,7 +116,7 @@ First campaign: Python/TensorFlow and Rust/tch used `1e-3`. Fixed.
 
 | parameter | value |
 |---|---|
-| input resolution | 32 x 32 |
+| input resolution | 32 x 32, **resized once offline** so that no stack resizes anything |
 | channels | 3 (grayscale replicated) |
 | scaling | `[0, 1]` — divide by 255, **no** mean/std normalisation |
 | train shuffling | on |
@@ -132,6 +132,17 @@ factor, not a framework default.
 
 First campaign: only Rust normalised with per-channel mean/std. Fixed; set
 `DEEPGREEN_NORMALIZE=1` to restore the old behaviour deliberately.
+
+**Resizing happens once, on disk.** The seven ecosystems used four resamplers --
+torchvision on PIL, `tf.image.resize`, `tch::vision::image::resize`, DataVec's
+`ImageRecordReader`, R's `transform_resize` -- and over Tiny ImageNet's whole
+test split their pixel standard deviations fell into three groups spanning 3.0%
+while the means agreed to 0.1%, which is a filter and not a content difference.
+`scripts/normalise_dataset_resolution.py` writes every image at 32x32, so each
+stack's resize is a no-op and all seven decode the same pixels: measured, mean
+0.443782 and standard deviation 0.256110 over 30,720,000 values, identical in
+all seven. Every run records its own (`data_fingerprint.csv`), so the campaign
+demonstrates this rather than the manuscript asserting it.
 
 ## S4 — Backend
 

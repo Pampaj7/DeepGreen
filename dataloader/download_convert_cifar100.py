@@ -7,9 +7,18 @@ import json
 from tqdm import tqdm
 import sys
 
+#: Every stack trains at this resolution, and the seven of them used four
+#: different resamplers to get there -- so the resize happens once, here, and
+#: each stack's own resize is a no-op. See scripts/normalise_dataset_resolution.py
+#: for the measurements that made this necessary.
+TRAIN_RESOLUTION = (32, 32)
+
+
 
 def save_image(img_tensor, path):
-    img = transforms.ToPILImage()(img_tensor)
+    img = transforms.ToPILImage()(img_tensor).convert('RGB')
+    if img.size != TRAIN_RESOLUTION:
+        img = img.resize(TRAIN_RESOLUTION, Image.BILINEAR)
     img.save(path)
 
 # be careful on remote machine you probably need to change path

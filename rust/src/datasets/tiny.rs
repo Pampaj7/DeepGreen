@@ -76,8 +76,15 @@ impl TinyImageNet {
 
         // Resize opzionale -- on the raw uint8: resize() takes and returns
         // uint8, so converting to float before it discards the scaling.
+        // Only when it is not already that size. resize() resamples in uint8,
+        // so calling it at the target resolution is not the identity: it moved
+        // the pixel standard deviation 1.3% away from every other stack on a
+        // dataset that, since the images are pre-resized on disk, needs no
+        // resizing at all.
         if let Some(size) = self.resize_to {
-            img = resize(&img, size, size)?;
+            if img.size()[1] != size || img.size()[2] != size {
+                img = resize(&img, size, size)?;
+            }
         }
 
         let img = img.to_kind(Kind::Float) / 255.0;
