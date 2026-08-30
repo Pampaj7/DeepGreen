@@ -156,18 +156,35 @@ demonstrates this rather than the manuscript asserting it.
 | all stacks | per-epoch record: train loss, test loss, test accuracy. **Train accuracy where the stack computes it** — two of seven do, it is read by no analysis, and the schema says so rather than implying seven |
 | Java/DL4J | **does not use cuDNN at all**, and cannot at this version |
 
-Deeplearning4j 1.0.0-M2.1 resolves its convolutions through nd4j's own im2col
-and cuBLAS: `org.deeplearning4j.cuda.convolution.CudnnConvolutionHelper` ships
-in `deeplearning4j-cuda`, which has no release for M2.x — `dependency:get` finds
-neither `deeplearning4j-cuda:1.0.0-M2.1` nor `deeplearning4j-cuda-11.6:1.0.0-M2.1`
-— and no cuDNN class or jar reaches the classpath. The run log confirms it:
-`Loaded [JCublasBackend]`, and no convolution-helper line of any kind.
+Deeplearning4j 1.0.0-M2.1 — the latest release — resolves its convolutions
+through nd4j's own im2col and cuBLAS. Four independent confirmations:
 
-It is the only stack of the seven not using cuDNN for convolution, and it is one
-of the two most expensive. That is a property of the framework at this version
-rather than a defect in this harness, so it cannot be corrected here; it has to
-be *stated*, because "Java/DL4J costs 6x" otherwise reads as a claim about a
-language when part of it is a claim about a missing convolution backend.
+  * `readelf -d` on `libnd4jcuda.so` shows a `NEEDED` entry for
+    `libcublas.so.11` and **none for cuDNN**;
+  * `org.deeplearning4j.cuda.convolution.CudnnConvolutionHelper` is absent from
+    the classpath, as is any `org.bytedeco` cuDNN preset;
+  * `deeplearning4j-cuda` and `deeplearning4j-cuda-11.6` have **no versions at
+    all** in Maven Central's metadata, with `deeplearning4j-modelimport` as a
+    control showing the endpoint answers;
+  * the run log reads `Loaded [JCublasBackend]` with no convolution-helper line.
+
+It is the only stack of the seven without cuDNN, and one of the two most
+expensive. That is a property of the framework at this version and cannot be
+corrected here, so it is stated — and **bounded**, because "Java/DL4J costs 6x"
+otherwise reads as a claim about a language when part of it is a claim about a
+missing convolution backend.
+
+**The bound.** Disabling cuDNN in a stack that has it, holding hardware, model
+and data constant — ResNet-18, batch 128, RTX 3090, median of three — costs
+**13.3× the energy and 16.7× the time**: 100.3 J and 0.353 s against 1333.2 J
+and 5.874 s. That is an upper bound on what losing cuDNN can cost, not an
+estimate of Deeplearning4j's own penalty, since nd4j's im2col path is not
+PyTorch's non-cuDNN fallback. It exceeds the entire Java-versus-cheapest gap the
+campaign measures, which is the point: the missing backend is a first-order
+explanation of this stack's cost, not a footnote to it.
+
+`scripts/check_consistency.py` watches `libnd4jcuda.so` and fails if a future
+version gains cuDNN, so the claim cannot quietly stop being true.
 
 This clause used to read "precision pinned to FP32; TF32 matmuls disabled on
 Ampere and later", and exactly one stack of seven obeyed it. The pin lived in

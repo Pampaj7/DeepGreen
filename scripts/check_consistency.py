@@ -175,6 +175,45 @@ def bench_src() -> str:
     return read("tools/deepgreen_bench.py")
 
 
+def _check_dl4j_cudnn() -> list[Result]:
+    """Watch whether Deeplearning4j gains a cuDNN convolution path.
+
+    It has none at 1.0.0-M2.1, the latest release: `libnd4jcuda.so` carries a
+    NEEDED entry for `libcublas.so.11` and none for cuDNN, the
+    `CudnnConvolutionHelper` class is absent from the classpath, and
+    `deeplearning4j-cuda` has no release on Maven Central at any version --
+    checked against its metadata, with `deeplearning4j-modelimport` as a control
+    that the endpoint answers. Convolutions go through nd4j's own im2col and
+    cuBLAS, making this the only stack of seven without cuDNN and one of the two
+    most expensive.
+
+    That is a property of the framework and cannot be corrected here, so the
+    manuscript states it. This check exists so that if a future version gains
+    the backend, someone is told to revisit the statement rather than shipping a
+    caveat that has quietly stopped being true.
+    """
+    import subprocess
+
+    libs = sorted(Path.home().glob(
+        ".javacpp/cache/nd4j-cuda-*/org/nd4j/linalg/jcublas/bindings/*/libnd4jcuda.so"))
+    if not libs:
+        return [Result("Java/DL4J", "S4 convolution backend is as documented", SKIP,
+                       "libnd4jcuda.so not extracted yet; run the stack once")]
+    try:
+        elf = subprocess.run(["readelf", "-d", str(libs[-1])],
+                             capture_output=True, text=True, timeout=60).stdout
+    except Exception as exc:
+        return [Result("Java/DL4J", "S4 convolution backend is as documented", FAIL,
+                       f"{type(exc).__name__}: {exc}")]
+    has_cudnn = "cudnn" in elf.lower()
+    if has_cudnn:
+        return [Result("Java/DL4J", "S4 convolution backend is as documented", FAIL,
+                       "libnd4jcuda.so now links cuDNN -- the manuscript says it "
+                       "does not; re-measure and update the claim")]
+    return [Result("Java/DL4J", "S4 convolution backend is as documented", PASS,
+                   "no cuDNN, cuBLAS only -- the documented divergence")]
+
+
 def _check_rust_links_cuda() -> list[Result]:
     """Every released Rust binary must carry a NEEDED entry for torch_cuda."""
     import subprocess
@@ -399,6 +438,9 @@ def run() -> list[Result]:
         r.append(check_regex(eco, "S2 batch size = 128", files, pat))
     r.append(check_regex("C++/LibTorch", "S2 eval batch = train batch",
                          glob_read("cpp/src/train/**/train_*.cpp"), r"kTestBatchSize = 128"))
+
+    # ---------------- S4: Deeplearning4j's convolution backend -------------
+    r.extend(_check_dl4j_cudnn())
 
     # ---------------- S4: the Rust binaries actually link CUDA -------------
     #
@@ -727,7 +769,7 @@ def run() -> list[Result]:
 #: check that silently stops running -- a glob that matches nothing, a guarded
 #: import that turns into a SKIP -- fails the gate instead of shrinking the
 #: total. Raise it deliberately when you add a check.
-EXPECTED_CHECKS = 91
+EXPECTED_CHECKS = 92
 
 
 def main() -> int:

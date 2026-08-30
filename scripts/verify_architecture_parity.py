@@ -190,6 +190,62 @@ public class DGFingerprint {
 """
 
 
+PROBE_R = r"""
+suppressMessages({library(torch); library(torchvision)})
+args <- commandArgs(trailingOnly = TRUE)
+arch <- args[1]; n <- as.integer(args[2])
+env <- new.env(); sys.source("R/models/resnet18.r", envir = env)
+env2 <- new.env(); sys.source("R/models/vgg16.r", envir = env2)
+model <- if (arch == "resnet18") {
+  env$build_resnet18(num_classes = n)
+} else {
+  env2$build_vgg16(num_classes = n)
+}
+shapes <- lapply(model$parameters, function(p) as.integer(dim(p)))
+cat("@@[", paste(sapply(shapes, function(s) paste0("[", paste(s, collapse = ","), "]")),
+                collapse = ","), "]\n", sep = "")
+"""
+
+
+def run_r_probe(model: str, classes: int, label: str) -> list | None:
+    """Fingerprint R/torch, which needs the campaign's own library path.
+
+    R's `torch` loads `liblantern.so`, which links against `libcudart.so.12`
+    while the R bundle ships that under a hashed name -- so without a CUDA 12
+    runtime on LD_LIBRARY_PATH the package reports "Lantern is not loaded" and
+    every probe fails. That is why R was the one stack whose architecture went
+    unverified for a round: not a property of the binding, just the wrong
+    environment. tools/stack_environments.json has held the answer all along.
+    """
+    import tempfile
+
+    conda = os.environ.get("DEEPGREEN_CONDA", str(Path.home() / "miniforge3/envs/deepgreen"))
+    r_libs = os.environ.get("DEEPGREEN_R_LIBS", str(Path.home() / "R/deepgreen"))
+    cuda = os.environ.get("DEEPGREEN_CUDA", str(Path.home() / "miniforge3/envs/dg-cuda128"))
+    rscript = Path(conda) / "bin" / "Rscript"
+    if not rscript.exists():
+        print(f"  {label}: no Rscript at {rscript}", file=sys.stderr)
+        return None
+
+    env = dict(os.environ)
+    env["R_LIBS_USER"] = r_libs
+    env["LD_LIBRARY_PATH"] = ":".join([
+        f"{cuda}/lib", f"{cuda}/targets/x86_64-linux/lib", f"{r_libs}/torch/lib",
+        env.get("LD_LIBRARY_PATH", ""),
+    ])
+    with tempfile.TemporaryDirectory() as tmp:
+        script = Path(tmp) / "probe.R"
+        script.write_text(PROBE_R)
+        out = subprocess.run([str(rscript), str(script), model, str(classes)],
+                             cwd=REPO, capture_output=True, text=True,
+                             timeout=600, env=env)
+    for line in out.stdout.splitlines():
+        if line.startswith("@@"):
+            return json.loads(line[2:])
+    print(f"  {label}: no fingerprint\n{out.stderr.strip()[-300:]}", file=sys.stderr)
+    return None
+
+
 def run_java_probe(model: str, classes: int, label: str) -> list | None:
     """Fingerprint a Deeplearning4j graph through the campaign's own classpath."""
     import shutil
@@ -279,6 +335,10 @@ def collect() -> dict:
             shapes = run_java_probe(model, classes, f"{key} Java/DL4J")
             if shapes is not None:
                 results[key]["Java/DL4J"] = fingerprint(shapes)
+
+            shapes = run_r_probe(model, classes, f"{key} R/torch")
+            if shapes is not None:
+                results[key]["R/torch"] = fingerprint(shapes)
     return results
 
 

@@ -630,6 +630,39 @@ enforced against source rather than artefact is barely enforced at all.
 
 ---
 
+## 19. Both declared gaps closed
+
+**R's architecture is verified shape for shape.** It was never a property of the
+binding: R's `torch` loads `liblantern.so`, which links `libcudart.so.12` while
+the R bundle ships that under a hashed name, so without a CUDA 12 runtime on
+`LD_LIBRARY_PATH` the package reports "Lantern is not loaded" and every probe
+fails. `tools/stack_environments.json` had recorded the fix all along, with a
+note explaining exactly this; I had set `R_LIBS_USER` and not the CUDA path.
+With the campaign's own environment, R fingerprints like the others, and **all
+seven stacks now agree shape for shape on all six blocks** — ResNet-18 at 62
+tensors (20 convolution, 1 dense, 41 rank-1), VGG-16 at 30 (13, 2, 15).
+
+**Deeplearning4j's missing cuDNN path is now evidenced and bounded.** It cannot
+be fixed: `libnd4jcuda.so` carries a `NEEDED` entry for `libcublas.so.11` and
+none for cuDNN, the helper class and every `org.bytedeco` cuDNN preset are
+absent from the classpath, and `deeplearning4j-cuda` has no version at all in
+Maven Central's metadata — verified against the metadata endpoint with
+`deeplearning4j-modelimport` as a control. 1.0.0-M2.1 is the latest release.
+
+So it is bounded instead. Disabling cuDNN in a stack that has it, holding
+hardware, model and data constant — ResNet-18, batch 128, median of three —
+costs **13.3× the energy and 16.7× the time**: 100.3 J and 0.353 s against
+1333.2 J and 5.874 s. That is an upper bound on what losing cuDNN can cost
+rather than an estimate of Deeplearning4j's own penalty, since nd4j's im2col
+path is not PyTorch's non-cuDNN fallback — but it exceeds the whole
+Java-versus-cheapest gap the campaign measures, which settles the question of
+whether this belongs in a footnote. It does not.
+
+A check now watches `libnd4jcuda.so` and fails if a future version gains cuDNN,
+so the claim cannot quietly stop being true. 92 checks, 91 passing.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number.
@@ -643,8 +676,5 @@ enforced against source rather than artefact is barely enforced at all.
 - Make the replication package round-trip (13,037 of ~13,230 files differ on
   restore: float truncation, manifest type coercion, list flattening, row order).
 - Re-run the claim-evidence review that stopped on a rate limit.
-- R's architecture is asserted by parameter count at startup but not verified
-  shape for shape, because its `torch` will not load Lantern outside the
-  campaign environment.
 - Unchanged from before: CRediT roles, competing-interest declaration, Zenodo
   deposit, author photographs.
