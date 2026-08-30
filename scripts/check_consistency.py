@@ -91,6 +91,41 @@ def strip_comments(files: dict[str, str]) -> dict[str, str]:
     return out
 
 
+def strip_hash_comments(files: dict[str, str]) -> dict[str, str]:
+    """Blank out `#` comments in Python, R and shell, keeping line numbers.
+
+    The counterpart of strip_comments for the languages that use `#`. Needed for
+    the same reason: a check that documents the defect it guards against will
+    match its own explanation. Three of the checks added here failed on their
+    own comments the first time they ran.
+
+    Quotes are tracked so a `#` inside a string is not mistaken for a comment.
+    """
+    out = {}
+    for path, text in files.items():
+        res, i, n, quote = [], 0, len(text), None
+        while i < n:
+            ch = text[i]
+            if quote:
+                res.append(ch)
+                if ch == "\\" and i + 1 < n:
+                    res.append(text[i + 1]); i += 2; continue
+                if ch == quote:
+                    quote = None
+                i += 1
+            elif ch in "\"'":
+                quote = ch; res.append(ch); i += 1
+            elif ch == "#":
+                j = text.find("\n", i)
+                j = n if j == -1 else j
+                res.append(" " * (j - i))
+                i = j
+            else:
+                res.append(ch); i += 1
+        out[path] = "".join(res)
+    return out
+
+
 def check_regex(eco, name, files, pattern, expect=True, detail_ok="", flags=0,
                 every=True):
     """PASS if `pattern` is found (expect=True) or absent (expect=False).
@@ -555,6 +590,86 @@ def run() -> list[Result]:
     # temporary directory is what actually catches that.
     r.extend(_check_run_dir_contract())
 
+    # ---------------- S1: one network, asserted at startup ------------------
+    #
+    # The check that did not exist while the specification claimed it did.
+    # VGG-16 ran as four different networks across the seven stacks, spanning
+    # 9.1x in parameters, and ResNet-18 as three. Every stack now asserts its
+    # own count against models/MANIFEST.json, carried into the run as
+    # DEEPGREEN_EXPECTED_PARAMS so no stack needs a JSON parser of its own.
+    manifest_path = REPO / "models" / "MANIFEST.json"
+    if manifest_path.exists():
+        import json as _json
+        man = _json.loads(manifest_path.read_text())
+        modules = man.get("modules", {})
+        r.append(Result("all", "S1 model manifest covers every block",
+                        PASS if len(modules) == 6 else FAIL,
+                        f"{len(modules)} of 6 modules, VGG-16 head "
+                        f"'{man.get('vgg16_head')}', seed {man.get('export_seed')}"))
+    else:
+        r.append(Result("all", "S1 model manifest covers every block", FAIL,
+                        "models/MANIFEST.json missing; run "
+                        "scripts/export_torchscript_models.py"))
+    r.append(Result("all", "S1 driver carries the expected parameter count",
+                    PASS if "DEEPGREEN_EXPECTED_PARAMS" in read("scripts/run_campaign.py")
+                    else FAIL, "scripts/run_campaign.py"))
+    for eco, files in (
+        ("Python/PyTorch", glob_read("python/pytorch/models/*.py")),
+        ("Python/TensorFlow", glob_read("python/tensorflow/models/*.py")),
+        ("Python/JAX", glob_read("python/jax/models/*.py")),
+        ("R/torch", glob_read("R/models/*.r")),
+    ):
+        pattern = (r"dg_assert_params|load_shared_module" if eco == "R/torch"
+                   else r"assert_parameter_count|load_shared_module")
+        r.append(check_regex(eco, "S1 asserts its parameter count", files, pattern))
+    r.append(check_regex("Java/DL4J", "S1 asserts its parameter count",
+                         glob_read("Java/**/expt/resnet18/*.java",
+                                   "Java/**/expt/vgg16/*.java"),
+                         r"assertParameters\("))
+
+    # ---------------- S2: thirty epochs, and the seed reaches the data ------
+    r.append(check_regex("all", "S2 epochs default to 30",
+                         glob_read("tools/deepgreen_bench.py"),
+                         r"DEFAULT_EPOCHS = 30", every=False,
+                         detail_ok="tools/deepgreen_bench.py"))
+    # Java hardcoded its shuffle seed, so five repetitions shared one data
+    # order while the S6 check reported five distinct seeds -- it had asked the
+    # campaign planner, which never sees whether a stack uses what it is given.
+    r.append(check_regex("Java/DL4J", "S6 no hardcoded data seed",
+                         strip_comments(glob_read("Java/**/dataloader/*.java")),
+                         r"RNG_SEED\s*=\s*\d+", expect=False))
+    # Two of six Rust binaries rebuilt the generator inside the epoch loop, so
+    # they replayed one permutation thirty times.
+    r.append(check_regex("Rust/tch", "S6 seeded once, outside the epoch loop",
+                         strip_comments(glob_read("rust/src/bin/*.rs")),
+                         r"for epoch in 1\.\.=epochs \{[^}]*?StdRng::seed_from_u64",
+                         expect=False, flags=re.S))
+
+    # ---------------- S3: the whole split, in every stack -------------------
+    # TensorFlow and JAX dropped the final partial batch of both splits, so
+    # they trained on fewer gradient steps and evaluated on 9,984 of 10,000
+    # test images -- always the same 16, the test loader being unshuffled over
+    # a sorted file list -- while accuracy is the denominator of this study's
+    # energy-per-quality metric.
+    r.append(check_regex("all", "S3 loader keeps the final partial batch",
+                         strip_hash_comments(glob_read("tools/deepgreen_loader.py")),
+                         r"drop_remainder=True", expect=False))
+    # Anchored on the assignment: the ceiling idiom -(-x.samples // batch_size)
+    # contains the floor form as a substring, so an unanchored pattern flags the
+    # corrected code.
+    r.append(check_regex("all", "S3 steps per epoch round up",
+                         strip_hash_comments(glob_read("python/tensorflow/models/*.py",
+                                                       "python/jax/models/*.py")),
+                         r"=\s*\w+\.samples\s*//\s*batch_size", expect=False))
+
+    # ---------------- S5: JAX closes its window on finished work ------------
+    # Dispatch is asynchronous and nothing forced it, so the tracked block shut
+    # while work was still on the device: 35.9% of an eval loop finished after
+    # the tracker closed, and the block was charged 0.70x its true energy.
+    r.append(check_regex("Python/JAX", "S5 synchronises before the block closes",
+                         glob_read("python/jax/models/*.py"),
+                         r"jax\.block_until_ready\("))
+
     # ---------------- scope -------------------------------------------------
     rc = read("scripts/run_campaign.py")
     r.append(Result("all", "V2 scope excludes MATLAB",
@@ -567,7 +682,7 @@ def run() -> list[Result]:
 #: check that silently stops running -- a glob that matches nothing, a guarded
 #: import that turns into a SKIP -- fails the gate instead of shrinking the
 #: total. Raise it deliberately when you add a check.
-EXPECTED_CHECKS = 77
+EXPECTED_CHECKS = 90
 
 
 def main() -> int:
