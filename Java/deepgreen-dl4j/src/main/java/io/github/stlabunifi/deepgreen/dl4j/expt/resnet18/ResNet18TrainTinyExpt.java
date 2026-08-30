@@ -10,6 +10,7 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.dataloader.TinyImageNetDataloader;
+import io.github.stlabunifi.deepgreen.dl4j.model.Evaluator;
 import io.github.stlabunifi.deepgreen.dl4j.model.builder.ResNet18GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.DeepGreenTracker;
@@ -88,6 +89,8 @@ public class ResNet18TrainTinyExpt {
 			ComputationGraph resnet18 = ResNet18GraphBuilder.buildResNet18(numClasses, rngSeed, 
 					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth, lrAdam);
 
+			DeepGreenTracker.assertParameters(resnet18);
+
 			// Listener
 			resnet18.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			
@@ -101,14 +104,16 @@ public class ResNet18TrainTinyExpt {
 				tracker.stopPhase();
 			
 				tracker.startPhase("eval", i + 1);
-				var eval = resnet18.evaluate(tinyTest);
+				double[] eval = Evaluator.lossAndAccuracy(resnet18, tinyTest);
 				tracker.stopPhase();
 				
 				// Outside the tracked window: writing the metric must not be measured.
-				// DL4J's Evaluation does not expose a test loss, so it is recorded as NaN;
-				// the training score is the model's last minibatch score.
-				tracker.metric(i + 1, resnet18.score(), Double.NaN, eval.accuracy() * 100.0);
-				System.out.println(eval.stats());
+				// Test loss and accuracy come from one inference pass over the test set
+				// (model/Evaluator.java); the training score is the model's last
+				// minibatch score, as in the first campaign.
+				tracker.metric(i + 1, resnet18.score(), eval[0], eval[1]);
+				System.out.printf(java.util.Locale.ROOT,
+						"test loss %.4f  accuracy %.2f%%%n", eval[0], eval[1]);
 			}
 			
 			// Save the model

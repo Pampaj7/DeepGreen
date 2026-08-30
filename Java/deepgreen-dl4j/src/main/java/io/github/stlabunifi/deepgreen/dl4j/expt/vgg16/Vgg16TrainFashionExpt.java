@@ -10,6 +10,7 @@ import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 
 import io.github.stlabunifi.deepgreen.dl4j.dataloader.FashionMNISTDataloader;
+import io.github.stlabunifi.deepgreen.dl4j.model.Evaluator;
 import io.github.stlabunifi.deepgreen.dl4j.model.builder.Vgg16GraphBuilder;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.PythonCommandHandler;
 import io.github.stlabunifi.deepgreen.dl4j.python.handler.DeepGreenTracker;
@@ -88,6 +89,8 @@ public class Vgg16TrainFashionExpt {
 					transformed_imgChannels, transformed_imgHeight, transformed_imgWidth,
 					lrAdam);
 
+			DeepGreenTracker.assertParameters(vgg16);
+
 			// Listener
 			vgg16.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			
@@ -101,14 +104,16 @@ public class Vgg16TrainFashionExpt {
 				tracker.stopPhase();
 				
 				tracker.startPhase("eval", i + 1);
-				var eval = vgg16.evaluate(fashionTest);
+				double[] eval = Evaluator.lossAndAccuracy(vgg16, fashionTest);
 				tracker.stopPhase();
 				
 				// Outside the tracked window: writing the metric must not be measured.
-				// DL4J's Evaluation does not expose a test loss, so it is recorded as NaN;
-				// the training score is the model's last minibatch score.
-				tracker.metric(i + 1, vgg16.score(), Double.NaN, eval.accuracy() * 100.0);
-				System.out.println(eval.stats());
+				// Test loss and accuracy come from one inference pass over the test set
+				// (model/Evaluator.java); the training score is the model's last
+				// minibatch score, as in the first campaign.
+				tracker.metric(i + 1, vgg16.score(), eval[0], eval[1]);
+				System.out.printf(java.util.Locale.ROOT,
+						"test loss %.4f  accuracy %.2f%%%n", eval[0], eval[1]);
 			}
 			
 			// Save the model

@@ -9,6 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
+import java.util.Map;
+
+import org.deeplearning4j.nn.graph.ComputationGraph;
+import org.nd4j.linalg.api.ndarray.INDArray;
 
 /**
  * Bridge to the shared measurement helper, tools/deepgreen_tracker.py.
@@ -136,5 +140,63 @@ public final class DeepGreenTracker implements AutoCloseable {
     public static String dataRoot() {
         String v = System.getenv("DEEPGREEN_DATA");
         return (v == null || v.isBlank()) ? "data" : v;
+    }
+
+    private static final java.util.Set<String> BATCHNORM_BUFFERS =
+            java.util.Set.of("mean", "var", "log_var", "log10stdev");
+
+    /**
+     * Refuse to train a network that is not the one the study is comparing.
+     *
+     * <p>VGG-16 ran as four different networks across the seven stacks --
+     * 134,670,244 parameters in the LibTorch lineage against 14,765,988 in JAX,
+     * a 9.1x range -- while the specification claimed parameter counts were
+     * checked against the exported module. Nothing checked them anywhere. The
+     * campaign driver now carries models/MANIFEST.json's count in
+     * DEEPGREEN_EXPECTED_PARAMS so every stack can check without a JSON parser
+     * of its own.
+     *
+     * <p>Counted the way torch counts, which is not the way DL4J does: torch's
+     * {@code model.parameters()} covers learnable weights, while
+     * {@code numParams()} here also includes each BatchNormalization's running
+     * {@code mean} and {@code log10stdev}. For ResNet-18 that is 9,600 values across
+     * 4,800 normalised channels, and comparing the two conventions directly
+     * makes an identical network look wrong by exactly that. Keras has the same
+     * discrepancy, for the same reason.
+     */
+    public static void assertParameters(ComputationGraph graph) {
+        String want = System.getenv("DEEPGREEN_EXPECTED_PARAMS");
+        if (want == null || want.isBlank()) {
+            return;
+        }
+        long got = 0;
+        for (org.deeplearning4j.nn.api.Layer layer : graph.getLayers()) {
+            Map<String, INDArray> params = layer.paramTable();
+            if (params == null) {
+                continue;
+            }
+            for (Map.Entry<String, INDArray> e : params.entrySet()) {
+                if (BATCHNORM_BUFFERS.contains(e.getKey())) {
+                    continue;   // buffers in torch, parameters here
+                }
+                got += e.getValue().length();
+            }
+        }
+        long expected = Long.parseLong(want.trim());
+        if (got == expected) {
+            System.out.printf(Locale.ROOT,
+                    "[deepgreen] %d parameters, as exported%n", got);
+            return;
+        }
+        String msg = String.format(Locale.ROOT,
+                "this stack has %d parameters; models/MANIFEST.json says %d "
+                + "(difference %+d). Comparing its energy with the others would "
+                + "compare models rather than ecosystems.", got, expected, got - expected);
+        if ("1".equals(System.getenv("DEEPGREEN_ALLOW_MODEL_DRIFT"))) {
+            System.out.println("[deepgreen] WARNING " + msg);
+            return;
+        }
+        throw new IllegalStateException(
+                msg + " Set DEEPGREEN_ALLOW_MODEL_DRIFT=1 to override.");
     }
 }

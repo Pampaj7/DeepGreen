@@ -2,8 +2,6 @@ package io.github.stlabunifi.deepgreen.dl4j.model.builder;
 
 //import org.deeplearning4j.nn.conf.distribution.TruncatedNormalDistribution;
 //import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
-//import org.deeplearning4j.nn.weights.IWeightInit;
-//import org.deeplearning4j.nn.weights.WeightInitDistribution;
 
 import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
@@ -23,7 +21,6 @@ import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.conf.layers.PoolingType;
 import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
-import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.learning.config.Adam;
@@ -66,11 +63,14 @@ public class ResNet18GraphBuilder {
 				.activation(Activation.IDENTITY)
 				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
 				.updater(new Adam(lr))
-				.weightInit(WeightInit.RELU) 	// set weights via a truncated normal distribution centered on 0 with stddev = sqrt(2 / fan_in)
-												// where fan_in is the number of input units in the weight tensor.
-												// This is similar to "kernel_initializer="he_normal"" in Python,
-												// but PyTorch uses fan_out = kernel_size * out_channels.
-												// Differs from ResNet50: "new WeightInitDistribution(new TruncatedNormalDistribution(0.0, 0.5))"
+				// kaiming_normal_(fan_out, relu), as torchvision does it, rather than
+				// WeightInit.RELU -- a truncated normal with stddev sqrt(2 / fan_in).
+				// The old comment noted the difference ("PyTorch uses fan_out =
+				// kernel_size * out_channels") and kept the fan_in version, which for
+				// conv1 is 0.116 against torchvision's 0.025: this stack's weights
+				// started 4.6x wider than every other stack's. See TorchWeightInit for
+				// why that is the setting the collapse result rested on.
+				.weightInit(TorchWeightInit.convolution())
 				//.l1(1e-7) // used in ResNet50
 				//.l2(1e-4) // used in paper ResNet-18 (but with different training config); ResNet50 of DL4J uses 5e-5
 				.miniBatch(true)
@@ -95,6 +95,7 @@ public class ResNet18GraphBuilder {
 						.stride(2,2)
 						.nOut(64)
 						.convolutionMode(ConvolutionMode.Same)
+						.hasBias(false) // torchvision omits it: a BatchNorm follows and cancels it
 						.build(),
 					"input")
 			.addLayer("bn1", new BatchNormalization.Builder()
@@ -134,6 +135,7 @@ public class ResNet18GraphBuilder {
 		graph.addLayer("fc", new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT) // Differs from ResNet50: NEGATIVELOGLIKELIHOOD
 				.activation(Activation.SOFTMAX)
 				.nOut(numClasses)
+				.weightInit(TorchWeightInit.dense())   // nn.Linear's default, not the convolution one
 				.build(), "avgpool");
 
 		graph.setOutputs("fc");
@@ -164,6 +166,7 @@ public class ResNet18GraphBuilder {
 						.nOut(filters)
 						.cudnnAlgoMode(ConvolutionLayer.AlgoMode.PREFER_FASTEST)
 						.convolutionMode(ConvolutionMode.Same) // padding 1x1
+						.hasBias(false) // torchvision omits it: a BatchNorm follows and cancels it
 						.build(),
 					input)
 			.addLayer(bn1, new BatchNormalization.Builder()
@@ -180,6 +183,7 @@ public class ResNet18GraphBuilder {
 						.nOut(filters)
 						.cudnnAlgoMode(ConvolutionLayer.AlgoMode.PREFER_FASTEST)
 						.convolutionMode(ConvolutionMode.Same) // padding 1x1
+						.hasBias(false) // torchvision omits it: a BatchNorm follows and cancels it
 						.build(),
 					relu1)
 			.addLayer(bn2, new BatchNormalization.Builder()
@@ -200,6 +204,7 @@ public class ResNet18GraphBuilder {
 							.stride(stride,stride)
 							.nOut(filters)
 							// conv 1x1 doesn't require padding, i.e. .convolutionMode(ConvolutionMode.Same)
+							.hasBias(false) // torchvision omits it: a BatchNorm follows and cancels it
 							.build(),
 						input)
 				.addLayer(shortcutBN, new BatchNormalization.Builder()
