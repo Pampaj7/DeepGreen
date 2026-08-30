@@ -1,6 +1,0 @@
-# Shared TorchScript modules for the LibTorch-based ecosystems.
-torch_version=2.7.0+cu128
-modules=resnet18_cifar100.pt resnet18_fashionmnist.pt resnet18_tinyimagenet200.pt vgg16_cifar100.pt vgg16_fashionmnist.pt vgg16_tinyimagenet200.pt
-# A module written by a newer torch will not load into an older LibTorch.
-# scripts/check_consistency.py compares this against the tch crate version
-# and the LibTorch the C++ build fetches (spec S4).

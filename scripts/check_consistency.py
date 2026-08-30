@@ -371,10 +371,13 @@ def run() -> list[Result]:
         "0.18": "2.5.0", "0.19": "2.6.0", "0.20": "2.7.0",
     }
     versions: dict[str, str] = {}
-    man = read("models/MANIFEST.txt")
-    m = re.search(r"torch_version=([0-9.]+)", man)
-    if m:
-        versions["exported TorchScript"] = m.group(1)
+    try:
+        import json as _json
+        man = _json.loads(read("models/MANIFEST.json") or "{}")
+        if man.get("torch_version"):
+            versions["exported TorchScript"] = str(man["torch_version"]).split("+")[0]
+    except Exception:
+        pass
     m = re.search(r'^tch\s*=\s*"([0-9]+\.[0-9]+)', read("rust/Cargo.toml"), re.M)
     if m:
         versions["Rust/tch"] = TCH_TO_LIBTORCH.get(m.group(1), f"unknown (tch {m.group(1)})")

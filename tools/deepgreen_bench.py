@@ -154,6 +154,48 @@ def set_precision_policy() -> None:
         pass
 
 
+#: dataset name in the campaign -> the name the exported modules use
+_MODULE_DATASET = {"fashionmnist": "fashionmnist", "cifar100": "cifar100",
+                   "tinyimagenet": "tinyimagenet200"}
+
+
+def expected_parameters(arch: str, dataset: str) -> int | None:
+    """What models/MANIFEST.json says this architecture must have."""
+    path = Path(os.environ.get("DEEPGREEN_MODELS", REPO_ROOT / "models")) / "MANIFEST.json"
+    if not path.exists():
+        return None
+    entry = json.loads(path.read_text())["modules"].get(
+        f"{arch}_{_MODULE_DATASET.get(dataset, dataset)}.pt")
+    return int(entry["parameters"]) if entry else None
+
+
+def assert_parameter_count(arch: str, dataset: str, actual: int) -> None:
+    """Refuse to train a network that is not the one the study is comparing.
+
+    The check that did not exist. VGG-16 ran as four different networks across
+    the seven stacks -- 134,670,244 parameters in the LibTorch lineage against
+    14,765,988 in JAX, a 9.1x range -- while the specification claimed parameter
+    counts were checked against the exported module. Half the study's energy
+    comparisons were comparing models. One line, at startup, in every stack.
+
+    Set DEEPGREEN_ALLOW_MODEL_DRIFT=1 to warn instead of refusing, for the
+    deliberate case of measuring a variant.
+    """
+    want = expected_parameters(arch, dataset)
+    if want is None or want == actual:
+        if want is not None:
+            print(f"[deepgreen] {arch}/{dataset}: {actual:,} parameters, as exported")
+        return
+    msg = (f"{arch} on {dataset} has {actual:,} parameters; models/MANIFEST.json "
+           f"says {want:,} (difference {actual - want:+,}). This stack is not "
+           f"training the network the others are, and comparing their energy "
+           f"would compare models rather than ecosystems.")
+    if os.environ.get("DEEPGREEN_ALLOW_MODEL_DRIFT") == "1":
+        print("[deepgreen] WARNING " + msg)
+        return
+    raise RuntimeError(msg + " Set DEEPGREEN_ALLOW_MODEL_DRIFT=1 to override.")
+
+
 @dataclass
 class RunContext:
     """Everything that identifies one independent run."""

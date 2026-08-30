@@ -1,0 +1,56 @@
+{
+  "torch_version": "2.7.0+cu128",
+  "export_seed": 20260830,
+  "vgg16_head": "cifar",
+  "modules": {
+    "resnet18_fashionmnist.pt": {
+      "architecture": "resnet18",
+      "dataset": "fashionmnist",
+      "num_classes": 10,
+      "parameters": 11181642,
+      "weights_sha256": "dd9c10f34ac7e7d10a2c2afdc505d707e652b55e9f975534363a88574f956fcf",
+      "file_sha256": "5e6a311636f0bb1c6709b47cb92dbfc6667a59aeb7e5aa16e64cf821b01dde4c"
+    },
+    "resnet18_cifar100.pt": {
+      "architecture": "resnet18",
+      "dataset": "cifar100",
+      "num_classes": 100,
+      "parameters": 11227812,
+      "weights_sha256": "516c682da6eef5a7ce305ef683d118d9ade29e9989f5e4f9cb0e2354fb2fbf70",
+      "file_sha256": "72614aaaeb909438c41234da4c0db7df0c527c8e849d33377969e7b86990ed21"
+    },
+    "resnet18_tinyimagenet200.pt": {
+      "architecture": "resnet18",
+      "dataset": "tinyimagenet200",
+      "num_classes": 200,
+      "parameters": 11279112,
+      "weights_sha256": "b09e9a87d980eb7db015b8e512ce21cf87075b721d00b2fd109cc36ccf0a94e8",
+      "file_sha256": "34caeebef34e39603fa5c8973fe27195808348daa9229f18b700f57f3b9f576b"
+    },
+    "vgg16_fashionmnist.pt": {
+      "architecture": "vgg16",
+      "dataset": "fashionmnist",
+      "num_classes": 10,
+      "parameters": 14982474,
+      "weights_sha256": "d43ed6ba03d3321242ea67757b678003ec4a739f33261d9fd6dcdf11baa5da71",
+      "file_sha256": "3321661f5f0695b2272778bcb665c0a92e1d5bd84c74347bfc321749ab16b3aa"
+    },
+    "vgg16_cifar100.pt": {
+      "architecture": "vgg16",
+      "dataset": "cifar100",
+      "num_classes": 100,
+      "parameters": 15028644,
+      "weights_sha256": "93211c5395978097347f80a254e8e3a481edf69b6ff228d0f1e4f9b17c1665c9",
+      "file_sha256": "e75481107ff5e0fd159ac030d1364942da400b561ad5f31ea231929882f96c6e"
+    },
+    "vgg16_tinyimagenet200.pt": {
+      "architecture": "vgg16",
+      "dataset": "tinyimagenet200",
+      "num_classes": 200,
+      "parameters": 15079944,
+      "weights_sha256": "99d3aa77556de7b3f01919d6952dc7cdd47a67d07c4128facb8a0b0313548330",
+      "file_sha256": "efe309cf1c8d2b8993842660137eb6a86df50878dd149480436e67d612f4ac50"
+    }
+  },
+  "note": "Parameter counts are the contract every stack asserts against at startup, including the four that cannot load TorchScript. A module written by a newer torch will not load into an older LibTorch; scripts/check_consistency.py compares torch_version against the tch crate and the LibTorch the C++ build fetches (spec S4)."
+}

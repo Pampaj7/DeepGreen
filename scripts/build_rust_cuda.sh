@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-: "${LIBTORCH:?set LIBTORCH to a CUDA-enabled LibTorch (must match models/MANIFEST.txt)}"
+: "${LIBTORCH:?set LIBTORCH to a CUDA-enabled LibTorch (must match models/MANIFEST.json)}"
 
 if [[ ! -f "$LIBTORCH/lib/libtorch_cuda.so" ]]; then
   echo "ERROR: $LIBTORCH is a CPU-only LibTorch (no libtorch_cuda.so)." >&2
