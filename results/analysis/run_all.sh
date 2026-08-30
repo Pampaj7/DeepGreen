@@ -34,6 +34,21 @@ run 14_v2_statistics.py           # run-level tests, effect sizes, energy vs tim
 run 15_convergence.py             # training collapses and conditional accuracy
 run 16_coverage_sensitivity.py    # whose energy is the time between phases?
 
+# These four measure the machine rather than re-derive the campaign, so they
+# are host- and network-dependent and are listed separately. They were in no
+# pipeline at all, which meant the macros they feed -- \vCalib*, \vIdle*,
+# \vMech* -- came from committed CSVs that a clean checkout would not have, and
+# 12_paper_numbers.py reads them behind `if path.exists()`, so the manuscript
+# would have compiled with them silently absent.
+echo "=== measurements of this host (re-measure, do not re-derive) ==="
+run 17_window_calibration.py      # between-window drift, if results/calibration/ exists
+"$PY" ../../scripts/measure_idle.py       || echo "  (skipped: needs an idle machine)"
+"$PY" ../../scripts/probe_reported_window.py || echo "  (skipped: needs network timing)"
+
+echo "=== parity of the comparison itself ==="
+"$PY" ../../scripts/verify_architecture_parity.py || echo "  ARCHITECTURES DIFFER"
+"$PY" ../../scripts/verify_data_parity.py         || echo "  DATA DIFFERS"
+
 echo "=== manuscript artefacts (paper/) ==="
 run 12_paper_numbers.py           # -> paper/generated/{numbers,tab_*}.tex
 run 13_paper_figures.py           # -> paper/figures/*.png

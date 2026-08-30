@@ -484,6 +484,36 @@ to repair.
 
 ---
 
+## 16. Three things the sweep found that were still open
+
+**Deeplearning4j uses no cuDNN, and cannot at this version.** Convolutions go
+through nd4j's own im2col and cuBLAS. `CudnnConvolutionHelper` ships in
+`deeplearning4j-cuda`, which has no M2.x release -- `dependency:get` resolves
+neither `deeplearning4j-cuda:1.0.0-M2.1` nor `deeplearning4j-cuda-11.6:1.0.0-M2.1`
+-- and no cuDNN class or jar reaches the classpath. The run log says
+`Loaded [JCublasBackend]` and carries no convolution-helper line at all.
+
+It is the only stack of seven not using cuDNN, and one of the two most
+expensive. Not fixable here, so it goes in the specification and has to go in
+the manuscript: "Java/DL4J costs 6x" otherwise reads as a statement about a
+language when part of it is a statement about a missing convolution backend.
+
+**`train_acc` is empty for five stacks of seven** -- populated only by JAX and
+TensorFlow -- and is read by no analysis anywhere. Five languages of work for a
+column nothing consumes is the wrong trade; S5 now says what is actually
+recorded instead of implying seven, which is the same correction the Java
+`test_loss` disclosure needed.
+
+**Four scripts were in no pipeline.** `17_window_calibration.py`,
+`measure_idle.py` and `probe_reported_window.py` feed the `\vCalib*`, `\vIdle*`
+and `\vMech*` macros, and `12_paper_numbers.py` reads their outputs behind
+`if path.exists()` -- so on a clean checkout the manuscript would have compiled
+with those numbers silently absent. They are in `run_all.sh` now, in a section
+labelled as measuring the host rather than re-deriving the campaign, together
+with the two new parity verifiers.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number.
@@ -497,5 +527,11 @@ to repair.
 - Make the replication package round-trip (13,037 of ~13,230 files differ on
   restore: float truncation, manifest type coercion, list flattening, row order).
 - Re-run the claim-evidence review that stopped on a rate limit.
+- Send `DATAFP` from the four non-Python stacks; until then their loaders'
+  output is unmeasured and their data parity rests on the cross-stack accuracy
+  agreement.
+- R's architecture is asserted by parameter count at startup but not verified
+  shape for shape, because its `torch` will not load Lantern outside the
+  campaign environment.
 - Unchanged from before: CRediT roles, competing-interest declaration, Zenodo
   deposit, author photographs.

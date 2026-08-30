@@ -20,8 +20,8 @@ the replication machine, and it cannot be pinned to the shared LibTorch build).
 | Python/PyTorch | `torchvision.models.resnet18` / `vgg16`, final layer resized to `num_classes` |
 | C++/LibTorch, Rust/tch | **the same module**, exported once by `scripts/export_torchscript_models.py` and loaded with `torch::jit::load` / `TrainableCModule::load` |
 | R/torch | **cannot share it** — see below. Builds `torchvision::model_resnet18` / `model_vgg16`. |
-| Python/TensorFlow | Model Garden ResNet-18 / Keras VGG16, no pretrained weights (TensorFlow **2.19.1**; see S5 on device placement) |
-| Python/JAX | flaxmodels ResNet-18 / VGG16, no pretrained weights |
+| Python/TensorFlow | ResNet-18 written against torchvision's definition layer for layer; VGG-16 backbone from `tf_keras.applications` with the shared head. No pretrained weights (TensorFlow **2.19.1**, `tf_keras` 2.19 throughout; see S5 on device placement) |
+| Python/JAX | flaxmodels ResNet-18 / VGG16 backbone with the shared head, no pretrained weights |
 | Java/DL4J | `ResNet18GraphBuilder` / `Vgg16GraphBuilder` |
 
 Verified in both non-Python LibTorch bindings:
@@ -32,16 +32,15 @@ R/torch 0.17.0.
 The parameter counts match the Python export exactly (ResNet-18/CIFAR-100:
 11,227,812), so the graph is identical, not merely equivalent.
 
-**R is a documented exception.** In R `torch` 0.17.0 a `script_module`'s
+**R cannot load the shared module.** In R `torch` 0.17.0 a `script_module`'s
 `$train()` and `$eval()` raise `unused argument (base::quote(TRUE))`, and the
 underlying handle is not reachable through the object's documented fields, so a
 loaded module cannot be switched between training and evaluation. The shared
 modules are exported in training mode, so this stack would evaluate with batch
 normalisation using batch statistics — precisely the defect found in the
-TensorFlow and Rust stacks. It therefore builds its own model, and the
-architecture parity that holds for Python, C++ and Rust does not hold for R.
-That is a property of the binding and belongs in the paper's threats to
-validity, not something to paper over.
+TensorFlow and Rust stacks. It therefore builds its own model from
+torchvision-for-R, to the same definition. That is a property of the binding and
+belongs in the paper's threats to validity, not something to paper over.
 
 Rationale: the four LibTorch stacks are the study's internal control group. If
 they train *the same traced module*, any difference between them is binding,
@@ -49,8 +48,26 @@ runtime and data-pipeline overhead and nothing else — which is precisely the
 claim the paper wants to make. The TensorFlow, JAX and DL4J stacks cannot share
 that module and are compared at architecture level only, which must be stated.
 
-No pretrained weights anywhere. Weight initialisation is each framework's
-default and is a documented residual difference.
+No pretrained weights anywhere. **Weight initialisation is no longer each
+framework's default**, which was a residual difference large enough to decide
+results: Deeplearning4j's was 4.6× wider than torchvision's on ResNet-18's stem
+and flax's 3.3×, and in a controlled experiment the initialiser is what decides
+whether VGG-16 collapses to chance at this learning rate — 0 of 6 runs under He,
+2 of 6 under Glorot, 4 of 6 under Xavier. Every stack now uses torchvision's, per
+S4.
+
+**Architecture parity is proved rather than asserted.**
+`scripts/verify_architecture_parity.py` builds each stack's model for every
+(architecture, dataset) and compares the sorted multiset of parameter tensor
+shapes, which is comparable across languages. Six stacks of seven agree shape for
+shape on all six blocks: ResNet-18 is 62 tensors (20 convolution, 1 dense, 41
+rank-1) and VGG-16 is 30 (13, 2, 15). Every stack also asserts its own parameter
+count at startup against `models/MANIFEST.json`, carried into the run as
+`DEEPGREEN_EXPECTED_PARAMS`, and refuses to train if it does not match.
+
+R is the exception, and only because it cannot be probed outside the campaign
+environment — its `torch` will not load Lantern elsewhere. Its count is asserted
+at startup like the others; its shapes are not independently verified.
 
 ## Cross-stack validation
 
@@ -58,18 +75,28 @@ With S1-S5 applied, the three Python ecosystems were run for one epoch on
 Fashion-MNIST under identical settings (ResNet-18, Adam 1e-4, batch 128,
 32x32x3 in [0,1], 2 loader threads, fp32, seed 109x):
 
-| ecosystem | train loss | test accuracy |
-|---|---|---|
-| Python/PyTorch | 0.4426 | 87.11% |
-| Python/JAX | 0.4485 | 86.46% |
-| Python/TensorFlow | 0.4872 | 86.06% |
+| ecosystem | test loss | test accuracy | training J |
+|---|---|---|---|
+| C++/LibTorch | 0.3639 | 86.47% | 1,139 |
+| Rust/tch | 0.3687 | 86.58% | 1,387 |
+| Python/PyTorch | 0.3541 | 86.82% | 1,434 |
+| Python/JAX | 0.3478 | 87.19% | 2,517 |
+| Python/TensorFlow | 0.3609 | 86.57% | 2,764 |
+| Java/DL4J | 0.3595 | 86.52% | 8,987 |
+| R/torch | 0.3431 | 87.47% | 11,562 |
 
-Agreement to within one percentage point is the evidence that the stacks now
-solve the same problem. The first campaign could not perform this check at all,
-because no quality metric was written to disk -- which is how TensorFlow came to
-evaluate with its backbone pinned to training mode without anyone noticing.
+A spread of **1.00 percentage point** in accuracy and 0.026 in test loss, across
+seven implementations reaching the same place while consuming energy over a
+10.2× range. That is the shape the comparison has to have: the quality is held
+constant and the cost is what varies.
 
-Any future change to a stack should be followed by re-running this comparison.
+Before this round's alignment the same table spanned 10.34 points, and the
+difference was six defects, not six ecosystems -- see `REVISION_LOG.md`.
+
+The first campaign could not perform this check at all, because no quality
+metric was written to disk, which is how TensorFlow came to evaluate with its
+backbone pinned to training mode without anyone noticing. Any future change to a
+stack should be followed by re-running this comparison.
 
 ## S2 — Optimisation
 
@@ -112,7 +139,24 @@ First campaign: only Rust normalised with per-channel mean/std. Fixed; set
 |---|---|
 | all LibTorch stacks | one LibTorch build, one CUDA, one cuDNN |
 | all stacks | storage precision fp32, no mixed precision; one TF32 policy set campaign-wide by `DEEPGREEN_TF32` and applied through `NVIDIA_TF32_OVERRIDE` |
+| all stacks | one initialiser: `kaiming_normal_(fan_out, relu)` for convolutions, `nn.Linear`'s uniform ±1/√fan_in for dense layers |
+| all stacks | one batch-normalisation policy: torch's momentum 0.1 and eps 1e-5, expressed in each framework's own convention |
 | all stacks | cuDNN algorithm selection left to the framework — no stack pins determinism |
+| all stacks | per-epoch record: train loss, test loss, test accuracy. **Train accuracy where the stack computes it** — two of seven do, it is read by no analysis, and the schema says so rather than implying seven |
+| Java/DL4J | **does not use cuDNN at all**, and cannot at this version |
+
+Deeplearning4j 1.0.0-M2.1 resolves its convolutions through nd4j's own im2col
+and cuBLAS: `org.deeplearning4j.cuda.convolution.CudnnConvolutionHelper` ships
+in `deeplearning4j-cuda`, which has no release for M2.x — `dependency:get` finds
+neither `deeplearning4j-cuda:1.0.0-M2.1` nor `deeplearning4j-cuda-11.6:1.0.0-M2.1`
+— and no cuDNN class or jar reaches the classpath. The run log confirms it:
+`Loaded [JCublasBackend]`, and no convolution-helper line of any kind.
+
+It is the only stack of the seven not using cuDNN for convolution, and it is one
+of the two most expensive. That is a property of the framework at this version
+rather than a defect in this harness, so it cannot be corrected here; it has to
+be *stated*, because "Java/DL4J costs 6x" otherwise reads as a claim about a
+language when part of it is a claim about a missing convolution backend.
 
 This clause used to read "precision pinned to FP32; TF32 matmuls disabled on
 Ampere and later", and exactly one stack of seven obeyed it. The pin lived in
