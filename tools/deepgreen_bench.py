@@ -196,6 +196,29 @@ def assert_parameter_count(arch: str, dataset: str, actual: int) -> None:
     raise RuntimeError(msg + " Set DEEPGREEN_ALLOW_MODEL_DRIFT=1 to override.")
 
 
+def load_shared_module(arch: str, dataset: str):
+    """Load the exported module, and check it is the one the manifest describes.
+
+    This is what makes "the stacks train the same module" a fact rather than a
+    description. Python/PyTorch used to build torchvision fresh and load
+    nothing, while C++ and Rust each loaded a module from a separate unseeded
+    export -- so the three stacks the paper called a shared-module control group
+    shared no weights with each other, and the collapse analysis rested on their
+    supposedly identical starting parameters.
+    """
+    import torch
+
+    root = Path(os.environ.get("DEEPGREEN_MODELS", REPO_ROOT / "models"))
+    path = root / f"{arch}_{_MODULE_DATASET.get(dataset, dataset)}.pt"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing. Run scripts/export_torchscript_models.py; the "
+            f"stacks that share a backend must share the module, not rebuild it.")
+    model = torch.jit.load(str(path))
+    assert_parameter_count(arch, dataset, sum(p.numel() for p in model.parameters()))
+    return model
+
+
 @dataclass
 class RunContext:
     """Everything that identifies one independent run."""

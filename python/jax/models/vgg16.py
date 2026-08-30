@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from tools.deepgreen_bench import Harness, RunContext
+from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
 from tqdm import tqdm
 
@@ -38,9 +38,18 @@ class VGG16_32(nn.Module):
         if isinstance(feats, dict):
             feats = feats.get("block5", list(feats.values())[-1])
 
-        # Testa minima: GAP + Dense(num_classes)
-        x = jnp.mean(feats, axis=(1, 2))      # Global Average Pooling
-        x = nn.Dense(self.num_classes)(x)     # classificatore lineare
+        # The classifier the other six stacks use: global average pooling to
+        # 1x1x512, then 512 -> 512 -> classes with dropout. This was a single
+        # Dense on pooled features -- a linear probe, 14,765,988 parameters
+        # against the 134,670,244 the LibTorch lineage was training. The head
+        # is the whole difference between the two, and the study was reading
+        # it as an ecosystem effect. scripts/export_torchscript_models.py holds
+        # the definition; models/MANIFEST.json holds the count this must match.
+        x = jnp.mean(feats, axis=(1, 2))                        # GAP -> 512
+        x = nn.Dense(512)(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=0.5, deterministic=not train)(x)
+        x = nn.Dense(self.num_classes)(x)
         return x
 
 # ===================== DATA =====================
@@ -133,19 +142,30 @@ def run_experiment(
     bench = Harness(ctx)
     bench.set_seeds()
     rng = random.PRNGKey(int(ctx.seed))
+    # The seed reaches the data order too. It did not: this call omitted it, so
+    # tf.data shuffled with seed=None and JAX's five repetitions differed in a
+    # way nothing recorded and nobody could reproduce -- while the conformance
+    # check reported "5 of 5 distinct seeds" from the campaign planner, which
+    # never sees whether a stack uses the seed it is handed.
     train_gen, test_gen, num_classes = get_data_loaders(
-        dataset_path, img_size, batch_size)
+        dataset_path, img_size, batch_size, seed=int(ctx.seed))
 
     # Modello community (flaxmodels) + testa custom per 32x32
     model = VGG16_32(num_classes=num_classes)
     state = create_state(rng, model, learning_rate, (1, *img_size, 3))
+    assert_parameter_count("vgg16", ctx.dataset,
+                           sum(int(v.size) for v in
+                               jax.tree_util.tree_leaves(state.params)))
 
     os.makedirs("python/jax/emissions/", exist_ok=True)
     os.makedirs("checkpoints/", exist_ok=True)
 
     # Usa SOLO batch completi -> niente liste vuote
-    steps_per_epoch = train_gen.samples // batch_size
-    val_steps = test_gen.samples // batch_size
+    # ceil, not floor: with drop_remainder=False the loader yields a final
+    # partial batch, and floor would step past exactly the images the other
+    # five stacks train and evaluate on.
+    steps_per_epoch = -(-train_gen.samples // batch_size)
+    val_steps = -(-test_gen.samples // batch_size)
 
     def safe_mean(lst):
         if not lst:
@@ -171,6 +191,13 @@ def run_experiment(
             train_losses.append(loss)
             train_accs.append(acc)
 
+        # Force the queue before the block closes. JAX dispatch is asynchronous:
+        # train_step returns futures, and without this the window shut while work
+        # was still on the device, charging it to no block at all. Measured on
+        # the campaign's own eval loop shape, 35.9% of the work finished after
+        # the tracker closed and the energy attributed to the block was 0.70x
+        # the true figure -- for the stack the study reports as cheapest.
+        jax.block_until_ready((state.params, train_losses, train_accs))
         _train_cm.__exit__(None, None, None)
 
         # --- Emissioni fase EVAL ---
@@ -186,6 +213,7 @@ def run_experiment(
             test_losses.append(loss)
             test_accs.append(acc)
 
+        jax.block_until_ready((test_losses, test_accs))
         _eval_cm.__exit__(None, None, None)
 
         # --- Logging robusto ---

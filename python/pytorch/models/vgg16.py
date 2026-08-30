@@ -10,13 +10,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from tools.deepgreen_bench import Harness, RunContext
+from tools.deepgreen_bench import Harness, RunContext, load_shared_module
 from torchvision.models import vgg16
 
-def build_vgg16(num_classes=100, pretrained=False):
-    model = vgg16(pretrained=pretrained)
-    model.classifier[6] = nn.Linear(4096, num_classes)  # modifica ultimo layer
-    return model
+def build_vgg16(dataset, num_classes=100):
+    """Load the module the C++ and Rust stacks load, rather than rebuilding it.
+
+    This used to construct torchvision fresh, so the three stacks the paper
+    calls a shared-module control group started from three different draws --
+    and the collapse analysis rested on their starting parameters being equal.
+    """
+    return load_shared_module("vgg16", dataset)
 
 
 
@@ -116,7 +120,7 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
         train_loader, test_loader, num_classes = get_loaders(
             dataset_path, batch_size, img_size, grayscale, test_split)
 
-        model = build_vgg16(num_classes=num_classes, pretrained=False)
+        model = build_vgg16(ctx.dataset, num_classes=num_classes)
         model.to(device)
 
         criterion = nn.CrossEntropyLoss()

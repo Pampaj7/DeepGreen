@@ -10,23 +10,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from tools.deepgreen_bench import Harness, RunContext
+from tools.deepgreen_bench import Harness, RunContext, load_shared_module
 
 
-def build_resnet18(num_classes: int = 100, pretrained: bool = False) -> nn.Module:
-    model = models.resnet18(pretrained=pretrained)
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
+def build_resnet18(dataset, num_classes: int = 100) -> nn.Module:
+    """Load the module the C++ and Rust stacks load, rather than rebuilding it.
 
-    """if not pretrained:
-        def init_weights(m):
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-
-        model.apply(init_weights)"""
-
-    return model
+    This used to construct torchvision fresh, so the three stacks the paper
+    calls a shared-module control group started from three different draws --
+    and the collapse analysis rested on their starting parameters being equal.
+    """
+    return load_shared_module("resnet18", dataset)
 
 
 def get_loaders(dataset_path, batch_size=128, img_size=(32, 32), grayscale=False, test_split="test"):
@@ -125,7 +119,7 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
         train_loader, test_loader, num_classes = get_loaders(
             dataset_path, batch_size, img_size, grayscale, test_split)
 
-        model = build_resnet18(num_classes=num_classes, pretrained=False)
+        model = build_resnet18(ctx.dataset, num_classes=num_classes)
         model.to(device)
 
         criterion = nn.CrossEntropyLoss()

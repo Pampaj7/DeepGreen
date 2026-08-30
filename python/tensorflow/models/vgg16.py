@@ -6,20 +6,33 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from tools.deepgreen_bench import Harness, RunContext
+from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import Callback
 
 
 def build_vgg16(input_shape=(32, 32, 3), num_classes=100):
+    """VGG-16 with the classifier the other six stacks use.
+
+    This was Flatten + 4096 + 4096 + softmax on a 1x1x512 map -- 34,006,948
+    parameters, against 14,765,988 in JAX and 134,670,244 in the LibTorch
+    lineage. Four heads, one name, and the energy difference between them was
+    being reported as a difference between ecosystems. The definition lives in
+    scripts/export_torchscript_models.py and the count in models/MANIFEST.json,
+    which build_and_check() asserts against at startup.
+
+    Dropout is included because the reference head has it; it was absent here
+    and present in every torch stack, which is a difference in what is computed
+    and not only in how much.
+    """
     base_model = VGG16(include_top=False, input_shape=input_shape, weights=None)
     model = models.Sequential([
         base_model,
-        layers.Flatten(),
-        layers.Dense(4096, activation='relu'),
-        layers.Dense(4096, activation='relu'),
-        layers.Dense(num_classes, activation='softmax')
+        layers.GlobalAveragePooling2D(),
+        layers.Dense(512, activation='relu'),
+        layers.Dropout(0.5),
+        layers.Dense(num_classes, activation='softmax'),
     ])
     return model
 
@@ -110,6 +123,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
         train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size, ctx.seed)
         model = build_vgg16(input_shape=img_size + (3,), num_classes=num_classes)
+        # Trainable weights only: torch's model.parameters() excludes the
+        # BatchNorm running statistics that Keras's count_params() includes.
+        assert_parameter_count("vgg16", ctx.dataset,
+                               sum(int(w.shape.num_elements())
+                                   for w in model.trainable_weights))
 
         model.compile(
             optimizer=optimizers.Adam(learning_rate=lr),
@@ -119,8 +137,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
         sanity_checks(model, train_loader, test_loader)
 
-        steps_per_epoch = train_loader.samples // batch_size
-        val_steps = test_loader.samples // batch_size
+        # ceil, not floor: with drop_remainder=False the loader yields a final
+        # partial batch, and floor would step past exactly the images the other
+        # five stacks train and evaluate on.
+        steps_per_epoch = -(-train_loader.samples // batch_size)
+        val_steps = -(-test_loader.samples // batch_size)
 
         os.makedirs(os.path.dirname(checkpoint_path) or "checkpoints", exist_ok=True)
 

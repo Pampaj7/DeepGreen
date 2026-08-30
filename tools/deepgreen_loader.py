@@ -127,7 +127,16 @@ def folder_loader(
         ds = ds.shuffle(len(paths), seed=seed, reshuffle_each_iteration=True)
     # The single knob this module exists for.
     ds = ds.map(_load, num_parallel_calls=num_workers, deterministic=True)
-    ds = ds.batch(batch_size, drop_remainder=True)
+    # Keep the final partial batch. This was drop_remainder=True, and with
+    # steps computed as samples // batch_size it meant TensorFlow and JAX took
+    # fewer gradient steps per epoch than the other five stacks and evaluated
+    # on 9,984 of 10,000 test images -- always the same 16, since the test
+    # loader is unshuffled over a sorted file list. Recoverable from the
+    # recorded accuracies alone: test_acc * N / 100 is an integer only for
+    # N = 9,984 in those two stacks and only for N = 10,000 in the rest.
+    # Accuracy is the denominator of this study's energy-per-unit-quality
+    # metric, so the two stacks were being scored on a different test set.
+    ds = ds.batch(batch_size, drop_remainder=False)
     ds = ds.prefetch(1)
     # Options are set explicitly so tf.data's autotuning cannot silently give
     # this stack more parallelism than the others.

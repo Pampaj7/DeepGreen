@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from tools.deepgreen_bench import Harness, RunContext
+from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
 from tqdm import tqdm
 from flaxmodels import ResNet18 as FMResNet18
@@ -108,8 +108,13 @@ def run_experiment(
     bench = Harness(ctx)
     bench.set_seeds()
     rng = random.PRNGKey(int(ctx.seed))
+    # The seed reaches the data order too. It did not: this call omitted it, so
+    # tf.data shuffled with seed=None and JAX's five repetitions differed in a
+    # way nothing recorded and nobody could reproduce -- while the conformance
+    # check reported "5 of 5 distinct seeds" from the campaign planner, which
+    # never sees whether a stack uses the seed it is handed.
     train_gen, test_gen, num_classes = get_data_loaders(
-        dataset_path, img_size, batch_size)
+        dataset_path, img_size, batch_size, seed=int(ctx.seed))
 
     # ======= MODELLO PIÙ NATIVO POSSIBILE =======
     # ResNet18 community, head stock (GAP+Dense), nessun wrapper
@@ -121,13 +126,19 @@ def run_experiment(
     )
     state, batch_stats = create_state(
         rng, model, learning_rate, (1, *img_size, 3))
+    assert_parameter_count("resnet18", ctx.dataset,
+                           sum(int(v.size) for v in
+                               jax.tree_util.tree_leaves(state.params)))
 
     os.makedirs("python/jax/emissions/", exist_ok=True)
     os.makedirs("checkpoints/", exist_ok=True)
 
     # Usa solo batch completi (niente glitch di medie su liste vuote)
-    steps_per_epoch = train_gen.samples // batch_size
-    val_steps = test_gen.samples // batch_size
+    # ceil, not floor: with drop_remainder=False the loader yields a final
+    # partial batch, and floor would step past exactly the images the other
+    # five stacks train and evaluate on.
+    steps_per_epoch = -(-train_gen.samples // batch_size)
+    val_steps = -(-test_gen.samples // batch_size)
 
     def safe_mean(lst):
         if not lst:
@@ -154,6 +165,13 @@ def run_experiment(
             train_losses.append(loss)
             train_accs.append(acc)
 
+        # Force the queue before the block closes. JAX dispatch is asynchronous:
+        # train_step returns futures, and without this the window shut while work
+        # was still on the device, charging it to no block at all. Measured on
+        # the campaign's own eval loop shape, 35.9% of the work finished after
+        # the tracker closed and the energy attributed to the block was 0.70x
+        # the true figure -- for the stack the study reports as cheapest.
+        jax.block_until_ready((state.params, train_losses, train_accs))
         _train_cm.__exit__(None, None, None)
 
         # --- Emissioni EVAL ---
@@ -169,6 +187,7 @@ def run_experiment(
             test_losses.append(loss)
             test_accs.append(acc)
 
+        jax.block_until_ready((test_losses, test_accs))
         _eval_cm.__exit__(None, None, None)
 
         # --- Logging robusto ---

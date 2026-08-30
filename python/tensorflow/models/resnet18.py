@@ -7,13 +7,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from tools.deepgreen_bench import Harness, RunContext
+from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
 from tf_keras.preprocessing.image import ImageDataGenerator          # <-- tf_keras, non tensorflow.keras
 from tf_keras import layers, models, optimizers, losses, metrics
 import tensorflow as tf
 import numpy as np
-from official.vision.modeling.backbones import resnet as resnet_v1   # Model Garden
 
 # ---------------- DATA ----------------
 def get_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None):
@@ -57,42 +56,74 @@ class PercentProgbar(callbacks.ProgbarLogger):
         super().on_test_batch_end(batch, logs)
 
 
-# ---------------- MODEL: ResNet-18 (Model Garden) ----------------
-def build_resnet18_garden(input_shape=(32, 32, 3), num_classes=100):
-    """
-    Backbone ResNet-18 dal Model Garden, testa con GAP + Dense softmax (one-hot).
-    Tutto su tf_keras.
-    """
-    backbone = resnet_v1.ResNet(
-        model_id=18,
-        input_specs=layers.InputSpec(shape=(None, *input_shape)),  # Keras 3 InputSpec
-        bn_trainable=True,
-        se_ratio=None,           # ResNet "classico"
-        stem_type='v0',          # stem standard
-        resnetd_shortcut=False,
-    )
+# ---------------- MODEL: ResNet-18, as torchvision defines it ----------------
+def _basic_block(x, filters, stride, name):
+    """torchvision's BasicBlock: 3x3-BN-ReLU, 3x3-BN, add, ReLU.
 
+    The projection shortcut appears only where the shape changes -- stride != 1
+    or a channel count that differs. Model Garden puts one on the first stage as
+    well, where the channels already match at stride 1, and that single extra
+    1x1 convolution with its BatchNorm is the +4,224 parameters and +128 running
+    statistics that separated this stack from the other six.
+    """
+    shortcut = x
+    if stride != 1 or x.shape[-1] != filters:
+        shortcut = layers.Conv2D(filters, 1, strides=stride, use_bias=False,
+                                 name=f"{name}_down_conv")(x)
+        shortcut = layers.BatchNormalization(name=f"{name}_down_bn")(shortcut)
+
+    y = layers.Conv2D(filters, 3, strides=stride, padding="same", use_bias=False,
+                      name=f"{name}_conv1")(x)
+    y = layers.BatchNormalization(name=f"{name}_bn1")(y)
+    y = layers.ReLU(name=f"{name}_relu1")(y)
+    y = layers.Conv2D(filters, 3, strides=1, padding="same", use_bias=False,
+                      name=f"{name}_conv2")(y)
+    y = layers.BatchNormalization(name=f"{name}_bn2")(y)
+    y = layers.Add(name=f"{name}_add")([y, shortcut])
+    return layers.ReLU(name=f"{name}_relu2")(y)
+
+
+def build_resnet18_garden(input_shape=(32, 32, 3), num_classes=100):
+    """ResNet-18, layer for layer as torchvision defines it.
+
+    This was Model Garden's resnet_v1.ResNet(model_id=18), which is a ResNet-18
+    but not *the* ResNet-18 the other six stacks train: it carries an extra
+    projection shortcut on the first stage, so this stack had 11,232,036
+    parameters against everyone else's 11,227,812. Small -- 0.04% -- and still a
+    structurally different residual block in a study whose entire claim is that
+    the network is held constant while the ecosystem varies. The name is kept so
+    the campaign driver and the checkpoint paths do not move.
+
+    Convolutions carry no bias because a BatchNorm follows and would cancel it;
+    the stem is 7x7 stride 2 with padding 3, then 3x3 max-pool at stride 2, as
+    in torchvision -- not a CIFAR stem. models/MANIFEST.json holds the count
+    this must match, and assert_parameter_count refuses the run if it does not.
+    """
     inputs = layers.Input(shape=input_shape)
-    # training= is deliberately NOT pinned here. The submitted code hard-coded
-    # training=True, which bakes training-mode behaviour into the functional
-    # graph: batch normalisation then uses the statistics of the current batch
-    # even during evaluation. The test split is served in class order, so each
+
+    x = layers.ZeroPadding2D(3, name="stem_pad")(inputs)
+    x = layers.Conv2D(64, 7, strides=2, use_bias=False, name="stem_conv")(x)
+    x = layers.BatchNormalization(name="stem_bn")(x)
+    x = layers.ReLU(name="stem_relu")(x)
+    x = layers.ZeroPadding2D(1, name="stem_pool_pad")(x)
+    x = layers.MaxPooling2D(3, strides=2, name="stem_pool")(x)
+
+    for stage, (filters, stride) in enumerate(
+            ((64, 1), (128, 2), (256, 2), (512, 2)), start=1):
+        x = _basic_block(x, filters, stride, name=f"layer{stage}_0")
+        x = _basic_block(x, filters, 1, name=f"layer{stage}_1")
+
+    # training= is deliberately NOT pinned anywhere in this graph. The submitted
+    # code hard-coded training=True, which bakes training-mode behaviour in:
+    # batch normalisation then uses the statistics of the current batch even
+    # during evaluation. The test split is served in class order, so each
     # evaluation batch is a single class and BN normalises against degenerate
     # per-class statistics. Every other ecosystem switches to eval mode
     # (model.eval(), net.set_train(false), $eval()), so this stack was both
     # scoring badly and measuring a different computation at inference time.
-    feats = backbone(inputs)  # Keras propagates the correct mode per call
-
-    # Se è dict, prendi l'ultimo stage
-    if isinstance(feats, dict):
-        last_key = sorted(feats.keys())[-1]
-        x = feats[last_key]
-    else:
-        x = feats
-
-    x = layers.GlobalAveragePooling2D()(x)
-    outputs = layers.Dense(num_classes, activation="softmax")(x)  # one-hot ⇒ softmax
-    return models.Model(inputs, outputs, name="resnet18_32_garden")
+    x = layers.GlobalAveragePooling2D(name="gap")(x)
+    outputs = layers.Dense(num_classes, activation="softmax", name="fc")(x)
+    return models.Model(inputs, outputs, name="resnet18_32")
 
 # ---------------- SANITY CHECKS ----------------
 def sanity_checks(model, train_loader, test_loader):
@@ -137,6 +168,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
         train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size, ctx.seed)
         model = build_resnet18_garden(input_shape=img_size + (3,), num_classes=num_classes)
+        # Trainable weights only: torch's model.parameters() excludes the
+        # BatchNorm running statistics that Keras's count_params() includes.
+        assert_parameter_count("resnet18", ctx.dataset,
+                               sum(int(w.shape.num_elements())
+                                   for w in model.trainable_weights))
 
         model.compile(
             optimizer=optimizers.Adam(learning_rate=lr),
@@ -146,8 +182,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
         sanity_checks(model, train_loader, test_loader)
 
-        steps_per_epoch = train_loader.samples // batch_size
-        val_steps = test_loader.samples // batch_size
+        # ceil, not floor: with drop_remainder=False the loader yields a final
+        # partial batch, and floor would step past exactly the images the other
+        # five stacks train and evaluate on.
+        steps_per_epoch = -(-train_loader.samples // batch_size)
+        val_steps = -(-test_loader.samples // batch_size)
 
         os.makedirs(os.path.dirname(checkpoint_path) or "checkpoints", exist_ok=True)
 
