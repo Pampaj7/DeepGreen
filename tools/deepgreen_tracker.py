@@ -45,6 +45,7 @@ Usage
         START train 1
         STOP
         METRIC epoch=1 train_loss=0.44 test_loss=0.35 test_acc=87.11
+        DATAFP split=test n=10000 mean=0.4449 sd=0.2472 min=0.0 max=1.0
         EXIT
 
     # module (anything that can import Python)
@@ -109,6 +110,31 @@ def _machine_state() -> dict:
         return machine_state()
     except Exception as exc:                     # never lose a run over a manifest
         return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def data_fingerprint(**fields) -> None:
+    """Record what this stack's loader actually produced.
+
+    The seven ecosystems resize images with four different implementations --
+    torchvision on PIL, tf.image.resize, tch::vision::image::resize, DataVec's
+    ImageRecordReader -- and only three of them can be inspected from Python.
+    Resizing is a no-op on CIFAR-100, an upsample on Fashion-MNIST and a 2x
+    downsample on Tiny ImageNet, where it matters most: tf.image.resize defaults
+    to no antialiasing and produced pixels 3.8% wider in standard deviation than
+    torchvision until that was corrected.
+
+    So rather than argue about it, every run records the mean, standard
+    deviation and range of its own test split, and the campaign proves its own
+    data parity. Written to data_fingerprint.csv beside the counters.
+    """
+    path = run_dir() / "data_fingerprint.csv"
+    row = _ctx() | {k: v for k, v in fields.items()}
+    new = not path.exists() or path.stat().st_size == 0
+    with path.open("a", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(row))
+        if new:
+            w.writeheader()
+        w.writerow(row)
 
 
 def write_manifest(extra: dict | None = None) -> None:
@@ -238,6 +264,10 @@ def _daemon() -> int:
             elif line == "STOP":
                 stop()
                 print("[deepgreen] STOP", flush=True)
+            elif line.startswith("DATAFP"):
+                kv = dict(tok.split("=", 1) for tok in line.split()[1:])
+                data_fingerprint(**{k: _num(v) for k, v in kv.items()})
+                print("[deepgreen] DATAFP", flush=True)
             elif line.startswith("METRIC"):
                 kv = dict(tok.split("=", 1) for tok in line.split()[1:])
                 metric(**{k: _num(v) for k, v in kv.items()})

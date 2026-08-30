@@ -173,7 +173,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
         # torchvision's kaiming_normal_(fan_out) for convolutions. One epoch
         # of Fashion-MNIST showed the cost: 77.4% here against 86-88% for
         # every aligned stack.
-        apply_torchvision_init(model, seed=int(ctx.seed))
+        touched = apply_torchvision_init(model, seed=int(ctx.seed))
+        if touched == 0:
+            raise RuntimeError(
+                'apply_torchvision_init matched no layers: the model would train\n'
+                'from a different distribution than every other stack, silently.')
         # Trainable weights only: torch's model.parameters() excludes the
         # BatchNorm running statistics that Keras's count_params() includes.
         assert_parameter_count("resnet18", ctx.dataset,

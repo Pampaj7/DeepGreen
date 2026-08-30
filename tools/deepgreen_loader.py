@@ -116,7 +116,14 @@ def folder_loader(
     def _load(path, label):
         raw = tf.io.read_file(path)
         img = tf.io.decode_image(raw, channels=3, expand_animations=False)
-        img = tf.image.resize(img, [height, width])
+        # antialias=True, because tf.image.resize defaults to False and
+        # torchvision's Resize is antialiased unconditionally -- PIL applies it
+        # whatever the argument says. Invisible on Fashion-MNIST and CIFAR-100,
+        # which are not downsampled, and a 3.8% difference in the standard
+        # deviation of the pixels on Tiny ImageNet, which is 64x64 halved to
+        # 32x32. With it, this loader matches torchvision to five decimals:
+        # sd 0.218092 against 0.218089, from 0.226404.
+        img = tf.image.resize(img, [height, width], antialias=True)
         img = tf.cast(img, tf.float32) / 255.0        # [0,1], no mean/std
         img.set_shape([height, width, 3])
         y = tf.one_hot(label, n_classes) if one_hot else label

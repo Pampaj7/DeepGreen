@@ -1,6 +1,12 @@
 import tensorflow as tf
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras import layers, models, optimizers, losses, metrics
+# tf_keras (Keras 2.19), the same implementation python/tensorflow/models/
+# resnet18.py uses. This file used tensorflow.keras -- Keras 3.15 -- for the
+# model and tf_keras for its callbacks, so one ecosystem was two: two Keras
+# major versions across the study's two architectures, and inside this file a
+# Keras 2 ProgbarLogger attached to a Keras 3 fit, which works only because
+# Keras 3's ProgbarLogger does not accept the count_mode it is given.
+from tf_keras.applications import VGG16
+from tf_keras import layers, models, optimizers, losses, metrics
 import os
 import sys
 from pathlib import Path
@@ -9,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
 from tools.torch_init import apply_torchvision_init
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.callbacks import Callback
+from tf_keras.preprocessing.image import ImageDataGenerator
+from tf_keras.callbacks import Callback
 
 
 def build_vgg16(input_shape=(32, 32, 3), num_classes=100):
@@ -128,7 +134,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
         # torchvision's kaiming_normal_(fan_out) for convolutions. One epoch
         # of Fashion-MNIST showed the cost: 77.4% here against 86-88% for
         # every aligned stack.
-        apply_torchvision_init(model, seed=int(ctx.seed))
+        touched = apply_torchvision_init(model, seed=int(ctx.seed))
+        if touched == 0:
+            raise RuntimeError(
+                'apply_torchvision_init matched no layers: the model would train\n'
+                'from a different distribution than every other stack, silently.')
         # Trainable weights only: torch's model.parameters() excludes the
         # BatchNorm running statistics that Keras's count_params() includes.
         assert_parameter_count("vgg16", ctx.dataset,

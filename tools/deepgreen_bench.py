@@ -425,6 +425,44 @@ class Harness:
         self._metrics_writer.writerow(row)
         self._metrics_fh.flush()
 
+    def data_fingerprint(self, loader, split: str = "test", batches: int = 2) -> None:
+        """Record what this stack's loader actually produced.
+
+        The seven ecosystems resize with four different implementations, and
+        only three can be inspected from outside. Resizing is a no-op on
+        CIFAR-100, an upsample on Fashion-MNIST and a 2x downsample on Tiny
+        ImageNet, where it matters most -- tf.image.resize defaults to no
+        antialiasing and gave pixels 3.8% wider in standard deviation than
+        torchvision until that was corrected. So each run records its own, and
+        the campaign proves its own data parity instead of the manuscript
+        asserting it.
+        """
+        import numpy as np
+
+        seen = []
+        for i, batch in enumerate(loader):
+            x = batch[0] if isinstance(batch, (tuple, list)) else batch
+            seen.append(np.asarray(x, dtype="float64").ravel())
+            if i + 1 >= batches:
+                break
+        if not seen:
+            return
+        v = np.concatenate(seen)
+        row = {
+            "split": split, "n_values": int(v.size),
+            "mean": round(float(v.mean()), 6), "sd": round(float(v.std()), 6),
+            "min": round(float(v.min()), 6), "max": round(float(v.max()), 6),
+        }
+        path = self.out_dir / "data_fingerprint.csv"
+        new = not path.exists() or path.stat().st_size == 0
+        with path.open("a", newline="") as fh:
+            w = _csv.DictWriter(fh, fieldnames=list(row))
+            if new:
+                w.writeheader()
+            w.writerow(row)
+        print(f"[deepgreen] {split} pixels: mean {row['mean']:.4f} sd {row['sd']:.4f} "
+              f"range [{row['min']:.3f}, {row['max']:.3f}]")
+
     def _write_counters(self, phase: str, epoch: int, delta: dict) -> None:
         """Append one row of hardware-counter energy for this block."""
         path = self.out_dir / "counters.csv"
