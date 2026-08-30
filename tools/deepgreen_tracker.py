@@ -131,7 +131,7 @@ def data_fingerprint(**fields) -> None:
     row = _ctx() | {k: v for k, v in fields.items()}
     new = not path.exists() or path.stat().st_size == 0
     with path.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(row))
+        w = csv.DictWriter(fh, fieldnames=list(row), lineterminator="\n")
         if new:
             w.writeheader()
         w.writerow(row)
@@ -218,7 +218,7 @@ def _write_counters(phase: str, epoch: int, delta: dict) -> None:
     row = {"phase": phase, "epoch": epoch} | {k: round(v, 6) for k, v in delta.items()}
     new = not path.exists() or path.stat().st_size == 0
     with path.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(row))
+        w = csv.DictWriter(fh, fieldnames=list(row), lineterminator="\n")
         if new:
             w.writeheader()
         w.writerow(row)
@@ -241,7 +241,7 @@ def metric(**values) -> None:
     row = _ctx() | {k: values.get(k) for k in
                     ("epoch", "train_loss", "train_acc", "test_loss", "test_acc")}
     with path.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=_metrics_fields)
+        w = csv.DictWriter(fh, fieldnames=_metrics_fields, lineterminator="\n")
         if new:
             w.writeheader()
         w.writerow(row)

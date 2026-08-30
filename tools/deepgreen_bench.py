@@ -420,7 +420,7 @@ class Harness:
             **{k: (None if v is None else float(v)) for k, v in metrics.items()},
         }
         if self._metrics_writer is None:
-            self._metrics_writer = csv.DictWriter(self._metrics_fh, fieldnames=list(row))
+            self._metrics_writer = csv.DictWriter(self._metrics_fh, fieldnames=list(row), lineterminator="\n")
             self._metrics_writer.writeheader()
         self._metrics_writer.writerow(row)
         self._metrics_fh.flush()
@@ -456,7 +456,7 @@ class Harness:
         path = self.out_dir / "data_fingerprint.csv"
         new = not path.exists() or path.stat().st_size == 0
         with path.open("a", newline="") as fh:
-            w = _csv.DictWriter(fh, fieldnames=list(row))
+            w = _csv.DictWriter(fh, fieldnames=list(row), lineterminator="\n")
             if new:
                 w.writeheader()
             w.writerow(row)
@@ -464,12 +464,19 @@ class Harness:
               f"range [{row['min']:.3f}, {row['max']:.3f}]")
 
     def _write_counters(self, phase: str, epoch: int, delta: dict) -> None:
-        """Append one row of hardware-counter energy for this block."""
+        """Append one row of hardware-counter energy for this block.
+
+        lineterminator="\n" on every writer here and in deepgreen_tracker.py.
+        Python's csv module defaults to the excel dialect, which is CRLF, while
+        everything that reads these files back writes LF -- so the replication
+        package could not reproduce its own inputs byte for byte, and 414 files
+        differed in nothing but their line endings.
+        """
         path = self.out_dir / "counters.csv"
         row = {"phase": phase, "epoch": epoch} | {k: round(v, 6) for k, v in delta.items()}
         new = not path.exists() or path.stat().st_size == 0
         with path.open("a", newline="") as fh:
-            w = _csv.DictWriter(fh, fieldnames=list(row))
+            w = _csv.DictWriter(fh, fieldnames=list(row), lineterminator="\n")
             if new:
                 w.writeheader()
             w.writerow(row)

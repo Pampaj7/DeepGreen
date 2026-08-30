@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
+from tools.flax_batchnorm import patch_flax_batchnorm, torchvision_kernel_init
 from tools.deepgreen_loader import train_test_loaders
 from tqdm import tqdm
 from flaxmodels import ResNet18 as FMResNet18
@@ -118,7 +119,17 @@ def run_experiment(
 
     # ======= MODELLO PIÙ NATIVO POSSIBILE =======
     # ResNet18 community, head stock (GAP+Dense), nessun wrapper
+    # flax's momentum is a retention factor where torch's is an update
+    # factor, and flaxmodels writes 0.1 -- which in flax means the running
+    # statistics take 90% from the current batch instead of 10%. See
+    # tools/flax_batchnorm.py: it cost this stack 1.6 points of accuracy
+    # on one epoch of Tiny ImageNet against every other stack.
+    if patch_flax_batchnorm() != 1:
+        raise RuntimeError('flax BatchNorm not patched: this stack would\n'
+                           'average its normalisation statistics nine times\n'
+                           'faster than every other stack.')
     model = FMResNet18(
+        kernel_init=torchvision_kernel_init(),
         output="logits",
         num_classes=num_classes,
         pretrained=None,

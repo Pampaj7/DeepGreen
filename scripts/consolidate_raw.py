@@ -20,6 +20,12 @@ identity to every row so each table stands on its own:
   results/replication/manifests.csv.gz   one row per run: versions, seeds,
                                          environment, as recorded at launch
 
+Every field is carried as text, because this is a copy and a copy should be
+exact: parsing to float and writing back moves energy readings by one unit in
+the last place and turns "0" into "0.0", which was four thousand files that
+failed to round-trip for no reason at all. Consumers cast what they need.
+``scripts/restore_from_replication.py --check-roundtrip`` proves it.
+
 Nothing is aggregated, filtered or rounded here. The analysis pipeline reads
 ``results/campaign_v2/`` directly; this package is what it reads, flattened, so
 that a reader can reproduce the pipeline's input without the pipeline.
@@ -74,7 +80,14 @@ def identity(run_dir: Path) -> dict[str, object]:
 
 
 def flatten(obj, prefix: str = "") -> dict[str, object]:
-    """manifest.json nests three levels deep; the table wants one."""
+    """manifest.json nests three levels deep; the table wants one.
+
+    Lossy on purpose, for readability: a list becomes a space-joined string and
+    a value's type is whatever pandas infers for its column, so "1000" in a
+    column of numbers comes back as 1000.0 -- and an environment variable cannot
+    be a float. The exact record is kept alongside in `manifest_json`, which is
+    what restore_from_replication.py reads; these columns are for looking at.
+    """
     out: dict[str, object] = {}
     for key, value in obj.items():
         name = f"{prefix}{key}"
@@ -93,12 +106,18 @@ def collect() -> dict[str, pd.DataFrame]:
         raise SystemExit(f"no run directories under {RAW}")
 
     codecarbon, counters, metrics, manifests = [], [], [], []
+    metrics_columns: dict[str, str] = {}
     for run_dir in runs:
         ident = identity(run_dir)
 
         for path in sorted(run_dir.glob("emissions_*.csv")):
             phase, _, epoch = path.stem[len("emissions_"):].partition("_epoch")
-            frame = pd.read_csv(path)
+            # As text. These files are the estimator's own output, copied
+            # verbatim -- nothing here does arithmetic on them, and parsing them
+            # as numbers loses the difference between "0" and "0.0", which is
+            # four thousand files that fail to round-trip for no reason.
+            frame = pd.read_csv(path, dtype=str, keep_default_na=False)
+            frame.insert(0, "row_index", range(len(frame)))
             frame.insert(0, "epoch", int(epoch))
             frame.insert(0, "phase", phase)
             for column, value in reversed(ident.items()):
@@ -107,7 +126,12 @@ def collect() -> dict[str, pd.DataFrame]:
 
         path = run_dir / "counters.csv"
         if path.exists():
-            frame = pd.read_csv(path)
+            frame = pd.read_csv(path, dtype=str, keep_default_na=False)
+            # The tables below are sorted for readability, which reorders
+            # counters.csv out of execution order -- train,1 / eval,1 / train,2
+            # becomes every eval then every train. This is how a run gets back
+            # the order it was written in.
+            frame.insert(0, "row_index", range(len(frame)))
             for column, value in reversed(ident.items()):
                 frame.insert(0, column, value)
             counters.append(frame)
@@ -116,14 +140,24 @@ def collect() -> dict[str, pd.DataFrame]:
         if path.exists():
             # metrics.csv already carries ecosystem/model/dataset/repetition;
             # only the directory name is new information.
-            frame = pd.read_csv(path)
+            frame = pd.read_csv(path, dtype=str, keep_default_na=False)
+            frame.insert(0, "row_index", range(len(frame)))
             frame.insert(0, "run", ident["run"])
+            # Which columns this run actually had. The concatenated table takes
+            # the union, so a stack that never wrote `precision` would get an
+            # empty one back on restore.
+            metrics_columns[ident["run"]] = ",".join(
+                c for c in frame.columns if c not in ("run", "row_index"))
             metrics.append(frame)
 
         path = run_dir / "manifest.json"
         if path.exists():
-            record = flatten(json.loads(path.read_text()))
-            manifests.append({**ident, **record})
+            raw = path.read_text()
+            record = flatten(json.loads(raw))
+            manifests.append({**ident, **record,
+                              # The lossless copy. Everything above is a view.
+                              "manifest_json": raw,
+                              "metrics_columns": metrics_columns.get(ident["run"], "")})
 
     sort_by = ["ecosystem", "model", "dataset", "repetition"]
     return {
@@ -147,8 +181,18 @@ def write(tables: dict[str, pd.DataFrame]) -> None:
     for name, frame in tables.items():
         path = OUT / f"{name}.csv.gz"
         # mtime=0 so the same data produces the same bytes, and the checksum
-        # below means something across machines.
+        # below means something across machines. Reading uses
+        # float_precision="round_trip": pandas' default parser is fast and not
+        # exactly round-tripping, and it moved energy readings by one unit in
+        # the last place -- 1.5169734358444487e-05 came back as ...488e-05.
         with gzip.GzipFile(path, "wb", mtime=0) as fh:
+            # %.17g round-trips a float64 exactly; pandas' default drops the
+            # last digit or two, so a restored file differed from its original
+            # in the sixteenth significant figure of every energy reading.
+            # No float_format: pandas writes the shortest representation that
+            # round-trips, which is what the original files contain. %.17g
+            # writes 3.4290280000000002 where the source says 3.429028 --
+            # the same float64, and a different file.
             frame.to_csv(fh, index=False, lineterminator="\n")
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         lines.append(f"{digest}  {path.name}")

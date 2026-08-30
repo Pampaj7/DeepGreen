@@ -397,6 +397,81 @@ that made LibTorch's bundled cuDNN shadow JAX's and killed it with a segfault.
 
 ---
 
+## 14. JAX was the fourth stack initialising differently, and the third BatchNorm convention
+
+One epoch of Tiny ImageNet, all seven stacks, the same architecture from the
+same distribution on the same data. Six landed between 8.96% and 10.26%
+accuracy with a test loss of 4.31-4.44. JAX landed at 7.40% and 4.68.
+
+Two divergences, and a mistake of mine between them worth recording.
+
+**flax and torch use `momentum` in opposite senses.** flax computes
+`ra = m*ra + (1-m)*batch`, so `m` is a retention factor; torch computes
+`ra = (1-m)*ra + m*batch`, so `m` is an update factor. `flaxmodels` writes
+`momentum=0.1` at all eight of its BatchNorm sites, which in flax's convention
+retains 10% of the running average and takes 90% from the current batch --
+torch's 0.1 retains 90%. JAX's normalisation statistics were, in effect, one
+batch old at evaluation time. That is the same clause that had already needed
+fixing in Keras, in the other direction: three libraries, three conventions.
+
+**flax initialises with `lecun_normal`.** Variance scaling on fan_in with a gain
+of 1: standard deviation 0.0835 for ResNet-18's 7x7 stem, against torchvision's
+0.0253. 3.3x wider, the same class of divergence as Deeplearning4j's 4.6x, and
+JAX was the last of four stacks building the right architecture from the wrong
+distribution.
+
+**And my first fix made it worse, for a reason worth keeping.** `flaxmodels`
+threads one `kernel_init` through every layer *including the final Dense*, and
+torch does not initialise a Linear the way it initialises a Conv. Passing
+kaiming fan_out to everything gave the 512 -> 200 classifier a standard
+deviation of sqrt(2/200) = 0.100 where torch's `nn.Linear` default is uniform on
++/-1/sqrt(512), about 0.026 -- four times too wide, on the layer whose output is
+the loss. Accuracy fell to 6.09%. Dispatching on tensor rank, as the Keras and
+Deeplearning4j fixes already did, brings JAX to 8.62% and a test loss of 4.4880:
+inside the other six stacks' band rather than outside it.
+
+**A caution on the evidence.** These are single runs of a single epoch on a
+200-class problem, where run-to-run variation is easily a point or two. They
+identified the divergences and they cannot validate the alignment; the campaign's
+five repetitions will. Two intermediate readings in this sequence -- BatchNorm
+alone, and the first initialiser attempt -- moved in directions I initially read
+as evidence, and were not.
+
+---
+
+## 15. The replication package round-trips now
+
+`--check-roundtrip` restores every run to a temporary tree and diffs it file by
+file. It was 13,037 of ~13,230 files differing. Five causes, each small:
+
+  * **Float parsing.** `pd.read_csv` defaults to a fast parser that is not
+    exactly round-tripping: `1.5169734358444487e-05` came back as `...488e-05`,
+    one unit in the last place. Every field is carried as text now -- this is a
+    copy, and a copy should be exact.
+  * **`%.17g` was my own wrong answer to that.** It writes
+    `3.4290280000000002` where the source says `3.429028`: the same float64,
+    and a different file.
+  * **Row order.** The package is sorted for readability, which groups
+    `counters.csv` by phase -- every eval, then every train -- where the campaign
+    wrote them interleaved. A `row_index` column carries the original order.
+  * **Manifest types.** Flattening to columns made `"seed": "1000"` come back as
+    `1000.0`, and an environment variable cannot be a float; lists became
+    space-joined strings. The exact JSON is kept alongside as `manifest_json`,
+    and the flat columns are a view.
+  * **Line endings.** Python's `csv` module defaults to the excel dialect, which
+    is CRLF; everything reading these files back writes LF. The harness writes
+    LF now.
+
+12,816 of 13,230 identical, 0 differing. The remaining 414 differ in nothing but
+their line terminators and were written before that last fix; a campaign
+recorded since round-trips byte for byte.
+
+`--out-dir` also exists now, so a round trip can be checked without writing into
+`results/campaign_v2/` -- which is the accident this pair of scripts was written
+to repair.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number.
