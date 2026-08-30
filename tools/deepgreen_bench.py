@@ -425,42 +425,53 @@ class Harness:
         self._metrics_writer.writerow(row)
         self._metrics_fh.flush()
 
-    def data_fingerprint(self, loader, split: str = "test", batches: int = 2) -> None:
-        """Record what this stack's loader actually produced.
+    def data_fingerprint(self, loader, split: str = "test") -> None:
+        """Record what this stack's loader actually produced, over the whole split.
 
-        The seven ecosystems resize with four different implementations, and
-        only three can be inspected from outside. Resizing is a no-op on
-        CIFAR-100, an upsample on Fashion-MNIST and a 2x downsample on Tiny
-        ImageNet, where it matters most -- tf.image.resize defaults to no
-        antialiasing and gave pixels 3.8% wider in standard deviation than
-        torchvision until that was corrected. So each run records its own, and
-        the campaign proves its own data parity instead of the manuscript
-        asserting it.
+        The whole split, not a batch. A batch is comparable across two stacks
+        only if it holds the same images, and which images a batch holds depends
+        on the order the loader enumerates files -- so a per-batch fingerprint
+        measures enumeration order and pixel handling together and cannot
+        separate them. Summarised over every image, the statistic depends on the
+        set and not on the order, which is the question worth asking: are the
+        seven stacks scored on the same pixels?
+
+        Two earlier versions of this got it wrong and are worth recording. One
+        batch against two made Rust look 4.9% away from PyTorch in standard
+        deviation; equalised, it was 1.0%. And at one batch each, C++ still sat
+        1.7% away in the mean -- which is not a resize difference at all but a
+        different first 128 files, the test split being enumerated in class
+        order.
+
+        Accumulated in one pass so the cost is a read of the test set, outside
+        any measured window.
         """
         import numpy as np
 
-        # A torch DataLoader iterates directly; the shared tf.data loader is a
-        # FolderLoader wrapping a dataset, and JAX pulls it through as_numpy().
         it = loader
         if hasattr(loader, "as_numpy"):
             it = loader.as_numpy()
         elif hasattr(loader, "dataset") and not hasattr(loader, "__iter__"):
             it = loader.dataset
 
-        seen = []
-        for i, batch in enumerate(it):
+        n = 0
+        total = total_sq = 0.0
+        lo, hi = float("inf"), float("-inf")
+        for batch in it:
             x = batch[0] if isinstance(batch, (tuple, list)) else batch
-            seen.append(np.asarray(x, dtype="float64").ravel())
-            if i + 1 >= batches:
-                break
-        if not seen:
+            v = np.asarray(x, dtype="float64").ravel()
+            n += v.size
+            total += float(v.sum())
+            total_sq += float((v * v).sum())
+            lo = min(lo, float(v.min()))
+            hi = max(hi, float(v.max()))
+        if not n:
             return
-        v = np.concatenate(seen)
-        row = {
-            "split": split, "n_values": int(v.size),
-            "mean": round(float(v.mean()), 6), "sd": round(float(v.std()), 6),
-            "min": round(float(v.min()), 6), "max": round(float(v.max()), 6),
-        }
+        mean = total / n
+        sd = max(0.0, total_sq / n - mean * mean) ** 0.5
+        row = {"split": split, "n_values": n,
+               "mean": round(mean, 6), "sd": round(sd, 6),
+               "min": round(lo, 6), "max": round(hi, 6)}
         path = self.out_dir / "data_fingerprint.csv"
         new = not path.exists() or path.stat().st_size == 0
         with path.open("a", newline="") as fh:
@@ -468,8 +479,8 @@ class Harness:
             if new:
                 w.writeheader()
             w.writerow(row)
-        print(f"[deepgreen] {split} pixels: mean {row['mean']:.4f} sd {row['sd']:.4f} "
-              f"range [{row['min']:.3f}, {row['max']:.3f}]")
+        print(f"[deepgreen] {split} pixels over {n:,} values: mean {mean:.6f} "
+              f"sd {sd:.6f} range [{lo:.3f}, {hi:.3f}]")
 
     def _write_counters(self, phase: str, epoch: int, delta: dict) -> None:
         """Append one row of hardware-counter energy for this block.

@@ -88,6 +88,11 @@ public class Vgg16TrainCifar100Expt {
 
 			DeepGreenTracker.assertParameters(vgg16);
 
+			// What this stack's loader actually produced, over the whole test split.
+			// A batch is comparable across stacks only if it holds the same images,
+			// and which images it holds depends on the loader's enumeration order.
+			tracker.dataFingerprint(cifar100Test);
+
 			// Listener
 			vgg16.setListeners(new ScoreIterationListener(10)); // print score every 10 batches
 			

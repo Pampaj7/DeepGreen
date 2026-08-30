@@ -50,6 +50,29 @@ fn main() {
 
     let batch_size = 128;
 
+    // What this stack's loader actually produced, over the whole test split.
+    // A batch is comparable across stacks only if it holds the same images, and
+    // which images it holds depends on the order the loader enumerates files --
+    // so a per-batch fingerprint measures enumeration order and pixel handling
+    // together. Over every image it depends on the set, not the order.
+    {
+        let (mut n, mut sum, mut sumsq) = (0i64, 0f64, 0f64);
+        let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
+        for batch in test_data.iter_batches(batch_size) {
+            let (x, _) = batch.unwrap();
+            n += x.numel() as i64;
+            sum += x.sum(tch::Kind::Double).double_value(&[]);
+            sumsq += (&x * &x).sum(tch::Kind::Double).double_value(&[]);
+            lo = lo.min(x.min().double_value(&[]));
+            hi = hi.max(x.max().double_value(&[]));
+        }
+        if n > 0 {
+            let mean = sum / n as f64;
+            let sd = (sumsq / n as f64 - mean * mean).max(0.0).sqrt();
+            rust::emissions::log_data_fingerprint(n, mean, sd, lo, hi);
+        }
+    }
+
     // Seeded once, outside the epoch loop. Re-seeding inside it -- which two of
     // these six binaries did -- rebuilds the same generator every epoch, so the
     // network sees one permutation thirty times instead of thirty. The other

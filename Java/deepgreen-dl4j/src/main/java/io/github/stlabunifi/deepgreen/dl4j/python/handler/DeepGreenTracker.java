@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 
 /**
  * Bridge to the shared measurement helper, tools/deepgreen_tracker.py.
@@ -98,6 +99,39 @@ public final class DeepGreenTracker implements AutoCloseable {
         send(String.format(Locale.ROOT,
                 "METRIC epoch=%d train_loss=%.6f test_loss=%.6f test_acc=%.4f",
                 epoch, trainLoss, testLoss, testAcc), "METRIC");
+    }
+
+    /**
+     * What this stack's loader actually produced, recorded once per run.
+     *
+     * <p>Seven ecosystems resize with four different implementations, and only
+     * three can be inspected from Python. Resizing is a no-op on CIFAR-100, an
+     * upsample on Fashion-MNIST and a 2x downsample on Tiny ImageNet, where it
+     * matters most. Each stack records its own, so the campaign proves its own
+     * data parity rather than the manuscript asserting it.
+     */
+    public void dataFingerprint(DataSetIterator test) throws IOException {
+        long n = 0;
+        double sum = 0.0, sumsq = 0.0;
+        double lo = Double.POSITIVE_INFINITY, hi = Double.NEGATIVE_INFINITY;
+        test.reset();
+        while (test.hasNext()) {
+            INDArray x = test.next().getFeatures();
+            n += x.length();
+            sum += x.sumNumber().doubleValue();
+            sumsq += x.mul(x).sumNumber().doubleValue();
+            lo = Math.min(lo, x.minNumber().doubleValue());
+            hi = Math.max(hi, x.maxNumber().doubleValue());
+        }
+        test.reset();
+        if (n == 0) {
+            return;
+        }
+        double mean = sum / n;
+        double sd = Math.sqrt(Math.max(0.0, sumsq / n - mean * mean));
+        send(String.format(Locale.ROOT,
+                "DATAFP split=test n=%d mean=%.6f sd=%.6f min=%.6f max=%.6f",
+                n, mean, sd, lo, hi), "DATAFP");
     }
 
     @Override

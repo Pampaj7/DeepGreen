@@ -135,6 +135,26 @@ dg_metric <- function(epoch, train_loss, test_loss, test_acc) {
   invisible(TRUE)
 }
 
+# What this stack's loader actually produced. Four of the seven stacks resize
+# through implementations that cannot be inspected from Python, so each records
+# its own test-split statistics and the campaign proves its own data parity.
+dg_datafp <- function(loader) {
+  n <- 0; s1 <- 0; s2 <- 0; lo <- Inf; hi <- -Inf
+  coro::loop(for (b in loader) {
+    v <- as.numeric(torch::as_array(b[[1]]$to(device = "cpu")))
+    n <- n + length(v); s1 <- s1 + sum(v); s2 <- s2 + sum(v * v)
+    lo <- min(lo, min(v)); hi <- max(hi, max(v))
+  })
+  if (n == 0) return(invisible(FALSE))
+  mu <- s1 / n
+  sdv <- sqrt(max(0, s2 / n - mu * mu))
+  .dg$proc$write_input(sprintf(
+    "DATAFP split=test n=%d mean=%.6f sd=%.6f min=%.6f max=%.6f\n",
+    n, mu, sdv, lo, hi))
+  .dg$wait_for("DATAFP", timeout = 60)
+  invisible(TRUE)
+}
+
 dg_shutdown <- function() {
   if (!is.null(.dg$proc) && .dg$proc$is_alive()) {
     try(.dg$proc$write_input("EXIT\n"), silent = TRUE)

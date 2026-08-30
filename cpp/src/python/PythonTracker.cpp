@@ -100,6 +100,17 @@ void PythonTracker::logMetric(const uint32_t epoch, const double trainLoss,
         ", test_acc=" + std::to_string(testAcc) + ")");
 }
 
+void PythonTracker::logDataFingerprint(const int64_t n, const double mean,
+                                       const double sd, const double min,
+                                       const double max)
+{
+    run("_dg.data_fingerprint(split='test', n=" + std::to_string(n) +
+        ", mean=" + std::to_string(mean) +
+        ", sd=" + std::to_string(sd) +
+        ", min=" + std::to_string(min) +
+        ", max=" + std::to_string(max) + ")");
+}
+
 PythonTracker::RunParams PythonTracker::runParams()
 {
     const uint32_t rep = static_cast<uint32_t>(envAsU64("DEEPGREEN_REP", 0));

@@ -165,6 +165,30 @@ pub fn log_metric(epoch: u32, train_loss: f64, test_loss: f64, test_acc: f64) {
     }
 }
 
+/// Record what this stack's loader actually produced.
+///
+/// Seven ecosystems resize images with four different implementations, and only
+/// three of them can be inspected from Python. Resizing is a no-op on CIFAR-100,
+/// an upsample on Fashion-MNIST and a 2x downsample on Tiny ImageNet, where it
+/// matters most: tf.image.resize defaults to no antialiasing and gave pixels
+/// 3.8% wider in standard deviation than torchvision until that was corrected.
+/// So each run records its own, and the campaign proves its own data parity.
+pub fn log_data_fingerprint(n: i64, mean: f64, sd: f64, min: f64, max: f64) {
+    let mut state = TRACKER.lock().unwrap();
+    if let Some(stdin) = state.stdin.as_mut() {
+        let _ = writeln!(
+            stdin,
+            "DATAFP split=test n={} mean={:.6} sd={:.6} min={:.6} max={:.6}",
+            n, mean, sd, min, max
+        );
+        let _ = stdin.flush();
+    }
+    if let Some(reader) = state.stdout.as_mut() {
+        let mut ack = String::new();
+        let _ = reader.read_line(&mut ack);
+    }
+}
+
 /// Repetition index, seed and epoch count for this run, from the shared contract.
 pub fn run_params() -> (u32, u64, u32) {
     let get = |k: &str, d: u64| -> u64 {

@@ -32,6 +32,12 @@ namespace PythonTracker {
     /// the useful work produced.
     void logMetric(uint32_t epoch, double trainLoss, double testLoss, double testAcc);
 
+    /// What this stack's loader actually produced, recorded once per run.
+    /// Four of the seven stacks resize through implementations that cannot be
+    /// inspected from Python; each records its own so the campaign proves its
+    /// own data parity rather than the manuscript asserting it.
+    void logDataFingerprint(int64_t n, double mean, double sd, double min, double max);
+
     RunParams runParams();
 
     void finalizeTracker();

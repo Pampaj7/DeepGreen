@@ -190,6 +190,7 @@ run_experiment <- function(dataset_path, checkpoint_path,
   # --- init energy tracker (CLI) ---
   dataset_name <- basename(dataset_path)  # es: "cifar100_png"
   dg_init()
+  dg_datafp(loaders$test_loader)
 
   on.exit(dg_shutdown(), add = TRUE)
 

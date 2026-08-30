@@ -1,6 +1,7 @@
 #ifndef TRAIN_MODEL_H
 #define TRAIN_MODEL_H
 #include <iostream>
+#include <limits>
 #include <torch/torch.h>
 
 #include "dataset/ImageFolder.h"
@@ -100,6 +101,29 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
 
     // tracker
     PythonTracker::initializeTracker();
+
+    // What this stack's loader actually produced, over the whole test split.
+    // A batch is comparable across stacks only if it holds the same images, and
+    // which images it holds depends on the order the loader enumerates files.
+    {
+        int64_t n = 0;
+        double sum = 0.0, sumsq = 0.0;
+        double lo = std::numeric_limits<double>::infinity();
+        double hi = -std::numeric_limits<double>::infinity();
+        for (const auto& batch : *test_loader) {
+            const auto x = batch.data.to(torch::kDouble);
+            n += x.numel();
+            sum += x.sum().template item<double>();
+            sumsq += (x * x).sum().template item<double>();
+            lo = std::min(lo, x.min().template item<double>());
+            hi = std::max(hi, x.max().template item<double>());
+        }
+        if (n > 0) {
+            const double mean = sum / static_cast<double>(n);
+            const double sd = std::sqrt(std::max(0.0, sumsq / static_cast<double>(n) - mean * mean));
+            PythonTracker::logDataFingerprint(n, mean, sd, lo, hi);
+        }
+    }
 
     // training loop
     for (uint32_t epoch = 1; epoch <= totalEpochs; ++epoch) {
