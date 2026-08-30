@@ -265,6 +265,13 @@ is why it never showed in the accuracies.
   `#`. A fourth flagged the corrected code, because the ceiling idiom
   `-(-x.samples // batch_size)` contains the floor form as a substring.
 
+The checker also caught me the next day: a helper module dropped into
+`python/tensorflow/models/` made five universal checks fail, because they require
+every file in that glob to carry the learning rate, the batch size and the shared
+harness, and a helper carries none of them. The fix is not to narrow the glob but
+to put shared code where shared code lives -- `tools/torch_init.py`. A check that
+fires on a file which should not have been there is a check working.
+
 90 checks now, 89 passing. The one failure is Java's `test_loss` and it stays
 until the campaign is re-run: the check reads recorded metrics, not source, and
 the source now computes it.

@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
-from python.tensorflow.models.torch_init import apply_torchvision_init
+from tools.torch_init import apply_torchvision_init
 from tf_keras.preprocessing.image import ImageDataGenerator          # <-- tf_keras, non tensorflow.keras
 from tf_keras import layers, models, optimizers, losses, metrics
 import tensorflow as tf
