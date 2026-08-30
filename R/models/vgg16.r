@@ -182,6 +182,7 @@ run_experiment <- function(dataset_path, checkpoint_path,
   # and the architecture parity that holds for Python, C++ and Rust does not
   # hold here. See results/analysis/experiment_spec.md, S1.
   model <- build_vgg16(num_classes = loaders$num_classes, pretrained = FALSE)
+  dg_assert_params(model)
   model$to(device = device)
   criterion <- nn_cross_entropy_loss()
   optimizer <- optim_adam(model$parameters, lr = 1e-4)

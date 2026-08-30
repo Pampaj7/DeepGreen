@@ -43,6 +43,39 @@ dg_run_params <- function() {
        epochs     = as_num("DEEPGREEN_EPOCHS", 30))
 }
 
+# Refuse to train a network that is not the one the study is comparing.
+#
+# The campaign driver puts models/MANIFEST.json's parameter count in
+# DEEPGREEN_EXPECTED_PARAMS, so every stack can check it without a JSON parser
+# of its own. R cannot join the shared-module group, for the reason recorded in
+# R/models/resnet18.r: in torch 0.17.0 a script_module's $train() and $eval()
+# raise "unused argument", so a loaded module cannot be switched out of training
+# mode and would evaluate with batch norm on batch statistics. Its network is
+# therefore rebuilt from torchvision-for-R, and this is what confirms the
+# rebuild landed in the same place. VGG-16 ran as four different networks across
+# the seven stacks, spanning 9.1x in parameters, under a specification claiming
+# the counts were checked. They were not, anywhere.
+dg_assert_params <- function(model) {
+  want <- Sys.getenv("DEEPGREEN_EXPECTED_PARAMS", unset = "")
+  if (!nzchar(want)) return(invisible(NULL))
+  got <- sum(vapply(model$parameters, function(p) prod(dim(p)), numeric(1)))
+  want <- as.numeric(want)
+  if (got != want) {
+    msg <- sprintf(paste0(
+      "this stack has %.0f parameters; models/MANIFEST.json says %.0f ",
+      "(difference %+.0f). Comparing its energy with the others would compare ",
+      "models rather than ecosystems."), got, want, got - want)
+    if (identical(Sys.getenv("DEEPGREEN_ALLOW_MODEL_DRIFT"), "1")) {
+      cat("[deepgreen] WARNING", msg, "\n")
+    } else {
+      stop(msg, " Set DEEPGREEN_ALLOW_MODEL_DRIFT=1 to override.")
+    }
+  } else {
+    cat(sprintf("[deepgreen] %.0f parameters, as exported\n", got))
+  }
+  invisible(got)
+}
+
 dg_init <- function() {
   run_dir <- Sys.getenv("DEEPGREEN_RUN_DIR", unset = "")
   if (!nzchar(run_dir)) {

@@ -50,9 +50,15 @@ fn main() {
 
     let batch_size = 128;
 
+    // Seeded once, outside the epoch loop. Re-seeding inside it -- which two of
+    // these six binaries did -- rebuilds the same generator every epoch, so the
+    // network sees one permutation thirty times instead of thirty. The other
+    // four already did this correctly, which is exactly the kind of divergence
+    // between siblings the conformance checker could not see while its parity
+    // checks passed on any one file in a glob.
+    let mut rng = StdRng::seed_from_u64(seed);
+
     for epoch in 1..=epochs {
-        // shuffle dataset ogni epoch
-        let mut rng = StdRng::seed_from_u64(seed);
         train_data.shuffle(&mut rng);
 
         // === Training

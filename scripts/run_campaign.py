@@ -42,7 +42,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tools.deepgreen_bench import RunContext  # noqa: E402
+from tools.deepgreen_bench import RunContext, expected_parameters  # noqa: E402
 
 MODELS = ["resnet18", "vgg16"]
 DATASETS = {
@@ -158,6 +158,15 @@ def run_environment(job: "Job") -> dict[str, str]:
         "DEEPGREEN_PYTHON": os.environ.get(
             "DEEPGREEN_PYTHON", str(REPO_ROOT / ".venv-deepgreen" / "bin" / "python")),
         "DEEPGREEN_LOADER_THREADS": os.environ.get("DEEPGREEN_LOADER_THREADS", "2"),
+        # The network this job must train, as a number every stack can check
+        # without parsing JSON in four languages. VGG-16 ran as four different
+        # networks across the seven stacks -- 134,670,244 parameters in the
+        # LibTorch lineage against 14,765,988 in JAX -- under a specification
+        # that claimed parameter counts were checked against the exported
+        # module. Nothing checked them. Empty when the manifest is missing, and
+        # each stack decides whether that is fatal.
+        "DEEPGREEN_EXPECTED_PARAMS": str(
+            expected_parameters(job.model, job.dataset) or ""),
     }
 
 COOLDOWN_S = 60  # let the machine return to a comparable thermal state

@@ -481,11 +481,17 @@ if (DOWNLOAD_AND_CONVERT_TINYIMAGENET200)
     download_and_convert_dataset(${TINY_IMAGENET200_NAME} "tiny_imagenet_png" "download_convert_tinyimage")
 endif()
 
-# Model export: the *_imported targets train the SAME torchvision module that
-# Python/PyTorch trains, exported once as TorchScript by py_script/models/*.py.
-# This is the only mechanism in the package that makes the C++ and Python
-# comparisons architecture-identical, and it was commented out in the submitted
-# version, leaving C++ on a hand-written port instead. Re-enabled.
+# The *_imported targets train the SAME module every other torch-based stack
+# trains, copied in from models/ -- one seeded export, made by
+# scripts/export_torchscript_models.py, with models/MANIFEST.json recording the
+# parameter count and a hash of the weights.
+#
+# It said "exported once" and was exported twice. This build ran its own copy of
+# the export script, unseeded, into CMAKE_BINARY_DIR, so C++ and Rust trained
+# networks from different random draws while the manuscript called them a
+# byte-identical module -- and the collapse analysis rested on exactly that.
+# The submitted version was worse still: this was commented out and C++ trained
+# a hand-written port.
 # Generate models for each dataset
 include(GenerateModel)
 set(FASHION_MNIST_NUM_CLASSES 10)

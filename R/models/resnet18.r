@@ -34,21 +34,19 @@ get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
 
   # Fashion MNIST is grayscale (1 channel), but ResNet18 expects 3 channels
   transform <- function(img) {
-    # Convert image to tensor and normalize
-    img <- torch_tensor(img / 255, dtype = torch_float())
-    
-    # If img is already a single channel (grayscale), it has shape [height, width]
-    # Otherwise, it has shape [height, width, channels]
-    if (length(dim(img)) == 2) {
-      img <- img$unsqueeze(3) # Add channel dimension: [height, width, 1]
-    }
-    
-    # Permute to [channels, height, width]
-    img <- img$permute(c(3, 1, 2))
-    
+    # transform_to_tensor, as R/VGG-16 and every other stack does it. This read
+    # `torch_tensor(img / 255)`, and image_folder_dataset's default loader
+    # already returns values in [0, 1] -- measured: base_loader on a campaign
+    # PNG gives an array with range 0 to 1. So R/ResNet-18 trained on [0, 1/255]
+    # while R/VGG-16 trained on [0, 1]: one ecosystem, two input pipelines, and
+    # S3 fixes the pipeline for all stacks with no check covering it. Largely
+    # absorbed by the BatchNorm after conv1, which is why it never showed in the
+    # accuracies -- and why nothing but reading the source would have found it.
+    img <- torchvision::transform_to_tensor(img)
+
     # Resize to target size
     img <- torchvision::transform_resize(img, size = c(img_size[2], img_size[1]))
-    
+
     # If grayscale, replicate the single channel to 3 channels
     if (grayscale) {
       if (img$size(1) == 1) {
@@ -184,6 +182,7 @@ run_experiment <- function(dataset_path, checkpoint_path,
   # and the architecture parity that holds for Python, C++ and Rust does not
   # hold here. See results/analysis/experiment_spec.md, S1.
   model <- build_resnet18(num_classes = loaders$num_classes, pretrained = FALSE)
+  dg_assert_params(model)
   model$to(device = device)
   criterion <- nn_cross_entropy_loss()
   optimizer <- optim_adam(model$parameters, lr = 1e-4)
