@@ -291,6 +291,89 @@ so Java's eval blocks do not measure twice the work.
 
 ---
 
+## 12. Fairness audit: the architectures, proved rather than counted
+
+Asked to verify that the architectures really are identical across languages in
+every configuration actually trained, and that the test sets are genuinely
+shareable. Counting parameters -- which is what the previous round did -- is the
+weak form: two networks can agree on a total and differ layer by layer.
+
+`scripts/verify_architecture_parity.py` builds every (stack, architecture,
+dataset) and compares the **sorted multiset of parameter tensor shapes**, which
+is language-independent because it depends on neither naming nor ordering. Three
+conventions had to be normalised, all found the hard way: Keras and DL4J count
+batch-norm running statistics as parameters and torch does not; Keras and flax
+convolution kernels are (kh, kw, in, out) where torch's are (out, in, kh, kw);
+dense kernels are transposed likewise.
+
+**Result: six stacks of seven agree shape for shape on all six blocks.**
+ResNet-18 is 62 tensors (20 convolution, 1 dense, 41 rank-1) at 11,181,642 /
+11,227,812 / 11,279,112 parameters; VGG-16 is 30 tensors (13, 2, 15) at
+14,982,474 / 15,028,644 / 15,079,944. PyTorch, C++ and Rust through the shared
+module; TensorFlow, JAX and Deeplearning4j by construction. R cannot be probed
+outside the campaign environment -- its torch package will not load Lantern --
+and is covered by its startup assertion on the parameter count.
+
+Three things fell out of building it.
+
+**The TensorFlow ecosystem was two ecosystems.** `resnet18.py` imported
+`tf_keras` (Keras 2.19) and `vgg16.py` imported `tensorflow.keras` (Keras 3.15),
+so the TensorFlow row of a ResNet-18 table and the TensorFlow row of a VGG-16
+table were different software stacks. Inside `vgg16.py` the two were mixed: a
+Keras 2 `ProgbarLogger` attached to a Keras 3 `fit`, which works only because
+Keras 3's version does not accept the `count_mode` it is handed. Unified on
+`tf_keras`.
+
+**My own initialiser fix was a silent no-op.** `apply_torchvision_init` tested
+`isinstance` against Keras 3 classes while the ResNet is built from Keras 2
+layers, whose hierarchies do not intersect -- `Conv` against `BaseConv`. It
+matched **zero of 102 weight tensors** and said nothing. Duck-typed on weight
+rank now, and the caller refuses a zero. This also corrects something reported
+in the previous entry: the 77.4% -> 71.7% I attributed to the initialiser was
+run-to-run variation on a change that did nothing. The gain is entirely the
+batch-normalisation alignment.
+
+**And the same helper would have destroyed VGG-16's weights.** It walked every
+layer including containers, and a container's `get_weights()` returns its
+children's tensors concatenated -- so `set_weights([new_kernel] + zeros)` on the
+Sequential wrapping the VGG backbone would have zeroed every weight but the
+first. Leaves only now. Caught because the parity fingerprint reported 44.9M
+parameters where 15.0M were expected.
+
+---
+
+## 13. Fairness audit: the data, file for file
+
+`scripts/verify_data_parity.py` compares what each probeable loader produces
+against what the directory itself contains: file counts, class ordering (which
+determines the label index every stack is scored against), the first labels of
+the unshuffled test split, and pixel statistics.
+
+Counts, classes, ordering and labels agree everywhere. One difference, on one
+dataset:
+
+**Tiny ImageNet was resized differently.** `tf.image.resize` defaults to
+`antialias=False`; torchvision's `Resize` is antialiased unconditionally,
+because PIL applies it whatever the argument says. Invisible on CIFAR-100, which
+is already 32x32, and on Fashion-MNIST, which is upsampled from 28x28. On Tiny
+ImageNet, which is 64x64 halved to 32x32, the standard deviation of the pixels
+was **3.8% wider** in TensorFlow and JAX than in every other stack. Measured on
+the same 64 images: 0.226404 without antialiasing, 0.218092 with, against
+torchvision's 0.218089 -- agreement to five decimals once corrected.
+
+That is a third of the campaign, and it would have been read as an ecosystem
+difference.
+
+**What is not yet proved.** Four stacks resize through implementations that
+cannot be inspected from Python -- `tch::vision::image::resize`, DataVec's
+`ImageRecordReader`, R's `transform_resize`, and whatever the C++ loader does.
+Rather than argue, every run now records the mean, standard deviation and range
+of its own test split (`data_fingerprint.csv`, and a `DATAFP` command on the
+bridge), so the campaign proves its own data parity and the manuscript can cite
+it instead of asserting it.
+
+---
+
 ## Smoke test, before committing 57 hours
 
 One epoch of ResNet-18 on Fashion-MNIST, every stack, into a scratch campaign
