@@ -130,8 +130,8 @@ torchvision uses `kaiming_normal_(fan_out, relu)`, untruncated, sqrt(2 / fan_out
 For ResNet-18's 7×7 stem that is 0.116 against 0.025 — **4.6× wider**. The
 comment in the file noted the difference and kept the fan_in version.
 
-**Fix.** `TorchWeightInit` in the Java tree, and `torch_init.py` in the
-TensorFlow tree. Both compute fan_out from the weight shape rather than trusting
+**Fix.** `TorchWeightInit` in the Java tree, and `tools/torch_init.py` for
+Keras. Both compute fan_out from the weight shape rather than trusting
 the framework's, because DL4J divides a convolution's fan_out by the stride
 product and torch does not: without that, every stride-2 convolution came out
 exactly twice as wide while every stride-1 convolution matched.
