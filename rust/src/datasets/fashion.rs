@@ -89,7 +89,14 @@ impl Fashion {
                     // and this stack's own evaluation loop -- used 32x32x3. The
                     // conv1 input volume was 0.26x everyone else's, so the
                     // training energy was not comparable.
-                    img = tch::vision::image::resize(&img, 32, 32)?;
+                    // Only when it is not already 32x32. resize() resamples in
+                    // uint8, so calling it at the target resolution is not the
+                    // identity -- it rounds, and moved this stack's pixel
+                    // standard deviation 1.4% away from the other six on
+                    // Fashion-MNIST, which is pre-resized on disk and needs none.
+                    if img.size()[1] != 32 || img.size()[2] != 32 {
+                        img = tch::vision::image::resize(&img, 32, 32)?;
+                    }
                     if img.size()[0] == 1 {
                         img = img.repeat(&[3, 1, 1]);
                     }

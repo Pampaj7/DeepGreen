@@ -86,8 +86,14 @@ impl Cifar100 {
                     img = img.narrow(0, 0, 3); // drop the alpha channel
                 }
 
+                // Only when it is not already that size: resize() resamples in
+                // uint8 and rounds, so at the target resolution it is not the
+                // identity. CIFAR-100 passes resize_to = None today, but the
+                // guard belongs here as much as in the other two loaders.
                 if let Some(size) = self.resize_to {
-                    img = resize(&img.to(Device::Cpu), size, size)?;
+                    if img.size()[1] != size || img.size()[2] != size {
+                        img = resize(&img.to(Device::Cpu), size, size)?;
+                    }
                 }
 
                 let img = img.to_kind(Kind::Float) / 255.0;

@@ -608,6 +608,13 @@ first paragraph -- and I rebuilt with plain cargo five or six times over the
 day. Rebuilt through the script: `Using device: Cuda(0)`, two CUDA libraries
 linked, 5.07 s per epoch against the campaign's 4.58 s.
 
+The same investigation turned up a second Rust defect. The uint8 resize guard
+had been applied to `tiny.rs` alone, so `fashion.rs` still resampled an already
+32x32 image and came back 1.4% away from the other six stacks in pixel standard
+deviation -- 0.333095 against 0.337890. Guarded in all three loaders now, and
+Rust reports 0.337890 like everyone else. Fashion-MNIST is where it showed
+because Tiny ImageNet's loader was the one already fixed.
+
 **The check that would have caught it in a second now exists.** `readelf -d` on
 every released Rust binary, asserting a `NEEDED` entry for a CUDA library. It
 immediately found two stale scratch binaries left behind by this investigation
