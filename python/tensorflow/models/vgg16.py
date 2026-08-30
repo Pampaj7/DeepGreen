@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
+from python.tensorflow.models.torch_init import apply_torchvision_init
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import Callback
 
@@ -123,6 +124,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
         train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size, ctx.seed)
         model = build_vgg16(input_shape=img_size + (3,), num_classes=num_classes)
+        # Keras defaults to glorot_uniform; the other six stacks use
+        # torchvision's kaiming_normal_(fan_out) for convolutions. One epoch
+        # of Fashion-MNIST showed the cost: 77.4% here against 86-88% for
+        # every aligned stack.
+        apply_torchvision_init(model, seed=int(ctx.seed))
         # Trainable weights only: torch's model.parameters() excludes the
         # BatchNorm running statistics that Keras's count_params() includes.
         assert_parameter_count("vgg16", ctx.dataset,

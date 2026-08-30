@@ -33,6 +33,7 @@ import itertools
 import json
 import os
 import random
+import shutil
 import subprocess
 import sys
 import time
@@ -224,7 +225,13 @@ def python_command(job: Job) -> list[str]:
             )
             + f"checkpoint_path='checkpoints/{job.ecosystem.replace('/', '_')}_{job.model}_"
               f"{job.dataset}_rep{job.repetition}.ckpt', "
+            # epochs comes from the run contract, like everything else. It did
+            # not: the C++, Rust, R and Java stacks read DEEPGREEN_EPOCHS while
+            # these three took the signature default, so setting the variable
+            # gave four stacks one epoch count and three another -- a contract
+            # that four of seven honoured.
             + f"repetition={job.repetition}, seed={job.seed}, "
+              f"epochs={int(os.environ.get('DEEPGREEN_EPOCHS', 30))}, "
               f"dataset_name={job.dataset!r})"
         ),
     ]
@@ -360,6 +367,8 @@ def main() -> int:
                     help="write the schedule and exit without executing anything")
     ap.add_argument("--cooldown", type=int, default=COOLDOWN_S)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="replace a run directory that already holds data")
     args = ap.parse_args()
 
     if not (args.print_plan or args.dry_run):
@@ -417,6 +426,21 @@ def main() -> int:
         print(f"{tag}: {shown}", flush=True)
         if args.dry_run:
             continue
+        # Refuse to run into a directory that already holds a run. Both output
+        # paths open counters.csv in append mode, so re-running a job over its
+        # own output silently doubles the rows -- thirty epochs recorded as
+        # sixty, with the duplicates interleaved and no marker distinguishing
+        # them. Found by re-running one smoke test into the same directory and
+        # noticing Java had four blocks where every other stack had two.
+        run_dir = Path(env["DEEPGREEN_RUN_DIR"])
+        existing = run_dir / "counters.csv"
+        if existing.exists() and existing.stat().st_size > 0:
+            if not args.force:
+                print(f"{tag}: refusing, {existing} already has data "
+                      f"(use --force to replace)", flush=True)
+                failures.append((tag, "run directory not empty"))
+                continue
+            shutil.rmtree(run_dir)
         rc = subprocess.call(cmd, cwd=REPO_ROOT, env=env, shell=shell)
         if rc != 0:
             failures.append((tag, rc))

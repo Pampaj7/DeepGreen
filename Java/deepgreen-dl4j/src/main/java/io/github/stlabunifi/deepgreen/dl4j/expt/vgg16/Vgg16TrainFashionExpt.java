@@ -119,6 +119,10 @@ public class Vgg16TrainFashionExpt {
 			// Save the model
 			String model_filename = filename + ".zip";
 			Path modelFilePath = checkpointOutputDir.resolve(model_filename);
+			// Create the directory first. Without this every Java run trained,
+			// measured and reported correctly and then died on the last line with
+			// FileNotFoundException, so the driver recorded the job as failed.
+			Files.createDirectories(checkpointOutputDir);
 			ModelSerializer.writeModel(vgg16, modelFilePath.toFile(), true);
 			System.out.println("Model saved");
 			

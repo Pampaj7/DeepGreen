@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.deepgreen_bench import Harness, RunContext, assert_parameter_count
 from tools.deepgreen_loader import train_test_loaders
+from python.tensorflow.models.torch_init import apply_torchvision_init
 from tf_keras.preprocessing.image import ImageDataGenerator          # <-- tf_keras, non tensorflow.keras
 from tf_keras import layers, models, optimizers, losses, metrics
 import tensorflow as tf
@@ -70,15 +71,15 @@ def _basic_block(x, filters, stride, name):
     if stride != 1 or x.shape[-1] != filters:
         shortcut = layers.Conv2D(filters, 1, strides=stride, use_bias=False,
                                  name=f"{name}_down_conv")(x)
-        shortcut = layers.BatchNormalization(name=f"{name}_down_bn")(shortcut)
+        shortcut = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name=f"{name}_down_bn")(shortcut)
 
     y = layers.Conv2D(filters, 3, strides=stride, padding="same", use_bias=False,
                       name=f"{name}_conv1")(x)
-    y = layers.BatchNormalization(name=f"{name}_bn1")(y)
+    y = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name=f"{name}_bn1")(y)
     y = layers.ReLU(name=f"{name}_relu1")(y)
     y = layers.Conv2D(filters, 3, strides=1, padding="same", use_bias=False,
                       name=f"{name}_conv2")(y)
-    y = layers.BatchNormalization(name=f"{name}_bn2")(y)
+    y = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name=f"{name}_bn2")(y)
     y = layers.Add(name=f"{name}_add")([y, shortcut])
     return layers.ReLU(name=f"{name}_relu2")(y)
 
@@ -103,7 +104,7 @@ def build_resnet18_garden(input_shape=(32, 32, 3), num_classes=100):
 
     x = layers.ZeroPadding2D(3, name="stem_pad")(inputs)
     x = layers.Conv2D(64, 7, strides=2, use_bias=False, name="stem_conv")(x)
-    x = layers.BatchNormalization(name="stem_bn")(x)
+    x = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name="stem_bn")(x)
     x = layers.ReLU(name="stem_relu")(x)
     x = layers.ZeroPadding2D(1, name="stem_pool_pad")(x)
     x = layers.MaxPooling2D(3, strides=2, name="stem_pool")(x)
@@ -168,6 +169,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
 
         train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size, ctx.seed)
         model = build_resnet18_garden(input_shape=img_size + (3,), num_classes=num_classes)
+        # Keras defaults to glorot_uniform; the other six stacks use
+        # torchvision's kaiming_normal_(fan_out) for convolutions. One epoch
+        # of Fashion-MNIST showed the cost: 77.4% here against 86-88% for
+        # every aligned stack.
+        apply_torchvision_init(model, seed=int(ctx.seed))
         # Trainable weights only: torch's model.parameters() excludes the
         # BatchNorm running statistics that Keras's count_params() includes.
         assert_parameter_count("resnet18", ctx.dataset,
