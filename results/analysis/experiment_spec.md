@@ -111,7 +111,33 @@ First campaign: only Rust normalised with per-channel mean/std. Fixed; set
 | stack | requirement |
 |---|---|
 | all LibTorch stacks | one LibTorch build, one CUDA, one cuDNN |
-| all stacks | precision pinned to FP32; TF32 matmuls disabled on Ampere and later |
+| all stacks | storage precision fp32, no mixed precision; one TF32 policy set campaign-wide by `DEEPGREEN_TF32` and applied through `NVIDIA_TF32_OVERRIDE` |
+| all stacks | cuDNN algorithm selection left to the framework — no stack pins determinism |
+
+This clause used to read "precision pinned to FP32; TF32 matmuls disabled on
+Ampere and later", and exactly one stack of seven obeyed it. The pin lived in
+`tools/deepgreen_bench.py`, which only the three Python stacks import, and of
+those only PyTorch reached cuDNN through it — TensorFlow was given a
+`mixed_precision` policy, which is a different axis, and JAX was given nothing.
+So Python/PyTorch ran true-fp32 convolutions and the other six took cuDNN's
+Ampere default. On an RTX 3090, ResNet-18, batch 128, that setting alone is
+**4.81× the GPU energy and 3.46× the step time**, against a measured
+PyTorch-vs-C++ training gap of 3.24–3.79×. The clause was in the specification;
+no check stood behind it; and the difference was reported as binding overhead.
+
+Two changes. The policy is now one variable read by every stack, because a
+requirement that only one code path can express is a requirement four stacks
+cannot meet. And the default is TF32 *allowed* rather than disabled: it is what
+every framework does on Ampere without being asked, so it is what a practitioner
+measures, and pinning true fp32 across seven stacks costs roughly 138 h of
+machine time against 57 h for the same 210 runs. The cost of the policy itself
+is reported as a precision ablation rather than hidden inside an ecosystem
+comparison. Set `DEEPGREEN_TF32=0` to take the other branch.
+
+`cudnn.deterministic` was the other half of the same asymmetry — pinned for the
+Python stacks alone, worth a further 1.35×, and not expressible in DL4J or R at
+all. It is pinned nowhere now, so algorithm selection varies the same way for
+every stack and run-to-run variation includes it.
 
 First campaign: Python/PyTorch on LibTorch 2.6.0, C++ on 2.7.0, Rust/tch 0.14 on
 2.1.0, R/torch 0.15.1 on its own bundle — six minor releases across the group

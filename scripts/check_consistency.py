@@ -333,6 +333,37 @@ def run() -> list[Result]:
     r.append(check_regex("C++/LibTorch", "S2 eval batch = train batch",
                          glob_read("cpp/src/train/**/train_*.cpp"), r"kTestBatchSize = 128"))
 
+    # ---------------- S4: one precision policy, all seven stacks -----------
+    #
+    # The defect this replaces was invisible to every check that existed. The
+    # TF32 pin lived in tools/deepgreen_bench.py, which only the three Python
+    # stacks import, so Python/PyTorch ran true-fp32 convolutions and the other
+    # six took cuDNN's Ampere default -- worth 4.81x the GPU energy on
+    # ResNet-18, against a measured PyTorch-vs-C++ gap of 3.24-3.79x. The
+    # checker had a `precision` clause in the spec and no check behind it.
+    env_sh = read("scripts/campaign_env.sh")
+    r.append(Result("all", "S4 precision policy is campaign-wide",
+                    PASS if "NVIDIA_TF32_OVERRIDE" in env_sh else FAIL,
+                    "scripts/campaign_env.sh exports it to every stack"))
+    r.append(check_regex("all", "S4 harness applies the precision policy",
+                         glob_read("tools/deepgreen_bench.py"),
+                         r"def set_precision_policy", every=False,
+                         detail_ok="tools/deepgreen_bench.py"))
+    # No stack may set TF32 privately: one policy, one place. The harness's own
+    # definition is excluded because it *is* the one place.
+    r.append(check_regex("all", "S4 no stack pins TF32 privately",
+                         glob_read("python/**/*.py", "rust/src/**/*.rs",
+                                   "cpp/src/**/*.h", "cpp/src/**/*.cpp",
+                                   "R/**/*.r", "Java/**/*.java"),
+                         r"allow_tf32|setAllowTF32|enable_tensor_float_32",
+                         expect=False))
+    # cudnn.deterministic was the other half of the asymmetry: set for the
+    # Python stacks alone, worth a further 1.35x, and unsettable in DL4J and R.
+    r.append(check_regex("all", "S4 no stack pins cuDNN determinism",
+                         glob_read("python/**/*.py", "tools/*.py",
+                                   "rust/src/**/*.rs", "R/**/*.r"),
+                         r"cudnn\.deterministic\s*=\s*True", expect=False))
+
     # ---------------- S4: one LibTorch behind the control group ------------
     #: tch crate version -> the LibTorch it links against
     TCH_TO_LIBTORCH = {
@@ -533,7 +564,7 @@ def run() -> list[Result]:
 #: check that silently stops running -- a glob that matches nothing, a guarded
 #: import that turns into a SKIP -- fails the gate instead of shrinking the
 #: total. Raise it deliberately when you add a check.
-EXPECTED_CHECKS = 73
+EXPECTED_CHECKS = 77
 
 
 def main() -> int:

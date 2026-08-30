@@ -91,6 +91,68 @@ DEFAULT_LR = 1e-4
 #: to the default made "ecosystem" and "precision policy" inseparable.
 DEFAULT_PRECISION = "fp32"
 
+#: Whether TF32 tensor cores may serve fp32 convolutions and matmuls.
+#:
+#: This is the single most expensive setting in the study and it was, for one
+#: campaign, the least visible. The pin lived here and here only, and this
+#: module is imported by the six Python model files and by nothing else, so
+#: Python/PyTorch ran true-fp32 convolutions while the other six stacks took
+#: cuDNN's Ampere default. Measured on an RTX 3090, ResNet-18, batch 128:
+#: turning TF32 off costs 4.81x the GPU energy and 3.46x the step time. The
+#: campaign's PyTorch-vs-C++ gap was 3.24-3.79x. One flag, not a binding.
+#:
+#: So it is a campaign-wide policy now, read from one variable by every stack,
+#: with the value recorded per run. "1" allows TF32 -- what every framework
+#: does by default on Ampere, and what a practitioner gets without touching
+#: anything. "0" pins true fp32, which is what S4 asked for and what no stack
+#: except one was doing; it costs roughly 138 h of machine time against 57 h.
+#: scripts/campaign_env.sh sets this and exports NVIDIA_TF32_OVERRIDE to match,
+#: which is how the C++, Rust, R and Java processes -- which never import this
+#: module -- obey the same policy through the CUDA libraries.
+TF32_ENV = "DEEPGREEN_TF32"
+
+
+def tf32_allowed() -> bool:
+    """The campaign's TF32 policy, defaulting to the frameworks' own default."""
+    return os.environ.get(TF32_ENV, "1") == "1"
+
+
+def set_precision_policy() -> None:
+    """Apply the campaign's precision policy to whichever frameworks are here.
+
+    Deliberately does *not* set cudnn.deterministic. Pinning it in one stack and
+    not the others was the second half of the same defect: it forces cuDNN away
+    from its fastest algorithms and cost a further 1.35x, and it cannot be set
+    at all in DL4J or R. Algorithm selection is therefore left to every stack
+    alike, and run-to-run variation includes it.
+    """
+    allow = tf32_allowed()
+    try:
+        import torch
+
+        torch.backends.cuda.matmul.allow_tf32 = allow
+        torch.backends.cudnn.allow_tf32 = allow
+    except ImportError:
+        pass
+    try:
+        import tensorflow as tf
+
+        from tensorflow.keras import mixed_precision
+
+        mixed_precision.set_global_policy("float32")   # fp16 is a separate axis
+        tf.config.experimental.enable_tensor_float_32_execution(allow)
+    except ImportError:
+        pass
+    try:
+        import jax
+
+        # JAX's "default" matmul precision is the fastest the device offers,
+        # which on Ampere is TF32 -- so this needs saying either way.
+        jax.config.update("jax_default_matmul_precision",
+                          "tensorfloat32" if allow else "float32")
+    except ImportError:
+        pass
+
 
 @dataclass
 class RunContext:
@@ -188,6 +250,7 @@ class Harness:
             "accelerator": detect_accelerator(self.ctx.ecosystem),
             "hardware_counters": (self._counters.describe()
                                   if self._counters is not None else None),
+            "machine_state": machine_state(),
         }
         (self.out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
 
@@ -228,26 +291,15 @@ class Harness:
 
             torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
-            if self.ctx.precision == "fp32":
-                # Pin FP32 matmuls: PyTorch >= 1.12 silently uses TF32 on Ampere
-                # and later, which is a different precision policy and a
-                # different energy profile.
-                torch.backends.cuda.matmul.allow_tf32 = False
-                torch.backends.cudnn.allow_tf32 = False
-            torch.backends.cudnn.benchmark = False
-            torch.backends.cudnn.deterministic = True
         except ImportError:
             pass
         try:
             import tensorflow as tf
 
             tf.random.set_seed(seed)
-            if self.ctx.precision == "fp32":
-                from tensorflow.keras import mixed_precision
-
-                mixed_precision.set_global_policy("float32")
         except ImportError:
             pass
+        set_precision_policy()
 
     # -- measurement -----------------------------------------------------
     @contextmanager
@@ -332,6 +384,56 @@ class Harness:
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+def machine_state() -> dict[str, object]:
+    """The mutable machine state a replicator would need and never had.
+
+    Every manifest in the first replicated campaign recorded the software and
+    none of the hardware's settings -- no power limit, no clock policy, no
+    persistence mode, no ECC state, no governor, no driver version, not even a
+    timestamp, so run order had to be recovered from file mtimes. That mattered
+    more than it sounds: one configuration's evaluation blocks turned out to be
+    bimodal in accelerator power, 161 W against 200 W at identical duration,
+    and with persistence mode unrecorded there is no way to tell from the
+    artefact whether the card was dropping out of its performance state.
+
+    Written by both output paths, so the four stacks that never import this
+    module are described as fully as the three that do.
+    """
+    gpu = _safe_cmd([
+        "nvidia-smi",
+        "--query-gpu=name,driver_version,power.limit,persistence_mode,ecc.mode.current,"
+        "clocks.max.sm,clocks.sm,temperature.gpu,pstate",
+        "--format=csv,noheader",
+    ])
+    return {
+        "utc": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+        "gpu": gpu,
+        "cpu_governor": _safe_cmd(
+            ["cat", "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"]),
+        "cpu_boost": _safe_cmd(["cat", "/sys/devices/system/cpu/cpufreq/boost"]),
+        "precision_policy": {
+            # The policy as asked for, and as the driver and framework report it.
+            # These can disagree, and which one is true is not obvious: with
+            # NVIDIA_TF32_OVERRIDE=0 torch still reports cudnn.allow_tf32 True
+            # while executing fp32 kernels. Record all three and let the reader
+            # see the disagreement rather than inferring one from another.
+            TF32_ENV: os.environ.get(TF32_ENV),
+            "NVIDIA_TF32_OVERRIDE": os.environ.get("NVIDIA_TF32_OVERRIDE"),
+            "torch_cudnn_allow_tf32": _torch_tf32_flag(),
+        },
+    }
+
+
+def _torch_tf32_flag() -> bool | None:
+    try:
+        import torch
+
+        return bool(torch.backends.cudnn.allow_tf32)
+    except Exception:
+        return None
+
+
 def _safe_cmd(cmd: list[str]) -> str | None:
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=20).stdout.strip()

@@ -95,6 +95,22 @@ def _ctx() -> dict[str, str]:
     }
 
 
+def _machine_state() -> dict:
+    """The same machine-state block the Python harness writes.
+
+    Shared rather than reimplemented: the last time these two paths each had
+    their own idea of something -- which directory to write into -- they
+    disagreed silently and a calibration run overwrote three campaign runs.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        from deepgreen_bench import machine_state
+
+        return machine_state()
+    except Exception as exc:                     # never lose a run over a manifest
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
 def write_manifest(extra: dict | None = None) -> None:
     """Record the resolved environment, as the Python harness does."""
     from importlib.metadata import version
@@ -111,6 +127,7 @@ def write_manifest(extra: dict | None = None) -> None:
         "interpreter": sys.executable,
         "env": {k: v for k, v in os.environ.items() if k.startswith("DEEPGREEN_")},
         "hardware_counters": (_hardware().describe() if _hardware() is not None else None),
+        "machine_state": _machine_state(),
     }
     if extra:
         manifest |= extra
