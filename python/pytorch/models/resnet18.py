@@ -121,6 +121,11 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
 
         model = build_resnet18(ctx.dataset, num_classes=num_classes)
         model.to(device)
+        # What this stack's loader actually produced, recorded per run so the
+        # campaign proves its own data parity rather than the paper asserting
+        # it. Four of the seven stacks resize through implementations that
+        # cannot be inspected from outside.
+        bench.data_fingerprint(test_loader)
 
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=1e-4)

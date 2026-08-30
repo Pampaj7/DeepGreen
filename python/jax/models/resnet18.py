@@ -137,6 +137,7 @@ def run_experiment(
     )
     state, batch_stats = create_state(
         rng, model, learning_rate, (1, *img_size, 3))
+    bench.data_fingerprint(test_gen)
     assert_parameter_count("resnet18", ctx.dataset,
                            sum(int(v.size) for v in
                                jax.tree_util.tree_leaves(state.params)))

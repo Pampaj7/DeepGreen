@@ -439,8 +439,16 @@ class Harness:
         """
         import numpy as np
 
+        # A torch DataLoader iterates directly; the shared tf.data loader is a
+        # FolderLoader wrapping a dataset, and JAX pulls it through as_numpy().
+        it = loader
+        if hasattr(loader, "as_numpy"):
+            it = loader.as_numpy()
+        elif hasattr(loader, "dataset") and not hasattr(loader, "__iter__"):
+            it = loader.dataset
+
         seen = []
-        for i, batch in enumerate(loader):
+        for i, batch in enumerate(it):
             x = batch[0] if isinstance(batch, (tuple, list)) else batch
             seen.append(np.asarray(x, dtype="float64").ravel())
             if i + 1 >= batches:

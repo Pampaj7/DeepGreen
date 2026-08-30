@@ -141,6 +141,11 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
                 'from a different distribution than every other stack, silently.')
         # Trainable weights only: torch's model.parameters() excludes the
         # BatchNorm running statistics that Keras's count_params() includes.
+        # What this stack's loader actually produced, recorded per run so
+        # the campaign proves its own data parity rather than the paper
+        # asserting it. Four of the seven stacks resize through
+        # implementations that cannot be inspected from outside.
+        bench.data_fingerprint(test_loader)
         assert_parameter_count("vgg16", ctx.dataset,
                                sum(int(w.shape.num_elements())
                                    for w in model.trainable_weights))

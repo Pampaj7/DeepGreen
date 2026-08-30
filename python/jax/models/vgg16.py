@@ -153,6 +153,7 @@ def run_experiment(
     # Modello community (flaxmodels) + testa custom per 32x32
     model = VGG16_32(num_classes=num_classes)
     state = create_state(rng, model, learning_rate, (1, *img_size, 3))
+    bench.data_fingerprint(test_gen)
     assert_parameter_count("vgg16", ctx.dataset,
                            sum(int(v.size) for v in
                                jax.tree_util.tree_leaves(state.params)))

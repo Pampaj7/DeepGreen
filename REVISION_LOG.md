@@ -364,13 +364,25 @@ torchvision's 0.218089 -- agreement to five decimals once corrected.
 That is a third of the campaign, and it would have been read as an ecosystem
 difference.
 
-**What is not yet proved.** Four stacks resize through implementations that
-cannot be inspected from Python -- `tch::vision::image::resize`, DataVec's
-`ImageRecordReader`, R's `transform_resize`, and whatever the C++ loader does.
-Rather than argue, every run now records the mean, standard deviation and range
-of its own test split (`data_fingerprint.csv`, and a `DATAFP` command on the
-bridge), so the campaign proves its own data parity and the manuscript can cite
-it instead of asserting it.
+**What is proved, and what is not.** The three Python stacks record the mean,
+standard deviation and range of their own test split to `data_fingerprint.csv`,
+and on Tiny ImageNet they agree: standard deviation 0.2472 in all three, mean
+0.44445 / 0.444914 / 0.44445. That is the antialias correction confirmed in the
+campaign's own records rather than in a probe.
+
+The other four resize through implementations that cannot be inspected from
+Python -- `tch::vision::image::resize`, DataVec's `ImageRecordReader`, R's
+`transform_resize`, and the C++ loader -- and they do **not** record a
+fingerprint yet. The bridge accepts a `DATAFP` command for them; nothing sends
+it. Until that is wired, their data parity rests on the indirect evidence
+below, which is good but is not the same thing.
+
+The indirect evidence: one epoch of ResNet-18 on Fashion-MNIST, all seven
+stacks, gives a test-accuracy spread of **1.00 pp** (86.47-87.47) and a
+test-loss spread of 0.026 -- against 10.34 pp before this round's alignment
+work. Seven implementations reaching the same place from the same
+initialisation on the same data is strong evidence that the pipelines agree; it
+is not a measurement of the pixels.
 
 ---
 
