@@ -75,7 +75,10 @@ def create_state(rng, model, learning_rate, input_shape):
     """
     Inizializza parametri. (VGG16_32 non usa BatchNorm -> niente batch_stats)
     """
-    variables = model.init(rng, jnp.ones(
+    # Both streams, explicitly. The head carries nn.Dropout, and a module that
+    # asks for a "dropout" key gets it here rather than from whatever fallback
+    # flax applies during init -- the same key the training step threads.
+    variables = model.init({"params": rng, "dropout": rng}, jnp.ones(
         input_shape, dtype=jnp.float32), train=True)
     params = variables["params"]
     tx = optax.adam(learning_rate)
@@ -84,11 +87,17 @@ def create_state(rng, model, learning_rate, input_shape):
     return state
 
 
+# dropout_rng is an argument, not a closure: the head has nn.Dropout(0.5) and
+# flax will not invent its randomness. Without it this stack raised
+# InvalidRngError on the first training batch and every JAX VGG-16 run in the
+# campaign died -- the six other stacks trained the head the export defines,
+# and this one trained nothing at all.
 @jax.jit
-def train_step(state, x, y):
+def train_step(state, x, y, dropout_rng):
     def loss_fn(params):
         logits = state.apply_fn({"params": params}, x,
-                                train=True, mutable=False)
+                                train=True, mutable=False,
+                                rngs={"dropout": dropout_rng})
         loss = optax.softmax_cross_entropy(logits, y).mean()
         return loss, logits
 
@@ -152,7 +161,8 @@ def run_experiment(
 
     # Modello community (flaxmodels) + testa custom per 32x32
     model = VGG16_32(num_classes=num_classes)
-    state = create_state(rng, model, learning_rate, (1, *img_size, 3))
+    rng, init_rng = random.split(rng)
+    state = create_state(init_rng, model, learning_rate, (1, *img_size, 3))
     bench.data_fingerprint(test_gen)
     assert_parameter_count("vgg16", ctx.dataset,
                            sum(int(v.size) for v in
@@ -188,7 +198,8 @@ def run_experiment(
             x, y = next(train_iter)
             xb = jnp.asarray(x, dtype=jnp.float32)  # NHWC in [0,1]
             yb = jnp.asarray(y, dtype=jnp.float32)  # one-hot
-            state, loss, acc = train_step(state, xb, yb)
+            rng, step_rng = random.split(rng)
+            state, loss, acc = train_step(state, xb, yb, step_rng)
             train_losses.append(loss)
             train_accs.append(acc)
 

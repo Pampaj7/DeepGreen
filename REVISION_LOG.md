@@ -663,9 +663,65 @@ so the claim cannot quietly stop being true. 92 checks, 91 passing.
 
 ---
 
+## 20. The campaign caught what 92 static checks could not
+
+The second campaign started at 23:09:51 on 31 August. Fifteen hours in, at job
+55 of 210, four jobs had failed and all four were the same one: JAX training
+VGG-16.
+
+    flax.errors.InvalidRngError: Dropout_0 needs PRNG for "dropout"
+
+The shared head that `scripts/export_torchscript_models.py` defines is
+`512 -> 512, ReLU, Dropout(0.5), -> classes`, and section 13 records aligning six
+stacks onto it. Flax got the layer and not the randomness it needs: `train_step`
+called `apply_fn` without an `rngs` argument, so the first training batch of
+every JAX VGG-16 run raised, at epoch 1, after the tracker had already opened a
+block and written the parameter count. The count was right -- 15,028,644, the
+manifest's figure -- because `nn.Dropout` has no parameters. Every guard the
+revision added passed, and the run still could not take one step.
+
+That is the honest limit of a conformance suite built from source text. It
+proved the architectures matched, the pixels matched and the protocol matched,
+and none of that requires the code to run. The check that found this was the
+campaign.
+
+Fixed by threading the stream explicitly: `create_state` initialises with
+`{"params": rng, "dropout": rng}`, `train_step` takes `dropout_rng` as an
+argument and passes `rngs={"dropout": dropout_rng}`, and the loop splits a fresh
+key per step so the mask is not shared across batches. Verified on CPU, off the
+measured device, so the run in flight kept its measurement: 15,028,644
+parameters and a loss that moves.
+
+The other six were checked at the same time, since a head that one stack got
+wrong is a head worth re-reading everywhere. PyTorch, Rust and C++ load the
+exported TorchScript module and inherit it. TensorFlow has `layers.Dropout(0.5)`,
+R has `nn_dropout(p = 0.5)`, DL4J has `DropoutLayer.Builder(0.5)` -- and DL4J's
+argument is an activation *retain* probability where the other six take a drop
+probability, which at 0.5 is the same number either way. ResNet-18 has no
+dropout in any stack, which is correct: `build()` gives it the plain torchvision
+`fc`.
+
+Four runs need redoing, all of them from before the fix: JAX/VGG-16 on cifar100
+rep0, fashionmnist rep0, and tinyimagenet rep0 and rep1. Their directories hold
+a two-line `counters.csv` from the block that opened before the crash, and the
+driver refuses a non-empty run directory, so they are deleted first and then
+replayed:
+
+    rm -rf results/campaign_v2/Python-JAX_vgg16_{cifar100_rep0,fashionmnist_rep0,tinyimagenet_rep0,tinyimagenet_rep1}
+    python scripts/run_campaign.py --repetitions 5 --ecosystems Python/JAX --models vgg16
+
+The driver skips run directories that already hold data, so this replays exactly
+those four. All fifteen JAX VGG-16 runs then come from one source revision,
+which is the property that matters: the eleven still ahead in the plan pick the
+fix up on their own.
+
+---
+
 ## Still open
 
-- Re-run the campaign (~57 h) and re-derive every number.
+- Re-run the campaign (~57 h) and re-derive every number. *In flight since
+  23:09:51 on 31 August; job 55 of 210 at 14:34 on 1 September, on schedule.*
+- Replay the four JAX/VGG-16 runs that predate the dropout fix (section 20).
 - Rewrite the sections this invalidates: RQ1's mechanism, every VGG-16
   comparison, the collapse attribution, JAX's inference ranking, the boundary
   naming errors, the omnibus *p* bound that rounds the wrong way, the within-cell

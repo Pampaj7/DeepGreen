@@ -1,0 +1,50 @@
+{
+  "run": {
+    "ecosystem": "Java/DL4J",
+    "model": "vgg16",
+    "dataset": "tinyimagenet",
+    "repetition": "3",
+    "seed": "1003",
+    "epochs": "30"
+  },
+  "codecarbon_config": {
+    "tracking_mode": "machine",
+    "measure_power_secs": 1,
+    "save_to_file": true,
+    "allow_multiple_runs": true,
+    "log_level": "error"
+  },
+  "codecarbon_version": "3.3.0",
+  "python": "3.11.15 | packaged by conda-forge | (main, Mar  5 2026, 16:45:40) [GCC 14.3.0]",
+  "interpreter": "/home/pampaj/Desktop/DeepGreen/.venv-deepgreen/bin/python",
+  "env": {
+    "DEEPGREEN_REP": "3",
+    "DEEPGREEN_ECOSYSTEM": "Java/DL4J",
+    "DEEPGREEN_LOADER_THREADS": "2",
+    "DEEPGREEN_CONDA": "/home/pampaj/miniforge3/envs/deepgreen",
+    "DEEPGREEN_R_LIBS": "/home/pampaj/R/deepgreen",
+    "DEEPGREEN_DATA": "/home/pampaj/Desktop/DeepGreen/data",
+    "DEEPGREEN_DATASET": "tinyimagenet",
+    "DEEPGREEN_CUDA": "/home/pampaj/miniforge3/envs/dg-cuda128",
+    "DEEPGREEN_LIBTORCH": "/tmp/claude-1000/-home-pampaj-Desktop/d86a4516-a091-47a0-8271-eade8d18981b/scratchpad/libtorch27cu/libtorch",
+    "DEEPGREEN_PYTHON": "/home/pampaj/Desktop/DeepGreen/.venv-deepgreen/bin/python",
+    "DEEPGREEN_SEED": "1003",
+    "DEEPGREEN_RUN_DIR": "/home/pampaj/Desktop/DeepGreen/results/campaign_v2/Java-DL4J_vgg16_tinyimagenet_rep3",
+    "DEEPGREEN_MODEL": "vgg16",
+    "DEEPGREEN_EPOCHS": "30",
+    "DEEPGREEN_MODELS": "/home/pampaj/Desktop/DeepGreen/models"
+  },
+  "hardware_counters": {
+    "gpu_counter": "nvmlDeviceGetTotalEnergyConsumption",
+    "gpu_index": 0,
+    "rapl_domains": [
+      "core@intel-rapl:0:0",
+      "package-0@intel-rapl:0"
+    ],
+    "rapl_wrap_uj": {
+      "package-0@intel-rapl:0": 65532610987,
+      "core@intel-rapl:0:0": 65532610987
+    },
+    "note": "RAPL is per package and wraps; GPU counter is per device."
+  }
+}
