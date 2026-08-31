@@ -133,6 +133,61 @@ def tables_dir() -> Path:
     return real if not campaign_is_partial() else real.with_name(real.name + "_partial")
 
 
+def freeman_halton_exact(rows: "np.ndarray") -> tuple[float, float]:
+    """Exact test of homogeneity for an r x 2 table. Returns ``(p, p_observed)``.
+
+    The r x c generalisation of Fisher's exact test. Conditional on both sets of
+    margins, every table has a multivariate hypergeometric probability
+
+        P = prod_i C(n_i, k_i) / C(N, K)
+
+    and the p-value is the total probability of the tables no more likely than
+    the one observed. Nothing is approximated and nothing is simulated, so the
+    answer does not depend on a permutation count or a seed.
+
+    This exists because the collapse table has seven ecosystems, ten runs each
+    and twelve collapses in total: chi-square wants five expected per cell and
+    gets 1.71, and the permutation test the script used instead measures only
+    ``max(rate) - min(rate)``, which throws away the shape of the table and
+    returned p = 0.0676 where chi-square returned 0.0065. Neither number should
+    be quoted for a table this small when the exact one is a few thousand terms
+    away.
+
+    ``rows`` is (r, 2): successes and failures per group.
+    """
+    from math import comb, prod
+    rows = np.asarray(rows, dtype=int)
+    n = rows.sum(axis=1)              # group sizes
+    K = int(rows[:, 0].sum())         # total successes
+    N = int(n.sum())
+    denom = comb(N, K)
+
+    def prob(ks) -> float:
+        return prod(comb(int(ni), int(ki)) for ni, ki in zip(n, ks)) / denom
+
+    observed = prob(rows[:, 0])
+    total = 0.0
+    # depth-first over allocations of K successes to the groups, pruned by what
+    # the remaining groups can still hold
+    capacity = np.cumsum(n[::-1])[::-1]
+
+    def walk(i: int, left: int, acc: float) -> None:
+        nonlocal total
+        if i == len(n) - 1:
+            if 0 <= left <= n[i]:
+                pr = acc * comb(int(n[i]), int(left)) / denom
+                if pr <= observed * (1 + 1e-12):
+                    total += pr
+            return
+        lo = max(0, left - int(capacity[i + 1]))
+        hi = min(int(n[i]), left)
+        for k in range(lo, hi + 1):
+            walk(i + 1, left - k, acc * comb(int(n[i]), k))
+
+    walk(0, K, 1.0)
+    return float(min(total, 1.0)), float(observed)
+
+
 def write_table_path(name: str) -> Path:
     """Where a table of this name may be written, creating the directory.
 

@@ -871,6 +871,46 @@ expression would have mangled outright: it built the exponent with
 
 ---
 
+## 25. The exact collapse test, and a first sign the attribution was right
+
+`15_convergence.py` tested homogeneity of the collapse rate across ecosystems
+with a permutation test, and computed chi-square beside it because the
+manuscript contrasts the two. Neither is the right answer for the table it has:
+seven ecosystems, ten runs each, twelve collapses. Chi-square wants five
+expected per cell and has 1.71. And the permutation statistic is
+`max(rate) - min(rate)`, which sees only the extremes -- it cannot distinguish
+0, 0, 0, 10, 20, 40, 50 per cent from 0 and 50 with five groups sitting at the
+mean. That is why it returned p = 0.0676 where chi-square returned 0.0065: a
+property of the statistic, not evidence about the data.
+
+`common.freeman_halton_exact` now gives the exact answer. It is the r x c
+generalisation of Fisher's test: condition on both margins, and sum the
+multivariate hypergeometric probability of every table no more likely than the
+observed one. For the first campaign's table that is **p = 0.0040**, from a few
+thousand terms, with no approximation and no seed. Validated against
+`scipy.stats.fisher_exact` on 2x2 tables, where the two agree to six decimals,
+and against the requirement that the probabilities sum to 1.
+
+Chi-square is kept, guarded: `chi2_contingency` raises on a zero expected
+frequency, which a partial campaign produces, and a test we are arguing against
+must not be able to stop the pipeline. It reports NaN instead.
+
+### Zero collapses so far
+
+Running it against the campaign in flight: **0 collapses in 20 VGG-16 runs on
+the many-class datasets**, where the first campaign had 12 in 70, or 17.1%.
+
+If the rate were unchanged, twenty runs would produce none with probability
+0.023. That is suggestive and not yet conclusive -- the exact 95% upper bound on
+the current rate is still 13.9%, so a rate near the old one is not excluded.
+But the direction is what section 13 predicted: with every stack initialised
+from the same exported weights, the phenomenon the first campaign distributed
+across ecosystems has not appeared at all. Worth watching to 210 rather than
+claiming now; if it holds, the collapse section becomes a much shorter and much
+stronger argument.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number. *In flight since
@@ -886,7 +926,6 @@ expression would have mangled outright: it built the exponent with
   comparison, the collapse attribution, JAX's inference ranking, the omnibus *p* bound that rounds the wrong way, the within-cell
   ρ macros, the ε² saturation, the exact collapse test, the Welch-versus-rank
   discussion, the idle-subtraction sensitivity, the bimodal power state.
-- Drop the per-ecosystem chi-squared in `15_convergence.py` (section 23).
 - Re-derive every numeric claim in `REVIEWERS_RESPONSE.md` from the generated
   macros; several overclaim against the current tree.
 - Make the replication package round-trip (13,037 of ~13,230 files differ on

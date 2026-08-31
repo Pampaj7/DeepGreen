@@ -43,7 +43,8 @@ import pandas as pd
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import (REPO_ROOT, save_table, TABLES_RESOLVER, tables_dir)  # noqa: E402
+from common import (REPO_ROOT, TABLES_RESOLVER,  # noqa: E402
+                    freeman_halton_exact, save_table)
 
 TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 
@@ -151,10 +152,25 @@ def homogeneity_test(q: pd.DataFrame, n_permutations: int = 20000) -> pd.DataFra
     many-class datasets), so the question is conditional on susceptibility
     rather than confounded with it.
 
-    Cell counts are far too small for the chi-square approximation, so the
-    statistic is calibrated by permutation: shuffle the collapse labels across
-    ecosystems many times and ask how often chance produces a spread at least as
-    uneven as the observed one.
+    The table is seven ecosystems by ten runs with twelve collapses in total.
+    Chi-square wants five expected observations per cell and has 1.71, so its
+    p-value is not to be quoted. The answer here is the exact one:
+    Freeman--Halton, the r x c generalisation of Fisher's test, conditions on
+    both margins and sums the probability of every table no more likely than
+    this one. A few thousand terms, no approximation, no seed.
+
+    The permutation test is kept beside it, and the manuscript should say why
+    the two differ. Its statistic is ``max(rate) - min(rate)``, which sees only
+    the extremes: it cannot tell seven ecosystems at 0, 0, 0, 10, 20, 40 and 50
+    per cent from two at 0 and 50 with five in between at the mean. That is why
+    it returns a larger p-value than either the exact test or chi-square, and it
+    is a property of the statistic rather than evidence about the data.
+
+    Chi-square is reported too, because the manuscript contrasts the exact and
+    approximate answers and a contrast is only honest if both sides come from
+    this table. It is guarded: with a zero expected frequency -- which a partial
+    campaign produces -- scipy raises, and a test we are arguing against must
+    not be able to stop the pipeline.
     """
     v = q[(q.model == "vgg16") & (q.dataset.isin(["cifar100", "tinyimagenet"]))]
     table = v.groupby("ecosystem").collapsed.agg(["sum", "size"])
@@ -174,17 +190,24 @@ def homogeneity_test(q: pd.DataFrame, n_permutations: int = 20000) -> pd.DataFra
     rows = table.reset_index().rename(columns={"sum": "n_collapsed", "size": "n_runs"})
     rows["collapse_pct"] = (100 * rows.n_collapsed / rows.n_runs).round(0)
     rows["overall_pct"] = round(100 * labels.mean(), 1)
-    rows["permutation_p"] = round(p_value, 4)
 
-    # The chi-square the paper warns against, computed rather than quoted: the
-    # manuscript contrasts the two p-values, and a contrast is only honest if
-    # both sides come from this table.
     contingency = np.column_stack([table["sum"].to_numpy(),
                                    (table["size"] - table["sum"]).to_numpy()])
-    chi2, chi_p, _, expected = stats.chi2_contingency(contingency)
-    rows["chi_square"] = round(float(chi2), 3)
-    rows["chi_square_p"] = round(float(chi_p), 4)
-    rows["chi_square_min_expected"] = round(float(expected.min()), 2)
+
+    exact_p, _ = freeman_halton_exact(contingency)
+    rows["exact_p"] = round(exact_p, 4)
+    rows["permutation_p"] = round(p_value, 4)
+
+    try:
+        chi2, chi_p, _, expected = stats.chi2_contingency(contingency)
+        rows["chi_square"] = round(float(chi2), 3)
+        rows["chi_square_p"] = round(float(chi_p), 4)
+        rows["chi_square_min_expected"] = round(float(expected.min()), 2)
+    except ValueError:
+        # a zero expected frequency: exactly the regime the exact test is for
+        rows["chi_square"] = np.nan
+        rows["chi_square_p"] = np.nan
+        rows["chi_square_min_expected"] = 0.0
     return rows
 
 
