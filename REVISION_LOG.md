@@ -771,6 +771,45 @@ place rather than in each script that reads `counters.csv`.
 
 ---
 
+## 22. Four boundary errors in the manuscript, fixed against the code
+
+These do not depend on the re-execution, so they were done while it ran. Each
+was checked against what the pipeline actually computes rather than against what
+the sentence sounded like.
+
+**"Intel RAPL" on an AMD machine** (§2). The instrument paragraph introduced the
+CPU counter as "Intel RAPL". The campaign host is AMD Zen 3. RAPL is Intel's
+interface by origin, AMD exposes an equivalent set of model-specific registers,
+and Linux presents both through `powercap` -- whose sysfs nodes are named
+`intel-rapl` for either vendor. The text now says so, which also pre-empts a
+reader who finds `intel-rapl:0` in our data and concludes we misreported the
+hardware.
+
+**Our own row in the related-work table** (§2) gave this study's boundary as
+"GPU" where every other row reads "CPU + GPU". We measure the accelerator board
+*and* the CPU package, and the row understated the work in a table built to
+compare exactly that. Now "CPU + GPU".
+
+**`\vAuditSpreadGpuOnly` described as "a counter boundary"** (§4). It is not:
+`12_paper_numbers.py` computes it from CodeCarbon's `gpu_energy`, so it is the
+estimator's own accelerator term. Its companion `\vAuditSpreadConfounded` is the
+estimator's total. The point the sentence makes is stronger stated correctly --
+both figures come from one instrument, and only the charged region changes -- so
+it now says that.
+
+**"Every figure we report is whole-machine"** (§7, limitations). The paper
+defines whole-machine 1,800 lines earlier as what a *wall meter* sees, and
+distinguishes it from counters precisely because counters do not see it. The
+intended claim was that the figures are *un-baselined*: the counters include the
+machine's static draw within their own boundary. Un-baselined and whole-machine
+are now kept apart, with the boundary named.
+
+Checked structurally rather than by compiling: `pdflatex` would occupy a core,
+and CPU package energy is being measured right now. Braces balance at 1,110, and
+all 228 `\v` macros the text uses are defined. A full build follows the campaign.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number. *In flight since
@@ -783,8 +822,7 @@ place rather than in each script that reads `counters.csv`.
 - Give the analysis one shared "complete runs only" filter, so no aggregate can
   include a crashed run again (section 21).
 - Rewrite the sections this invalidates: RQ1's mechanism, every VGG-16
-  comparison, the collapse attribution, JAX's inference ranking, the boundary
-  naming errors, the omnibus *p* bound that rounds the wrong way, the within-cell
+  comparison, the collapse attribution, JAX's inference ranking, the omnibus *p* bound that rounds the wrong way, the within-cell
   ρ macros, the ε² saturation, the exact collapse test, the Welch-versus-rank
   discussion, the idle-subtraction sensitivity, the bimodal power state.
 - Re-derive every numeric claim in `REVIEWERS_RESPONSE.md` from the generated

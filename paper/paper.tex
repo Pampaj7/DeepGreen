@@ -337,9 +337,13 @@ Understanding these ecosystem-level differences is crucial, since language choic
 places, and the choice of place matters more than the choice of tool.
 A \emph{wall meter} sees the whole machine including power supply losses, fans
 and drives. \emph{Hardware energy counters} --- NVML's
-\texttt{nvmlDeviceGetTotalEnergyConsumption} on NVIDIA accelerators and Intel
-RAPL on the CPU package --- accumulate energy in the silicon itself and are read
-by software but not estimated by it. \emph{Software estimators} such as
+\texttt{nvmlDeviceGetTotalEnergyConsumption} on NVIDIA accelerators and RAPL on
+the CPU package --- accumulate energy in the silicon itself and are read by
+software but not estimated by it. RAPL is Intel's interface by origin, but AMD
+exposes an equivalent set of model-specific registers and Linux presents both
+through the same \texttt{powercap} tree, whose nodes are named
+\texttt{intel-rapl} whatever the vendor. The machine used here is AMD, so the
+name in the sysfs path is not the name of the silicon. \emph{Software estimators} such as
 \texttt{CodeCarbon}~\cite{codecarbon} sit on top of whatever the
 platform exposes and substitute a model wherever it exposes nothing.
 
@@ -415,7 +419,7 @@ Jay \etal~\cite{jay2023experimental} & software meters, not stacks & CPU + GPU &
 Marini \etal~\cite{marini2025green} & 5 languages & CPU + GPU & software estimator & single run \\
 Chattaraj \etal~\cite{chattaraj2025rvspython} & 2 languages, no DL & CPU & software estimator & repeated \\
 \midrule
-This study & \vEcosystems{} stacks, 5 languages & GPU & NVML + RAPL counters, estimator alongside & \vRepetitions{} runs \\
+This study & \vEcosystems{} stacks, 5 languages & CPU + GPU & NVML + RAPL counters, estimator alongside & \vRepetitions{} runs \\
 \bottomrule
 \end{tabularx}
 \end{table*}
@@ -943,8 +947,10 @@ Part of that spread is recovered simply by fixing the measurement boundary, and
 the earlier campaign's own data show it without any comparison across machines
 --- which would be improper here, since the two ran on different hardware. On
 those same runs, the ecosystem spread is \vAuditSpreadConfounded$\times$ when
-energy is taken as the estimator's total and \vAuditSpreadGpuOnly$\times$ at a
-counter boundary. A constant host term added to every stack compresses their
+energy is taken as the estimator's total and \vAuditSpreadGpuOnly$\times$ when
+it is taken as the estimator's accelerator term alone. Both figures come from
+the same instrument; what changes between them is only which part of the machine
+is being charged. A constant host term added to every stack compresses their
 ratios toward one; removing it does not change what was measured, only what the
 ratio means.
 
@@ -2130,8 +2136,10 @@ finding, which concerns a field rather than a measurement.
 
 A second construct limitation belongs here, because it bounds what the
 attribution in Section~\ref{sec:discussion} can claim. Every figure we report is
-whole-machine and un-baselined: the counters accumulate whatever the silicon
-draws, the machine's static consumption included. We measured that directly
+un-baselined: the counters accumulate whatever the silicon draws, the machine's
+static consumption included. Un-baselined is not whole-machine, and the two are
+worth keeping apart --- the boundary is the accelerator board plus the CPU
+package, and what a wall meter would add to it is quantified above. We measured that directly
 rather than arguing about it. On an idle host at the same boundary this machine
 draws \vIdleTotalW\,\si{\watt} --- \vIdleGpuW\,\si{\watt} at the accelerator and
 \vIdleCpuW\,\si{\watt} at the CPU package --- which is
