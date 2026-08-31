@@ -38,23 +38,15 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, save_table  # noqa: E402
+from common import REPO_ROOT, read_complete_counters, save_table  # noqa: E402
 
 TABLES = REPO_ROOT / "results" / "revision" / "tables"
 CALIBRATION = REPO_ROOT / "results" / "calibration"
-EXPECTED_EPOCHS = 30
 
 
 def read_counters(run_dir: Path) -> pd.DataFrame | None:
-    path = run_dir / "counters.csv"
-    if not path.exists():
-        return None
-    hw = pd.read_csv(path)
-    if hw.empty:
-        return None
-    counts = hw.groupby("phase").epoch.nunique()
-    if not all(int(counts.get(ph, 0)) >= EXPECTED_EPOCHS for ph in ("train", "eval")):
-        return None  # a fragment is not a small measurement
+    """A fragment is not a small measurement; see common.EXPECTED_EPOCHS."""
+    hw, _ = read_complete_counters(run_dir)
     return hw
 
 

@@ -26,6 +26,7 @@ Nothing downstream may use ``energy_consumed`` directly.
 
 from __future__ import annotations
 
+import os
 import warnings
 from pathlib import Path
 
@@ -47,6 +48,51 @@ FIG_DIR = OUT_DIR / "figures"
 # Unit constants
 # --------------------------------------------------------------------------
 J_PER_KWH = 3.6e6  # 1 kWh = 3.6 MJ
+
+# --------------------------------------------------------------------------
+# The completeness gate
+# --------------------------------------------------------------------------
+#: A run counts only if it recorded every epoch of both phases.
+#:
+#: A run that dies part-way leaves its directory behind holding the blocks it
+#: managed before the exception. Those are fragments, not small measurements of
+#: the same thing -- 16 J beside a neighbouring stack's 300 kJ -- and averaging
+#: them in produced ecosystem spreads of 20,000x in the first campaign. The
+#: second campaign made the point again: four JAX VGG-16 runs died on their
+#: first training batch, each leaving one row, and a per-stack mean over the
+#: directory reported JAX at 135 W where the complete runs say 218 W.
+#:
+#: This lived in three copies -- 09_campaign_v2, 11_instrument_comparison and
+#: 17_window_calibration -- and the third hard-coded 30 epochs where the other
+#: two read DEEPGREEN_EPOCHS, so a shorter campaign would have passed every
+#: fragment through one of the three. One definition, here.
+EXPECTED_EPOCHS = int(os.environ.get("DEEPGREEN_EPOCHS", "30"))
+PHASES = ("train", "eval")
+
+
+def read_complete_counters(run_dir: Path) -> tuple[pd.DataFrame | None, dict]:
+    """``(counters, per-phase epoch counts)`` for a run, or ``(None, counts)``.
+
+    ``None`` means the run is missing, unreadable, empty, or short of
+    ``EXPECTED_EPOCHS`` in either phase. The counts come back either way so a
+    caller can report exactly what was rejected rather than dropping it
+    silently -- an analysis that quietly discards runs is as hard to trust as
+    one that quietly keeps broken ones.
+    """
+    path = Path(run_dir) / "counters.csv"
+    if not path.exists():
+        return None, {}
+    try:
+        hw = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return None, {}
+    if hw.empty:
+        return None, {}
+    counts = hw.groupby("phase").epoch.nunique()
+    counts = {ph: int(counts.get(ph, 0)) for ph in PHASES}
+    if any(counts[ph] < EXPECTED_EPOCHS for ph in PHASES):
+        return None, counts
+    return hw, counts
 
 # Hardware reference values for the measurement platform (used only for
 # plausibility checks and utilisation reporting, never to derive energy).

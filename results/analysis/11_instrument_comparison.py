@@ -31,7 +31,8 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import J_PER_KWH, REPO_ROOT, save_table  # noqa: E402
+from common import (EXPECTED_EPOCHS, J_PER_KWH, REPO_ROOT,  # noqa: E402
+                    read_complete_counters, save_table)
 
 CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
 
@@ -42,8 +43,6 @@ CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
 # they are fragments of a run that never happened. Including them silently
 # produced ecosystem spreads of 20,000x. Completeness is therefore a gate, not a
 # judgement call: a run counts only if it recorded every epoch of both phases.
-EXPECTED_EPOCHS = int(__import__("os").environ.get("DEEPGREEN_EPOCHS", "30"))
-PHASES = ("train", "eval")
 
 
 def parse_run_name(name: str) -> dict:
@@ -62,24 +61,11 @@ def collect() -> pd.DataFrame:
     rows: list[dict] = []
     incomplete: list[tuple[str, dict]] = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
-        counters_path = run_dir / "counters.csv"
-        if not counters_path.exists():
-            continue
-        try:
-            hw = pd.read_csv(counters_path)
-        except pd.errors.EmptyDataError:
-            continue
-        if hw.empty:
-            continue
-
-        # -- completeness gate -------------------------------------------
-        counts = hw.groupby("phase").epoch.nunique()
-        missing = [ph for ph in PHASES
-                   if int(counts.get(ph, 0)) < EXPECTED_EPOCHS]
-        if missing:
-            incomplete.append(
-                (run_dir.name,
-                 {ph: int(counts.get(ph, 0)) for ph in PHASES}))
+        # -- completeness gate, common.read_complete_counters -------------
+        hw, counts = read_complete_counters(run_dir)
+        if hw is None:
+            if counts:  # present but short; absent runs are not "incomplete"
+                incomplete.append((run_dir.name, counts))
             continue
 
         meta = parse_run_name(run_dir.name)

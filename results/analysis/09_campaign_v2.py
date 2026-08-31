@@ -16,7 +16,6 @@ data is present this script explains what is missing and exits cleanly.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -24,7 +23,8 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import J_PER_KWH, REPO_ROOT, save_table, t_ci  # noqa: E402
+from common import (EXPECTED_EPOCHS, J_PER_KWH, REPO_ROOT,  # noqa: E402
+                    read_complete_counters, save_table, t_ci)
 
 CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
 TARGET_ACCURACY = {  # per dataset, chosen well below the achievable ceiling
@@ -34,25 +34,6 @@ TARGET_ACCURACY = {  # per dataset, chosen well below the achievable ceiling
 }
 
 
-# A run that died part-way leaves its directory behind holding the few blocks it
-# managed. Those are fragments, not small measurements, and averaging them in
-# with complete runs produced ecosystem spreads three orders of magnitude too
-# large. See the same gate in 11_instrument_comparison.py.
-EXPECTED_EPOCHS = int(os.environ.get("DEEPGREEN_EPOCHS", "30"))
-
-
-def _is_complete(run_dir: Path) -> bool:
-    counters = run_dir / "counters.csv"
-    if not counters.exists():
-        return False
-    try:
-        hw = pd.read_csv(counters)
-    except pd.errors.EmptyDataError:
-        return False
-    if hw.empty:
-        return False
-    counts = hw.groupby("phase").epoch.nunique()
-    return all(int(counts.get(ph, 0)) >= EXPECTED_EPOCHS for ph in ("train", "eval"))
 
 
 def collect() -> pd.DataFrame:
@@ -62,7 +43,8 @@ def collect() -> pd.DataFrame:
     no_metrics = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
         metrics_path = run_dir / "metrics.csv"
-        if not _is_complete(run_dir):
+        hw, counts = read_complete_counters(run_dir)
+        if hw is None:
             skipped.append(run_dir.name)
             continue
         if not metrics_path.exists():
@@ -79,7 +61,7 @@ def collect() -> pd.DataFrame:
         # term, under a caption reading "accelerator plus CPU package". That is
         # the defect this paper catalogues as "modelled term inside a measured
         # total", committed by the paper itself.
-        hw = pd.read_csv(run_dir / "counters.csv")
+        hw = hw.copy()
         hw["phase"] = hw.phase.map({"train": "Training", "eval": "Inference"})
         hw = hw.set_index(["phase", "epoch"])
         for emissions_path in sorted(run_dir.glob("emissions_*.csv")):
@@ -131,13 +113,28 @@ def collect() -> pd.DataFrame:
     df["cc_gpu_j"] = df["gpu_energy"].astype(float) * J_PER_KWH
     df["cc_duration_s"] = df["duration"].astype(float)
 
+    # Only the runs the gate above accepted, and only files with content. This
+    # loop used to walk every directory and read every metrics.csv, which
+    # crashed with EmptyDataError on the run that was in flight -- its file
+    # exists from the moment the harness opens it and has no header until the
+    # first epoch closes. Reading a live campaign is exactly when this script is
+    # most useful, so it must survive one.
+    kept = set(df["run_dir"].unique())
     meta = []
     for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
+        if run_dir.name not in kept:
+            continue
         mp = run_dir / "metrics.csv"
-        if mp.exists():
+        if not mp.exists() or mp.stat().st_size == 0:
+            continue
+        try:
             m = pd.read_csv(mp)
-            m["run_dir"] = run_dir.name
-            meta.append(m)
+        except pd.errors.EmptyDataError:
+            continue
+        if m.empty:
+            continue
+        m["run_dir"] = run_dir.name
+        meta.append(m)
     quality = pd.concat(meta, ignore_index=True) if meta else pd.DataFrame()
     if not quality.empty:
         df = df.merge(quality, on=["run_dir", "epoch"], how="left", suffixes=("", "_q"))
