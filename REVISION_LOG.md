@@ -717,7 +717,7 @@ fix up on their own.
 
 ---
 
-## 21. R and JAX draw half the power, and the reason is visible live
+## 21. R holds the GPU at 5.7% utilisation, and JAX does not
 
 Sampled during `R/torch resnet18/tinyimagenet rep1` at job 57: **5.7% GPU
 utilisation over 28 samples, 128 W**, with three R processes at 92%, 58% and 58%
@@ -725,23 +725,14 @@ CPU. The GPU is attached and computing -- `nvidia-smi` shows 1,128 MiB held by
 the R interpreter itself -- it is simply idle most of the time, waiting on the
 loader.
 
-That matters because R and JAX are the two stacks whose mean training power sits
-near 135 W where the other five sit at 260-291 W, and after section 18 a stack
-drawing half the power is exactly the shape a silent CPU fallback makes. It is
-not one here. R holds device memory, and the deficit is utilisation, not
-placement.
-
-It is also not a protocol mismatch: R runs the two loader workers the spec
-mandates, the same two every stack gets. R's workers are simply slower per
-image, which is an ecosystem property and precisely the kind of thing the study
-exists to measure -- but it belongs in the paper as a stated mechanism, with the
-utilisation figure attached, rather than as an unexplained gap in a bar chart.
-
-To settle when the runs are complete: sample the same way during a JAX block,
-and report per-stack GPU utilisation alongside energy. If JAX is loader-bound
-too, then the headline "JAX is cheapest" is partly a statement about how little
-work reaches the device per unit of wall-clock, which the first campaign read as
-efficiency.
+That matters because after section 18 a stack drawing half the power is exactly
+the shape a silent CPU fallback makes. It is not one here. R holds device
+memory, and the deficit is utilisation, not placement. Nor is it a protocol
+mismatch: R runs the two loader workers the spec mandates, the same two every
+stack gets. R's workers are simply slower per image, which is an ecosystem
+property and precisely the kind of thing the study exists to measure -- but it
+belongs in the paper as a stated mechanism, with the utilisation figure
+attached, rather than as an unexplained gap in a bar chart.
 
 The idle floor was measured while writing this, from a cooldown gap between two
 jobs: **0% utilisation, 27.9 W, 210 MHz, 185 MiB**. So the 128 W R draws is four
@@ -752,6 +743,32 @@ clock and memory at 1 Hz for the rest of the campaign, to `results/`, joinable t
 each run by `manifest.json`'s mtime for the start and `counters.csv`'s for the
 end.
 
+### The first version of this section was wrong about JAX
+
+It read "R and JAX draw half the power", from a per-stack mean that put JAX at
+135 W. That mean included the four crashed VGG-16 runs of section 20, each of
+which contributes a single `counters.csv` row from the block that opened before
+the exception -- about 94 W of nothing. Excluding every run without its full 30
+training blocks:
+
+    C++/LibTorch   297 W (251-344)      PyTorch      262 W (214-337)
+    TensorFlow     285 W (232-337)      Rust/tch     258 W (201-320)
+    Java/DL4J      265 W (192-338)      JAX          218 W (160-327)
+    R/torch        134 W (125-141)
+
+JAX is unremarkable, and inside its own training blocks the repaired
+`vgg16/cifar100 rep1` drew **322 W** -- above every stack's mean. R is the sole
+outlier, and the striking thing is the range: **125 to 141 W across eleven runs**
+spanning both architectures and all three datasets, where every other stack
+varies by 100 W or more with the network it is training. R's GPU power is set by
+its loader rather than by the model, which is what being starved looks like.
+
+The lesson is procedural and worth stating: an aggregate computed over a
+directory of runs will quietly include the broken ones. Every analysis of this
+campaign must filter on complete runs first, and `scripts/` should do it in one
+place rather than in each script that reads `counters.csv`.
+
+
 ---
 
 ## Still open
@@ -761,8 +778,10 @@ end.
   3.4 jobs/h, finishing around midday on Wednesday 2 September. Four failures,
   all the one bug in section 20.*
 - Replay the four JAX/VGG-16 runs that predate the dropout fix (section 20).
-- Report per-stack GPU utilisation next to energy, and say why R and JAX draw
-  half the power (section 21).
+- Report per-stack GPU utilisation next to energy, and say why R draws half the
+  power the others do (section 21).
+- Give the analysis one shared "complete runs only" filter, so no aggregate can
+  include a crashed run again (section 21).
 - Rewrite the sections this invalidates: RQ1's mechanism, every VGG-16
   comparison, the collapse attribution, JAX's inference ranking, the boundary
   naming errors, the omnibus *p* bound that rounds the wrong way, the within-cell
