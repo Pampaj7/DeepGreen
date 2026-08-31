@@ -717,11 +717,43 @@ fix up on their own.
 
 ---
 
+## 21. R and JAX draw half the power, and the reason is visible live
+
+Sampled during `R/torch resnet18/tinyimagenet rep1` at job 57: **5.7% GPU
+utilisation over 28 samples, 128 W**, with three R processes at 92%, 58% and 58%
+CPU. The GPU is attached and computing -- `nvidia-smi` shows 1,128 MiB held by
+the R interpreter itself -- it is simply idle most of the time, waiting on the
+loader.
+
+That matters because R and JAX are the two stacks whose mean training power sits
+near 135 W where the other five sit at 260-291 W, and after section 18 a stack
+drawing half the power is exactly the shape a silent CPU fallback makes. It is
+not one here. R holds device memory, and the deficit is utilisation, not
+placement.
+
+It is also not a protocol mismatch: R runs the two loader workers the spec
+mandates, the same two every stack gets. R's workers are simply slower per
+image, which is an ecosystem property and precisely the kind of thing the study
+exists to measure -- but it belongs in the paper as a stated mechanism, with the
+utilisation figure attached, rather than as an unexplained gap in a bar chart.
+
+To settle when the runs are complete: sample the same way during a JAX block,
+and report per-stack GPU utilisation alongside energy. If JAX is loader-bound
+too, then the headline "JAX is cheapest" is partly a statement about how little
+work reaches the device per unit of wall-clock, which the first campaign read as
+efficiency.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number. *In flight since
-  23:09:51 on 31 August; job 55 of 210 at 14:34 on 1 September, on schedule.*
+  23:09:51 on 31 August; job 57 of 210 at 15:10 on 1 September, ~3.6 jobs/h,
+  finishing around 10:00 on 3 September. Four failures, all the one bug in
+  section 20.*
 - Replay the four JAX/VGG-16 runs that predate the dropout fix (section 20).
+- Report per-stack GPU utilisation next to energy, and say why R and JAX draw
+  half the power (section 21).
 - Rewrite the sections this invalidates: RQ1's mechanism, every VGG-16
   comparison, the collapse attribution, JAX's inference ranking, the boundary
   naming errors, the omnibus *p* bound that rounds the wrong way, the within-cell
