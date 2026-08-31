@@ -911,6 +911,40 @@ stronger argument.
 
 ---
 
+## 26. The response document claimed a campaign that no longer stands
+
+`REVIEWERS_RESPONSE.md` opened with:
+
+> **Status: the replicated campaign has been executed in full --- 210 runs of
+> 210, no failures.** Every item previously marked *REQUIRES RE-EXECUTION* is
+> now closed with measured numbers.
+
+That was true when written and is not true now. The campaign it describes did
+complete; auditing it afterwards found the three confounds that forced the
+re-execution, so its numbers cannot be quoted as closing anything. Sending this
+document to the editor in that state would assert, in its first paragraph, a
+completeness the work does not have.
+
+The status paragraph now says what is actually the case: a campaign completed,
+its audit found that TF32 policy, four different VGG-16 networks and four
+different initialisers had confounded three headline claims, the stacks were
+aligned, and the campaign is running again. It also says plainly that every
+quantity below it is from the superseded campaign.
+
+A closing table names exactly what changes and why -- the collapse counts and
+their per-ecosystem spread, every VGG-16 energy figure, RQ1's mechanism, JAX's
+inference ranking, the loader-configuration table (which describes the state
+that was *found*, not the state that was measured, and still lists MATLAB), and
+the permutation p-value now replaced by Freeman--Halton. What does not change is
+also named: the instrument comparison, the padding and window-floor results, the
+boundary argument and the source-level defects are properties of the tooling and
+the code, not of the campaign's numbers.
+
+The remaining numeric claims still need re-deriving from the macros one by one.
+This closes the part that could mislead on its own.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number. *In flight since

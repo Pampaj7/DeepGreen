@@ -9,14 +9,39 @@ three outcomes:
 * **MANUSCRIPT** — the change lands in the paper text, `paper/paper.tex`.
 * **REQUIRES RE-EXECUTION** — needed a new campaign.
 
-**Status: the replicated campaign has been executed in full — 210 runs of 210, no failures.** Every item previously
-marked *REQUIRES RE-EXECUTION* is now closed with measured numbers, with one
-exception stated below (the workload still does not saturate the accelerator —
-Reviewer 1 comments 2 and 15). The design
-is 7 ecosystems × 2 architectures × 3 datasets × 5 independent interleaved
-repetitions = 210 runs, all of which completed, each block instrumented twice (NVML + RAPL hardware
-counters, and CodeCarbon over the identical window). Raw records are under
-`results/campaign_v2/`; aggregates under `results/revision/tables/`.
+**Status: a second campaign is running; the numbers below are from the first and
+are being re-derived.**
+
+A replicated campaign did complete in full — 210 runs of 210 — and an earlier
+draft of this document said so and stopped there. Auditing it afterwards showed
+that three of the study's headline claims were confounded by the campaign
+itself, not by the ecosystems it compares:
+
+* **RQ1's mechanism.** TF32 was on for some stacks and off for others, so part
+  of what was reported as an ecosystem effect was a numerical-precision policy.
+* **Every VGG-16 comparison.** The seven stacks were training four different
+  networks, spanning 9.1× in parameter count, under a specification that claimed
+  the counts had been checked. They had not been checked anywhere.
+* **The collapse attribution.** The per-ecosystem collapse rates reflect
+  differing weight initialisers, not the ecosystems.
+
+Reporting numbers from that campaign would mean reporting those confounds. So
+the stacks were aligned — one exported set of weights, one initialiser, one
+precision policy, one data pipeline, all of it enforced by 92 conformance
+checks and proved by architecture and data parity fingerprints — and the
+campaign is being re-executed. `REVISION_LOG.md` records the alignment in full.
+
+The design is unchanged: 7 ecosystems × 2 architectures × 3 datasets × 5
+independent interleaved repetitions = 210 runs, each block instrumented twice
+(NVML + RAPL hardware counters, and CodeCarbon over the identical window). Raw
+records are under `results/campaign_v2/`; aggregates under
+`results/revision/tables/`.
+
+**Until the re-execution finishes, every quantity in this document is from the
+superseded campaign and is marked for re-derivation.** The findings that do not
+depend on it — the instrument comparison, the boundary argument, the window
+calibration, the defects found by source audit — stand as written. The findings
+that do are named at the end of this document.
 
 Everything below is reproducible with `results/analysis/run_all.sh`.
 
@@ -838,3 +863,24 @@ identity on every row. `--check` verifies the package against the raw tree.
 4. **MATLAB** remains out of scope. It cannot be brought into conformance with
    the specification, and including a stack that provably runs a different
    experiment would reintroduce the confound the design exists to remove.
+
+---
+
+## What the re-execution changes in this document
+
+Listed so that no reader has to work it out from the dates. Each of these is a
+quantity or a claim taken from the superseded campaign; each will be replaced
+from the generated macros once the second campaign completes.
+
+| Section | Claim | Why it changes |
+|---|---|---|
+| VGG-16 collapse | "12 of 105 VGG-16 runs", the per-ecosystem spread (Java 5/10, TensorFlow 4/10, C++ 2/10, PyTorch 1/10, and never in JAX, R, Rust) | The rates reflect four different initialisers. With one exported set of weights the phenomenon has not recurred: 0 collapses in the first 22 many-class VGG-16 runs of the second campaign. |
+| VGG-16 energy, everywhere it appears | every per-ecosystem VGG-16 figure and ratio | Four different networks were being compared, spanning 9.1× in parameters. |
+| RQ1 mechanism | the attribution of the spread to ecosystem behaviour | TF32 was on for some stacks and off for others. |
+| JAX inference ranking | JAX as cheapest at inference | Measured with asynchronous dispatch unsynchronised; 35.9% of the work finished after the tracker closed. |
+| Loader configuration table | "0 (R/torch), 1 (JAX, TensorFlow, MATLAB), 2 (PyTorch, C++, Java), 96 (Rust)" | Describes the state that was found, not the state that was measured: all stacks now run two loader workers. MATLAB is out of the study. |
+| Homogeneity of collapse | the permutation p-value | Replaced by the exact Freeman--Halton test; on the first campaign's table, p = 0.0040. |
+
+The instrument comparison, the padding and window-floor results, the boundary
+argument and the source-level defects are properties of the tooling and the code
+rather than of the campaign's numbers, and are unaffected.
