@@ -665,8 +665,8 @@ so the claim cannot quietly stop being true. 92 checks, 91 passing.
 
 ## 20. The campaign caught what 92 static checks could not
 
-The second campaign started at 23:09:51 on 31 August. Fifteen hours in, at job
-55 of 210, four jobs had failed and all four were the same one: JAX training
+The second campaign started at 23:09:25 on Sunday 30 August. Fifteen hours in,
+at job 55 of 210, four jobs had failed and all four were the same one: JAX training
 VGG-16.
 
     flax.errors.InvalidRngError: Dropout_0 needs PRNG for "dropout"
@@ -743,14 +743,23 @@ too, then the headline "JAX is cheapest" is partly a statement about how little
 work reaches the device per unit of wall-clock, which the first campaign read as
 efficiency.
 
+The idle floor was measured while writing this, from a cooldown gap between two
+jobs: **0% utilisation, 27.9 W, 210 MHz, 185 MiB**. So the 128 W R draws is four
+and a half times idle, and the clocks are not pinned -- persistence mode is on,
+which keeps the driver resident, but the SM clock still swings 210 to 1740 MHz
+with load. `scripts/sample_gpu_utilisation.sh` now records utilisation, power,
+clock and memory at 1 Hz for the rest of the campaign, to `results/`, joinable to
+each run by `manifest.json`'s mtime for the start and `counters.csv`'s for the
+end.
+
 ---
 
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number. *In flight since
-  23:09:51 on 31 August; job 57 of 210 at 15:10 on 1 September, ~3.6 jobs/h,
-  finishing around 10:00 on 3 September. Four failures, all the one bug in
-  section 20.*
+  23:09:25 on Sunday 30 August; job 57 of 210 at 15:42 on Monday 31 August,
+  3.4 jobs/h, finishing around midday on Wednesday 2 September. Four failures,
+  all the one bug in section 20.*
 - Replay the four JAX/VGG-16 runs that predate the dropout fix (section 20).
 - Report per-stack GPU utilisation next to energy, and say why R and JAX draw
   half the power (section 21).
