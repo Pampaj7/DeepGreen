@@ -36,9 +36,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, save_table  # noqa: E402
+from common import write_table_path, REPO_ROOT, TABLES_RESOLVER, save_table  # noqa: E402
 
-TABLES = REPO_ROOT / "results" / "revision" / "tables"
+TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 
 
 def per_block() -> pd.DataFrame:
@@ -290,7 +290,7 @@ def main() -> None:
     save_table(cov, "v2_coverage_by_ecosystem",
                "Tracked share of wall time, and the instrument's share of the rest")
 
-    a.to_csv(TABLES / "v2_coverage_per_block.csv", index=False)
+    a.to_csv(write_table_path("v2_coverage_per_block.csv"), index=False)
 
 
 if __name__ == "__main__":

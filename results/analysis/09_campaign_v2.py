@@ -23,10 +23,11 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import (EXPECTED_EPOCHS, J_PER_KWH, REPO_ROOT,  # noqa: E402
+from common import (EXPECTED_EPOCHS, J_PER_KWH, REPO_ROOT, announce_scope,  # noqa: E402
                     read_complete_counters, save_table, t_ci)
 
 CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
+announce_scope("09_campaign_v2")
 TARGET_ACCURACY = {  # per dataset, chosen well below the achievable ceiling
     "fashionmnist": 85.0,
     "cifar100": 30.0,

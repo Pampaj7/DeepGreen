@@ -810,6 +810,67 @@ all 228 `\v` macros the text uses are defined. A full build follows the campaign
 
 ---
 
+## 23. I overwrote the manuscript's inputs, and then built the guard
+
+Fixing `\vOmnibusMaxP` (below) meant re-running `12_paper_numbers.py` to see the
+new value. It regenerated all 274 macros -- from the campaign in flight. `\vRuns`
+went 210 to 59, `\vRepetitions` 5 to 2, `\vBlocks` 12,600 to 3,540. Worse, an
+earlier commit had already done the same to twenty-seven table files under
+`results/revision/tables/`, because running `09`, `11` and `17` to check a
+refactor also *writes*, and `git add -A` swept the result in.
+
+Nothing about that was a bug. Every script did what it was asked. The defect is
+that the analysis writes into the directory the manuscript reads, so any run of
+it is a publication, and monitoring a live campaign is indistinguishable from
+producing the final numbers.
+
+Restored from git (`d2137867^`), verified: `n_runs` is 5 again in
+`v2_between_run_statistics.csv`, and `\vRuns` is 210.
+
+The fix is not to forbid monitoring runs -- they have already earned their keep
+this afternoon -- but to send them somewhere else. `common.tables_dir()` returns
+a `_partial` sibling while fewer than `EXPECTED_RUNS` runs are complete, and
+`save_table`, `write_table_path`, `12_paper_numbers`'s `OUT` and
+`13_paper_figures`'s `FIGDIR` all go through it. Reads are different from
+writes: `TABLES / name` resolves to the partial copy when this run has produced
+that name and to the committed one otherwise, so a partial pipeline reads its
+own fresh v2 tables and the unchanged v1 tables, and overwrites neither.
+
+Three tables and six figures had been bypassing `save_table` with a direct
+`to_csv` or `savefig`, and the figures were the more dangerous of the two: a
+plot carries no run count on its face, so a substituted figure looks exactly
+like the right one. Both routes now go through the diversion. Verified by
+running the whole v2 pipeline against the live campaign: `paper/generated/`,
+`paper/figures/` and `results/revision/tables/` come out untouched, and 53
+tables, six figures and a `numbers.tex` reading `\vRuns 67` land in the
+`_partial` directories, which are gitignored.
+
+One thing the partial run showed in passing, worth keeping: C++/ResNet-18 on
+CIFAR-100 trains at **905.2 J** per epoch in the first campaign and **904.0 J**
+in the second, 0.13% apart, on rebuilt binaries and re-encoded data. The
+instrument reproduces across campaigns.
+
+`15_convergence.py` fails on partial data -- `chi2_contingency` gets a zero
+expected frequency with two repetitions. That is the same per-ecosystem
+chi-squared the response already commits to dropping, so it is on the list
+rather than a new problem.
+
+## 24. An upper bound that rounded downward
+
+`\vOmnibusMaxP` was built as `f"{om.p.max():.0e}"`, and the manuscript quotes it
+as `$p \le \vOmnibusMaxP$`. The maximum is 1.1770e-5, which prints as
+`1\times 10^{-5}`: a bound the data violate. Round-to-nearest is right for
+reporting a value and wrong for reporting a limit -- a limit may only ever be
+loosened by rounding.
+
+`sci_upper()` ceilings the mantissa instead, to two significant figures, and the
+value becomes `1.2\times 10^{-5}`. Checked against seven cases including
+9.99e-6, which must round up to 1e-5 and does, and 4.7e-11, which the old
+expression would have mangled outright: it built the exponent with
+`.replace("e-0", ...)`, and past 1e-9 there is no leading zero left to match.
+
+---
+
 ## Still open
 
 - Re-run the campaign (~57 h) and re-derive every number. *In flight since
@@ -825,6 +886,7 @@ all 228 `\v` macros the text uses are defined. A full build follows the campaign
   comparison, the collapse attribution, JAX's inference ranking, the omnibus *p* bound that rounds the wrong way, the within-cell
   ρ macros, the ε² saturation, the exact collapse test, the Welch-versus-rank
   discussion, the idle-subtraction sensitivity, the bimodal power state.
+- Drop the per-ecosystem chi-squared in `15_convergence.py` (section 23).
 - Re-derive every numeric claim in `REVIEWERS_RESPONSE.md` from the generated
   macros; several overclaim against the current tree.
 - Make the replication package round-trip (13,037 of ~13,230 files differ on

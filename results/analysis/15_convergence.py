@@ -43,9 +43,9 @@ import pandas as pd
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, save_table  # noqa: E402
+from common import (REPO_ROOT, save_table, TABLES_RESOLVER, tables_dir)  # noqa: E402
 
-TABLES = REPO_ROOT / "results" / "revision" / "tables"
+TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 
 # Accuracy of a classifier that always predicts one class.
 CHANCE_PCT = {"fashionmnist": 100 / 10, "cifar100": 100 / 100,

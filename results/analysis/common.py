@@ -26,6 +26,7 @@ Nothing downstream may use ``energy_consumed`` directly.
 
 from __future__ import annotations
 
+import functools
 import os
 import warnings
 from pathlib import Path
@@ -68,6 +69,95 @@ J_PER_KWH = 3.6e6  # 1 kWh = 3.6 MJ
 #: fragment through one of the three. One definition, here.
 EXPECTED_EPOCHS = int(os.environ.get("DEEPGREEN_EPOCHS", "30"))
 PHASES = ("train", "eval")
+
+
+#: Runs a complete campaign produces: 7 ecosystems x 2 models x 3 datasets x 5.
+EXPECTED_RUNS = int(os.environ.get("DEEPGREEN_EXPECTED_RUNS", "210"))
+CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
+
+
+@functools.lru_cache(maxsize=1)
+def campaign_status() -> tuple[int, int]:
+    """``(complete runs on disk, runs a full campaign produces)``."""
+    if not CAMPAIGN_DIR.is_dir():
+        return (0, EXPECTED_RUNS)
+    n = sum(1 for d in sorted(CAMPAIGN_DIR.glob("*"))
+            if d.is_dir() and read_complete_counters(d)[0] is not None)
+    return (n, EXPECTED_RUNS)
+
+
+def campaign_is_partial() -> bool:
+    done, want = campaign_status()
+    return done < want
+
+
+class _TableDir:
+    """``TABLES / "x.csv"`` -- writes divert, reads fall back.
+
+    Every script addresses tables as ``TABLES / name``. While the campaign is
+    partial, ``save_table`` writes into the ``_partial`` sibling, so a name that
+    this run has produced resolves there; a name it has not -- anything derived
+    from the first campaign, which does not change -- resolves to the committed
+    directory as before. One partial pipeline therefore reads its own fresh
+    output and the stable inputs, and writes over neither.
+    """
+
+    def __truediv__(self, name) -> Path:
+        candidate = tables_dir() / name
+        return candidate if candidate.exists() else TABLE_DIR / name
+
+    def __fspath__(self) -> str:
+        return str(tables_dir())
+
+    def __repr__(self) -> str:
+        return f"<TABLES {tables_dir()}>"
+
+
+def tables_dir() -> Path:
+    """Where this run may write tables: the real directory, or a partial sibling.
+
+    The analysis scripts write into the same directory the manuscript reads, so
+    running one against a campaign still in flight replaces the paper's inputs
+    with numbers from however many runs happen to have finished. That is not
+    hypothetical: it happened while monitoring the second campaign, and
+    `\vRuns` went from 210 to 59 and `\vRepetitions` from 5 to 2 in a single
+    commit, silently, because every script involved did exactly what it was
+    asked.
+
+    Monitoring a live campaign is legitimate and worth keeping easy. So the
+    answer is not to forbid the run but to send it somewhere else: while the
+    campaign is short of `EXPECTED_RUNS`, output goes to a `_partial` sibling
+    and the committed directory is untouched.
+    """
+    real = TABLE_DIR
+    return real if not campaign_is_partial() else real.with_name(real.name + "_partial")
+
+
+def write_table_path(name: str) -> Path:
+    """Where a table of this name may be written, creating the directory.
+
+    ``TABLES / name`` is for reading and falls back to the committed directory,
+    so writing through it would write there. Three tables bypassed
+    ``save_table`` and did exactly that.
+    """
+    out = tables_dir()
+    out.mkdir(parents=True, exist_ok=True)
+    return out / name
+
+
+#: The object every v2 script assigns to its ``TABLES``.
+TABLES_RESOLVER = _TableDir()
+
+
+def announce_scope(script: str) -> None:
+    """Print, once, what this run is reading and where it may write."""
+    done, want = campaign_status()
+    if done < want:
+        print(f"[{script}] campaign is PARTIAL: {done} of {want} runs complete.")
+        print(f"[{script}] writing to {tables_dir().relative_to(REPO_ROOT)}/ "
+              f"-- the manuscript's inputs are not touched.")
+    else:
+        print(f"[{script}] campaign complete: {done} runs.")
 
 
 def read_complete_counters(run_dir: Path) -> tuple[pd.DataFrame | None, dict]:
@@ -380,15 +470,20 @@ def fmt_sci(x: float, digits: int = 2) -> str:
 # Output helpers
 # --------------------------------------------------------------------------
 def ensure_dirs() -> None:
-    TABLE_DIR.mkdir(parents=True, exist_ok=True)
+    tables_dir().mkdir(parents=True, exist_ok=True)
     FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def save_table(df: pd.DataFrame, name: str, caption: str = "") -> None:
-    """Write a table as CSV and Markdown next to each other."""
+    """Write a table as CSV and Markdown next to each other.
+
+    Into ``tables_dir()``, which diverts to a ``_partial`` sibling while the
+    campaign is incomplete. See that function for why.
+    """
     ensure_dirs()
-    df.to_csv(TABLE_DIR / f"{name}.csv", index=False)
-    md = TABLE_DIR / f"{name}.md"
+    out = tables_dir()
+    df.to_csv(out / f"{name}.csv", index=False)
+    md = out / f"{name}.md"
     with md.open("w") as fh:
         if caption:
             fh.write(f"**{caption}**\n\n")

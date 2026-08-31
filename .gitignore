@@ -65,3 +65,10 @@ paper/thumbnails/
 # drift. Same shape as campaign_v2/ and equally not distributed; the comparison
 # it feeds is in results/revision/tables/v2_window_calibration.*
 results/calibration/
+
+# Output of an analysis run against a campaign still in flight. Real, useful for
+# monitoring, and not the manuscript's inputs -- see common.tables_dir.
+results/revision/tables_partial/
+paper/figures_partial/
+paper/generated_partial/
+results/gpu_utilisation.csv

@@ -32,7 +32,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (EXPECTED_EPOCHS, J_PER_KWH, REPO_ROOT,  # noqa: E402
-                    read_complete_counters, save_table)
+                    read_complete_counters, save_table, write_table_path)
 
 CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
 
@@ -453,7 +453,7 @@ def main() -> None:
     save_table(dist, "v2_instrument_power_distortion",
                "Power implied by each instrument, by phase length")
 
-    df.to_csv(REPO_ROOT / "results" / "revision" / "tables" / "v2_instrument_epochs.csv",
+    df.to_csv(write_table_path("v2_instrument_epochs.csv"),
               index=False)
 
 

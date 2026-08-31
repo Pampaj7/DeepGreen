@@ -38,9 +38,10 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, read_complete_counters, save_table  # noqa: E402
+from common import (REPO_ROOT, read_complete_counters, save_table,  # noqa: E402
+                    TABLES_RESOLVER)
 
-TABLES = REPO_ROOT / "results" / "revision" / "tables"
+TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 CALIBRATION = REPO_ROOT / "results" / "calibration"
 
 

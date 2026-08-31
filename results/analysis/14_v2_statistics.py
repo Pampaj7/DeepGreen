@@ -36,9 +36,9 @@ import pandas as pd
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, cliffs_delta, save_table  # noqa: E402
+from common import (write_table_path, REPO_ROOT, cliffs_delta, save_table, TABLES_RESOLVER, tables_dir)  # noqa: E402
 
-TABLES = REPO_ROOT / "results" / "revision" / "tables"
+TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 # Two nested groups, and the difference between them is the whole point.
 #
 # SHARED_MODULE are the stacks that under S1 load the byte-identical exported
@@ -259,7 +259,7 @@ def main() -> None:
     save_table(pc, "v2_stats_phase_consistency",
                "Training against inference ranking, per block")
 
-    runs.to_csv(TABLES / "v2_run_totals.csv", index=False)
+    runs.to_csv(write_table_path("v2_run_totals.csv"), index=False)
 
 
 if __name__ == "__main__":

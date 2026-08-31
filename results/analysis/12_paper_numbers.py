@@ -27,10 +27,16 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT  # noqa: E402
+from common import (REPO_ROOT, announce_scope,  # noqa: E402
+                    campaign_is_partial, TABLES_RESOLVER, tables_dir)
 
-TABLES = REPO_ROOT / "results" / "revision" / "tables"
-OUT = REPO_ROOT / "paper" / "generated"
+TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
+# The manuscript's own inputs. Diverted alongside the tables while the campaign
+# is incomplete, for the reason in common.tables_dir: a monitoring run must not
+# be able to rewrite the numbers the paper quotes.
+OUT = REPO_ROOT / "paper" / ("generated" if not campaign_is_partial()
+                             else "generated_partial")
+announce_scope("12_paper_numbers")
 OUT.mkdir(parents=True, exist_ok=True)
 
 # Short labels for the manuscript; the analysis uses the long ecosystem names.
@@ -60,6 +66,32 @@ def macro(name: str, value) -> None:
 def num(x, digits: int = 0) -> str:
     """A number formatted for siunitx, without thousands separators."""
     return f"{x:.{digits}f}"
+
+
+def sci_upper(x: float, digits: int = 2) -> str:
+    """A LaTeX scientific literal guaranteed to be >= x, for quoting as a bound.
+
+    ``f"{1.177e-5:.0e}"`` gives ``1e-05``, and the manuscript quoted that as
+    ``p <= 1e-5`` for a maximum of 1.1770e-5 -- a bound its own data violate.
+    Round-to-nearest is right for reporting a value and wrong for reporting a
+    limit: a limit may only ever be loosened by rounding. The mantissa is
+    therefore ceilinged, not rounded.
+
+    The old expression also built the exponent with ``.replace("e-0", ...)``,
+    which silently produces nonsense for any exponent past -9, because there is
+    no leading zero left to match.
+    """
+    import math
+    if not math.isfinite(x) or x <= 0:
+        return "0"
+    exp = math.floor(math.log10(x))
+    scale = 10.0 ** (digits - 1)
+    # 1e-12 absorbs the float error that would round 1.20 up to 1.3
+    mant = math.ceil(x / 10.0 ** exp * scale - 1e-9) / scale
+    if mant >= 10.0:
+        mant, exp = mant / 10.0, exp + 1
+    mant_s = f"{mant:.{digits - 1}f}".rstrip("0").rstrip(".")
+    return f"{mant_s}\\times 10^{{{exp}}}"
 
 
 # ---------------------------------------------------------------- design ----
@@ -686,7 +718,7 @@ def statistics_facts() -> None:
     om = pd.read_csv(TABLES / "v2_stats_omnibus.csv")
     macro("vOmnibusEpsMin", num(om.epsilon_sq.min(), 2))
     macro("vOmnibusBlocks", len(om))
-    macro("vOmnibusMaxP", f"{om.p.max():.0e}".replace("e-0", "\\times 10^{-") + "}")
+    macro("vOmnibusMaxP", sci_upper(om.p.max()))
     macro("vPairsLargePct",
           num(100 * (pw.magnitude == "large").mean(), 0))
 

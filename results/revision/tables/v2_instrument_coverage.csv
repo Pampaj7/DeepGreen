@@ -1,8 +1,8 @@
 ecosystem,n_runs,coverage_pct,coverage_min_pct,untracked_s_per_run
-Cpp/LibTorch,9,42.6,29.6,243.8
-Java/DL4J,9,92.7,88.7,129.8
-Python/JAX,6,44.9,37.2,241.6
-Python/PyTorch,8,50.3,37.0,220.4
-Python/TensorFlow,8,47.4,35.4,239.9
-R/torch,11,99.7,99.6,6.5
-Rust/tch,8,53.8,35.0,224.2
+Cpp/LibTorch,30,55.3,26.8,249.1
+Java/DL4J,30,92.8,88.5,127.2
+Python/JAX,30,41.0,17.6,235.0
+Python/PyTorch,30,76.1,55.4,151.6
+Python/TensorFlow,30,52.6,27.2,208.3
+R/torch,30,99.7,99.6,6.7
+Rust/tch,30,71.8,36.2,198.3

@@ -39,10 +39,15 @@ import pandas as pd
 from matplotlib.ticker import LogLocator, NullFormatter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT  # noqa: E402
+from common import (REPO_ROOT, TABLES_RESOLVER,  # noqa: E402
+                    announce_scope, campaign_is_partial)
 
-TABLES = REPO_ROOT / "results" / "revision" / "tables"
-FIGDIR = REPO_ROOT / "paper" / "figures"
+TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
+# Diverted with everything else while the campaign is incomplete: a monitoring
+# run replaced six of the manuscript's figures before this was noticed, and a
+# figure carries no run count on its face to give the substitution away.
+FIGDIR = REPO_ROOT / "paper" / ("figures" if not campaign_is_partial()
+                                else "figures_partial")
 FIGDIR.mkdir(parents=True, exist_ok=True)
 
 plt.rcParams.update(
