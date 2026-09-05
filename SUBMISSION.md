@@ -52,7 +52,7 @@ the number of runs that were interleaved.
 Verify the whole chain with:
 
 ```bash
-python3 scripts/check_consistency.py            # 72 pass, 1 fail (disclosed)
+python3 scripts/check_consistency.py            # 92 pass, 0 fail
 python3 scripts/consolidate_raw.py --check      # package matches the raw tree
 ./paper/build.sh                                # analysis + numbers + figures + PDF
 ```

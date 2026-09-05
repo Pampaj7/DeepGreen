@@ -46,6 +46,7 @@ Usage
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import platform
@@ -316,6 +317,7 @@ class Harness:
             "hardware_counters": (self._counters.describe()
                                   if self._counters is not None else None),
             "machine_state": machine_state(),
+            "provenance": provenance(),
         }
         (self.out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
 
@@ -561,6 +563,62 @@ def _torch_tf32_flag() -> bool | None:
         return bool(torch.backends.cudnn.allow_tf32)
     except Exception:
         return None
+
+
+#: The measurement path: the counter reader and the two bridges every stack
+#: brackets its phases with. Hashed into every manifest so a campaign can be
+#: tied to the instrument that produced it. Not the whole of what a run
+#: measures -- the per-stack model sources and codecarbon_config.json decide
+#: that too, and git_commit below is what covers them.
+HARNESS_FILES = ("hardware_counters.py", "deepgreen_bench.py", "deepgreen_tracker.py")
+
+
+def provenance() -> dict[str, object]:
+    """Which code produced this run.
+
+    Not one manifest in the replicated campaign records a commit, a hash or a
+    source fingerprint, so which harness ran can only be argued from commit
+    dates against run mtimes plus a clean working tree -- and the audit that
+    found the RAPL wrap fix was in the code that ran had to do exactly that.
+
+    The commit says where in the history a run sits; the hashes say what the
+    measurement path actually contained, and are the load-bearing part, because
+    git_dirty is true for every run of a campaign executed from a working tree
+    that has any edit in it at all -- which is every campaign so far.
+
+    Written by both output paths, alongside machine_state, and tolerant of a
+    checkout with no git available: a missing answer is null, never an
+    exception, because nothing here is worth losing a 40-minute run over.
+    """
+    head = _git("rev-parse", "HEAD")
+    dirty = _git("status", "--porcelain")
+    here = Path(__file__).resolve().parent
+    hashes = {}
+    for name in HARNESS_FILES:
+        try:
+            hashes[name] = hashlib.sha256((here / name).read_bytes()).hexdigest()
+        except OSError:
+            hashes[name] = None
+    return {
+        "git_commit": head,
+        "git_dirty": None if dirty is None else bool(dirty),
+        "harness_sha256": hashes,
+    }
+
+
+def _git(*args: str) -> str | None:
+    """``git <args>`` in the repository, or None if it could not be asked.
+
+    Distinct from _safe_cmd because an empty answer is meaningful here: `git
+    status --porcelain` says "clean" with no output, and "there is no git" must
+    not be recorded as a clean tree.
+    """
+    try:
+        r = subprocess.run(["git", *args], capture_output=True, text=True,
+                           timeout=20, cwd=REPO_ROOT)
+    except Exception:
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
 
 
 def _safe_cmd(cmd: list[str]) -> str | None:

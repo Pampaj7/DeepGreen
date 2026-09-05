@@ -9,12 +9,12 @@ three outcomes:
 * **MANUSCRIPT** — the change lands in the paper text, `paper/paper.tex`.
 * **REQUIRES RE-EXECUTION** — needed a new campaign.
 
-**Status: a second campaign is running; the numbers below are from the first and
-are being re-derived.**
+**Status: the re-execution is complete — 210 runs of 210 — and every quantity in
+this document comes from it.**
 
-A replicated campaign did complete in full — 210 runs of 210 — and an earlier
-draft of this document said so and stopped there. Auditing it afterwards showed
-that three of the study's headline claims were confounded by the campaign
+An earlier replicated campaign also completed in full, and an earlier draft of
+this document reported its numbers and stopped there. Auditing it afterwards
+showed that three of the study's headline claims were confounded by the campaign
 itself, not by the ecosystems it compares:
 
 * **RQ1's mechanism.** TF32 was on for some stacks and off for others, so part
@@ -25,23 +25,41 @@ itself, not by the ecosystems it compares:
 * **The collapse attribution.** The per-ecosystem collapse rates reflect
   differing weight initialisers, not the ecosystems.
 
-Reporting numbers from that campaign would mean reporting those confounds. So
-the stacks were aligned — one exported set of weights, one initialiser, one
+Reporting numbers from that campaign would have meant reporting those confounds.
+So the stacks were aligned — one exported set of weights, one initialiser, one
 precision policy, one data pipeline, all of it enforced by 92 conformance
 checks and proved by architecture and data parity fingerprints — and the
-campaign is being re-executed. `REVISION_LOG.md` records the alignment in full.
+campaign was re-executed, from 23:09 on 30 August 2026 to 07:47 on 2 September.
+Four JAX/VGG-16 runs that predate a Flax dropout-PRNG fix were replayed on
+4 September, so all 210 runs come from one source revision. `REVISION_LOG.md`
+records the alignment and the re-execution in full.
 
 The design is unchanged: 7 ecosystems × 2 architectures × 3 datasets × 5
 independent interleaved repetitions = 210 runs, each block instrumented twice
 (NVML + RAPL hardware counters, and CodeCarbon over the identical window). Raw
 records are under `results/campaign_v2/`; aggregates under
-`results/revision/tables/`.
+`results/revision/tables/`; the consolidated replication package — 12,600
+counter rows over 210 runs, from 13,441 files and 54 MB of per-block CSVs — under
+`results/replication/`, which `consolidate_raw.py` now refuses to build from a
+partial campaign.
 
-**Until the re-execution finishes, every quantity in this document is from the
-superseded campaign and is marked for re-derivation.** The findings that do not
-depend on it — the instrument comparison, the boundary argument, the window
-calibration, the defects found by source audit — stand as written. The findings
-that do are named at the end of this document.
+**Every quantity in this document is re-derived from that campaign.** It comes
+from `paper/generated/numbers.tex` — 327 generated macros — and from the tables
+under `results/revision/tables/`, and nothing here is a number an author typed
+that the pipeline could have produced. `scripts/check_consistency.py` reports
+**92 pass, 0 fail**:
+
+```
+$ .venv-deepgreen/bin/python scripts/check_consistency.py | tail -3
+  92 pass, 0 fail, 0 warn, 0 skip
+```
+
+Where a figure belongs to the superseded campaign, or to the source audit of the
+submitted one, it is labelled as such at the point it appears. Every item
+previously marked **REQUIRES RE-EXECUTION** is now closed by measurement, with
+one exception, which is declared rather than answered: the workload does not
+saturate the accelerator (Reviewer 1, comments 2 and 15). Re-execution is not
+what would close that one.
 
 Everything below is reproducible with `results/analysis/run_all.sh`.
 
@@ -54,25 +72,98 @@ inside a measured total", and it is the same class of error as the
 kilowatt-hours-labelled-as-Joules that the reviewers caught in the submitted
 paper. It is fixed at the source: `09_campaign_v2.py` now reads `counters.csv`
 and reports the counter quantity over the counter-bracketed window. Every
-number below and in the manuscript comes from that. The training spread moves
-from 19.1× to 18.2×; nothing else in the conclusions changes.
+number below and in the manuscript comes from that. The spread figures that fix
+produced — 19.1× moving to 18.2× — belonged to the superseded campaign and are
+withdrawn with it: on the re-executed campaign the training spread is
+**7.4×–9.8×** depending on the block (`tab_spread.tex`).
 
 Two further self-corrections are recorded in this document rather than quietly
 absorbed: the model of the estimator's reported duration (twice wrong, see
 below) and the composition of the shared-backend control group, which contained
 a stack sharing neither the pinned build nor the exported module.
 
+**Eight more corrections, to claims this document itself made.** They are
+collected here rather than scattered as apologies through the comment replies.
+Each reviewer comment below is left exactly as the reviewer wrote it; only our
+answers have changed.
+
+1. **"JAX is cheapest at inference" was wrong, and the reason was ours.**
+   `block_until_ready` appeared nowhere in the repository, so JAX's evaluation
+   returned device arrays and the first force happened outside the tracked
+   block: 35.9 % of the work finished after the block closed. Synchronised, JAX
+   is not cheapest at inference in any block of the campaign — **C++/LibTorch is
+   cheapest in all six** (`v2_instrument_ranking.csv`).
+2. **"12 of 105 VGG-16 runs collapse" is a first-campaign fact with a
+   first-campaign cause.** It is reported below as one. Under one exported set
+   of weights the phenomenon does not recur: **0 of 105** VGG-16 runs, 0 of 210
+   overall (`v2_convergence_by_model.csv`).
+3. **"One failing check" was a fact about a campaign this document does not
+   describe.** `check_consistency.py`'s three metrics checks read
+   `results/replication/metrics.csv.gz` — an output of the analysis pipeline
+   that nothing rebuilt — so the Java/DL4J `test_loss` failure they disclosed
+   came from the first campaign, where that column is NaN in all 900 rows, while
+   the campaign reported here has no NaN in it at all. The checks read the
+   campaign now, through the same completeness gate the tables are built behind:
+   **92 pass, 0 fail**.
+4. **The between-window calibration figures are withdrawn and the measurement
+   redone.** The calibration on disk had been produced on 29 August by the
+   harness that pinned TF32 off for Python/PyTorch, and it was carried forward
+   against a campaign in which every run records `DEEPGREEN_TF32=1`. The join
+   still matched and the table was still written: training energy **201 % apart
+   at 293 standard deviations** of the within-window spread, under a manuscript
+   sentence calling the drift "below the noise the design already carries". That
+   is a precision policy wearing a between-window-drift label.
+   `17_window_calibration.py` refuses the comparison now when the two windows do
+   not record the same precision policy, or when the calibration predates the
+   campaign; the calibration was re-executed under the
+   current harness on 4 September (`results/calibration/`, five runs; the
+   superseded one is kept as `results/calibration_first_harness/`); and the drift
+   it measures is **−1.25 % at 1.62 σ** on training and −3.23 % at 3.95 σ on
+   inference (`v2_window_calibration.csv`).
+5. **The 4.81× TF32 figure had no script behind it.** The four-cell table in
+   `REVISION_LOG.md` §1 has no CSV, script or commit anywhere in this
+   repository's history, and its per-step figures are roughly 50× the campaign's
+   own measurement of the same two configurations — almost certainly 50-step
+   totals mislabelled as per-step. It is withdrawn. The effect is now measured
+   twice and scripted both times: as a campaign-level contrast
+   (`18_precision_ablation.py` → `v2_tf32_campaign_contrast`), where the one
+   cell that is a clean contrast puts Python/PyTorch at **3.14×** with three
+   control stacks moving ≤ 1.3 %; and as a kernel probe (`scripts/probe_tf32.py`
+   → `v2_tf32_ablation`), six cells, where denying TF32 to cuDNN costs **3.62×**
+   the GPU energy and 3.12× the time, and disabling cuDNN outright costs
+   **13.08× the energy and 16.30× the time**. The second figure replaces the
+   13.3×/16.7× bound quoted for Deeplearning4j's missing cuDNN path, which had
+   the same provenance problem.
+6. **"Faster *is* greener here (ρ ≈ 1)" is stronger than the data.** Over the 42
+   configurations, energy and time rank at ρ = 0.96 in training and 0.92 in
+   inference, with 7.1 % and 11.5 % of pairs discordant. Inside a block, where
+   the workload is fixed and only the ecosystem varies, ρ runs from **0.68 to
+   1.00** over the twelve cells (`v2_stats_cell_rho.csv`). Time is a good proxy
+   for energy in this workload; it is not the same measurement.
+7. **"Largely phase-consistent" is withdrawn.** The cheapest stack at training is
+   not the cheapest at inference in **3 of 6** blocks, and the two orderings are
+   identical in **none** of them; the phase correlation runs 0.54 to 0.93
+   (`v2_stats_phase_consistency.csv`). The submitted phase-reversal finding does
+   not reproduce as an ecosystem property, but neither is the ranking
+   phase-invariant, and this document said it was.
+8. **"A saturating workload would compress the spread" is a direction we cannot
+   name.** The claim was that because the measured spread is dominated by
+   host-side work, saturating the accelerator must shrink it. That does not
+   follow: it depends on where the spread comes from, which a black-box
+   comparison of this shape cannot establish. The manuscript now states the
+   limitation without naming a direction, and so does this document.
+
 ### What the re-execution changed in the conclusions
 
 | Submitted claim | After re-execution |
 |---|---|
-| Training spread 4.6× (Rust best, Java worst) | 7.8×–18.2× depending on the block, at a common board-and-package boundary |
+| Training spread 4.6× (Rust best, Java worst) | 7.4×–9.8× depending on the block, at a common board-and-package boundary; C++ cheapest on every ResNet-18 block, R and Java the two most expensive |
 | Energy reported in Joules | The submitted figures were kilowatt-hours; a factor of 3.6×10⁶ |
-| "Faster is not greener" | Faster *is* greener here (ρ ≈ 1). The contrary result reproduces as an artefact of the estimator's duration floor |
-| Rankings are phase-dependent | Largely phase-consistent once inference is measured rather than estimated |
-| 30 epochs as repeated measurements | 5 independent runs per configuration; median between-run CV 0.44 % |
-| Accuracy not recorded | Recorded per epoch by every stack; convergence within 1.3 pp on Fashion-MNIST |
-| CodeCarbon as sole instrument | Dual instrument; the two agree on energy to 0.5 % over 12,600 blocks |
+| "Faster is not greener" | Faster is *mostly* greener here: ρ = 0.96 training and 0.92 inference across configurations, 0.68–1.00 within a block. The contrary result reproduces as an artefact of the estimator's reported duration |
+| Rankings are phase-dependent | Still phase-dependent, but less so: the cheapest stack changes between phases in 3 of 6 blocks and the orderings are identical in none |
+| 30 epochs as repeated measurements | 5 independent runs per configuration; median between-run CV 0.49 % training, 1.17 % inference |
+| Accuracy not recorded | Recorded per epoch by every stack; convergence within 0.3 pp on Fashion-MNIST (91.3–91.6 %) |
+| CodeCarbon as sole instrument | Dual instrument; over 12,600 blocks the two agree to 0.3 % on the terms both read, and disagree by 8.7 % on the total, which is the modelled RAM term |
 
 ### The finding that justifies the reviewers' insistence on repetitions
 
@@ -80,53 +171,69 @@ Reviewer 3's major comment 2 asked for independent run-level repetitions.
 Executing them produced a result neither we nor the reviewers anticipated, and
 it is the clearest possible vindication of the request.
 
-**VGG-16 does not always train.** In 12 of 105 VGG-16 runs the network converges
-to *exactly* chance accuracy — 1.00 % on CIFAR-100 (100 classes), 0.50 % on
-Tiny ImageNet (200 classes) — and stays there for all 30 epochs, having consumed
-the full energy budget while learning nothing. ResNet-18 never does this
-(0 of 105). Neither does it on Fashion-MNIST. VGG-16 as shipped has no batch
-normalisation, and a plain 16-layer network under Adam at 1e-4 over many classes
-can settle into predicting one class; the initialisation decides whether it
-does.
+**VGG-16 did not always train, and the reason was the initialiser.** In the
+first replicated campaign, 12 of 105 VGG-16 runs converged to *exactly* chance
+accuracy — 1.00 % on CIFAR-100 (100 classes), 0.50 % on Tiny ImageNet (200
+classes) — and stayed there for all 30 epochs, having consumed the full energy
+budget while learning nothing. ResNet-18 never did this (0 of 105), and neither
+did VGG-16 on Fashion-MNIST. VGG-16 as shipped has no batch normalisation, and a
+plain 16-layer network under Adam at 1e-4 over many classes can settle into
+predicting one class.
 
-It appears in four ecosystems independently (Java 5/10, TensorFlow 4/10,
-C++ 2/10, PyTorch 1/10) and never in three (JAX 0/10, R 0/10, Rust 0/10). That spread is
-*not* statistically distinguishable from a common rate at this sample size
-(permutation test, p = 0.07), so we report susceptibility as a property of the
-recipe and explicitly decline to rank ecosystems by robustness — a chi-square
-test on the same table gives p = 0.0065. We first attributed that gap to the
-chi-square approximation failing on small cells; it is not that. The two tests
-use different statistics — ours calibrates the *range* of per-ecosystem rates, a
-bounded and much less powerful statistic — and permutation-calibrating the
-chi-square statistic itself reproduces its p-value. The honest reading is that
-the evidence leans towards ecosystem-dependent collapse rates and that ten
-susceptible runs per ecosystem cannot settle it. We make no claim about which
-stacks are more robust.
+**In the re-executed campaign it does not happen at all: 0 of 105 VGG-16 runs,
+0 of 210** (`v2_convergence_by_model.csv`). That is the measured consequence of
+the alignment, and it is why the finding is reported here as a property of the
+recipe *and its initialiser* rather than of the ecosystems.
 
-Two consequences:
+The first campaign's per-ecosystem spread was Java 5/10, TensorFlow 4/10,
+C++ 2/10, PyTorch 1/10, and never in three (JAX 0/10, R 0/10, Rust 0/10). That
+table is not homogeneous — the exact Freeman–Halton test gives **p = 0.0040**,
+which replaces both the permutation p = 0.0676 we first quoted and the
+chi-square p = 0.0065 we contrasted it with, and which needs neither an
+approximation (the smallest expected frequency is 1.7) nor a seed. But the
+inhomogeneity is not evidence about ecosystems. Holding framework, optimiser,
+learning rate and data order fixed and varying only the initialiser gives 0 of 6
+collapses under He, 2 of 6 under Glorot and 4 of 6 under Xavier
+(`results/revision/record/initialiser_trials.csv`), and Deeplearning4j — the one
+stack with a hand-rolled initialiser, whose stem weights are 4.6× wider than
+torchvision's — carried 5 of the 12. What the table ranks is the four different
+weight distributions the stacks shipped. We make no claim about which stacks are
+more robust, and the chi-square test on per-ecosystem rates is dropped.
+
+Two consequences, both first-campaign measurements:
 
 1. **It is the strongest evidence that the specification worked.** On VGG-16 /
-   CIFAR-100 the cross-ecosystem accuracy spread is 20.2 percentage points over
+   CIFAR-100 the cross-ecosystem accuracy spread was 20.2 percentage points over
    all runs and **1.3 points** over the runs that trained. Almost the entire
    apparent disagreement between stacks was collapsed runs, not different
-   computations.
-2. **It silently breaks fixed-budget energy comparison.** 10.5 % of the
-   campaign's training energy — 5.1 MJ — was spent on runs that learned nothing. An
-   ecosystem that draws unlucky initialisations looks equally expensive and much
-   less accurate. With one run per configuration, the published number is
-   whichever outcome that seed produced, and nothing in the energy data
-   distinguishes the two cases.
+   computations. With every stack now initialised from the same exported
+   weights, the worst raw spread anywhere in the re-executed campaign is
+   6.5 points, on ResNet-18 / CIFAR-100, and conditioning on convergence changes
+   it by nothing.
+2. **It silently breaks fixed-budget energy comparison.** 10.7 % of that
+   campaign's training energy — 4.8 MJ of 45.0 MJ — was spent on runs that
+   learned nothing. An ecosystem that draws unlucky initialisations looks equally
+   expensive and much less accurate. With one run per configuration, the
+   published number is whichever outcome that seed produced, and nothing in the
+   energy data distinguishes the two cases. In the re-executed campaign the
+   figure is 0.0 MJ of 36.0 MJ.
 
 **A failed recipe and a broken pipeline are indistinguishable in an energy
 table**, and separating them turned up a defect of our own. Both give chance
 accuracy at full energy cost. The per-epoch traces separate them completely: in
-a genuine collapse the training loss does not move either (all 12 change by
-≤ 0.0 %, since a network stuck on one class has nothing left to fit), whereas a
-pipeline defect shows training loss falling normally while test loss *rises*.
+a genuine collapse the training loss does not move either — all 12 sit at a loss
+of ln(N) to within 0.0007, since a network stuck on one class has nothing left
+to fit — whereas a pipeline defect shows training loss falling normally while
+test loss *rises*.
 
 Four further runs met the chance-accuracy criterion with training loss falling
-by 86–87 %. Counted as collapses they would have read as "VGG-16 sometimes fails
-to train". They are a defect, and it is ours.
+by 86–87 % and final accuracy up to 14.7 %. Counted as collapses they would have
+read as "VGG-16 sometimes fails to train". They are a defect, and it is ours.
+The record is preserved as
+`results/revision/record/vgg_fashion_pipeline_defect.csv`, because the runs were
+deleted and re-executed and the evidence is no longer in the campaign. It also
+records the discriminator's one measured miss: five runs carried the defect and
+it flagged four, the fifth having finished above the 1.5× chance threshold.
 
 The mechanism is worth stating precisely, because it is not carelessness. In the
 submitted package `vgg_fashion.rs` applied a private copy of the input transform
@@ -151,39 +258,54 @@ Reproduce with `results/analysis/15_convergence.py`.
 The campaign produced one result about the measurement tool itself that we
 believe is new and that bears on any study using it.
 
-Over every block, CodeCarbon's energy agrees with hardware counters to 0.5 % —
-because on this platform it reads the same two registers we do,
-`nvmlDeviceGetTotalEnergyConsumption` and the RAPL `energy_uj` files. The
-accelerator terms differ by 1.3 mJ; the whole residual is a flat 0.5 J in the
-CPU term, uncorrelated with block duration, from nesting our counter reads
-inside the tracker's window. So this is not an accuracy result and we no longer
-present it as one: where the counters are exposed, the estimator's energy is not
-a model at all.
+Over all 12,600 blocks, CodeCarbon's energy agrees with hardware counters to
+0.3 % on the terms both instruments read — because on this platform it reads the
+same two registers we do, `nvmlDeviceGetTotalEnergyConsumption` and the RAPL
+`energy_uj` files. The accelerator terms differ by a median 1.2 mJ; the whole
+residual is a flat 0.48 J in the CPU term, correlated with block duration at
+r = 0.02, from nesting our counter reads inside the tracker's window. So this is
+not an accuracy result and we no longer present it as one: where the counters
+are exposed, the estimator's energy is not a model at all. Its *total* is a
+different quantity, 8.7 % above the counters, and that difference is the
+modelled RAM term — 7.6 % of what it reports.
+
+The agreement is a property of long blocks. Under one second it degrades to
+0.9 % on average and 38 % in the worst block; above 30 seconds it is 0.01 %.
 
 The `duration` column it writes beside that energy is a different matter. It is
-**not the interval the energy was accumulated over**: 67 % of blocks carry
+**not the interval the energy was accumulated over**: 75 % of blocks carry
 seconds of tracker lifetime in which no energy was drawn. The excess is
-trimodal — 0.01 s, 3.27 s or 4.56 s, with nothing between — and which mode a
-block lands in is *not* a function of its length: R is unpadded in all 1800 of
-its blocks while having the longest ones in the campaign, and C++ is padded in
-all 1800 of its own.
+trimodal — 0.01 s in 25 % of blocks, 4.57 s in 75 %, and 13.38 s in exactly one.
+We can now say what it is. It is the cost of `EmissionsTracker.stop()` with
+geolocation lookups still outstanding: measured against block length on this
+host, closing a 2–8 s block costs 4.56 s with two lookups outstanding, a 9–11 s
+block costs 3.01 s with one, and a block of 12 s or more costs 0.012 s with
+none. Block length predicts which mode a block lands in; it does not determine
+it. 154 blocks longer than the threshold are padded and 3 shorter than it are
+not, R is unpadded in all 1800 of its blocks while having the longest ones in
+the campaign, C++ is padded in all 1800 of its own, and the wide mode itself
+splits by hour of day — a median 4.58 s between 21:00 and 09:00 against 3.29 s
+between 09:00 and 21:00, which is the network the lookup goes over.
 
 Consequently any power or energy-per-second quantity derived by dividing
-CodeCarbon's energy by CodeCarbon's duration is understated by up to 11.2× on
-blocks under half a second and is correct above ten. The bias is a monotone
-function of phase length, so it falls hardest on the fastest ecosystems and on
-the inference phase — which is exactly where a cross-ecosystem comparison lives.
-This is, as far as we can determine, the mechanism behind the submitted
+CodeCarbon's energy by CodeCarbon's duration is understated by up to **13.0×**
+on blocks under half a second — 20 W reported against 216 W measured — and is
+correct above ten seconds. The bias falls hardest on the fastest ecosystems and
+on the inference phase, which is exactly where a cross-ecosystem comparison
+lives. This is, as far as we can determine, the mechanism behind the submitted
 "faster is not greener" finding.
 
 Reproduce with `results/analysis/11_instrument_comparison.py`.
 
 ---
 
-## Summary of what the re-analysis found
+## Summary of what the source audit of the submitted campaign found
 
-Three findings go beyond the reviewers' comments and change how the results
-should be read.
+Five findings go beyond the reviewers' comments and change how the submitted
+results should be read. **Every figure in this section is from the submitted
+campaign** — eight ecosystems, 48 configurations, one run each — because that is
+what was audited. They are the reason the study was rebuilt, not results of the
+rebuilt study.
 
 **1. The measurement instrument was not the same across ecosystems.** The
 campaign used two CodeCarbon major versions, two tracking modes and two sampling
@@ -279,9 +401,12 @@ supported once the instrument is held constant.
 ### Comment 1 — Motivation and grounding; "first large-scale study" vs "case study"
 
 **MANUSCRIPT.** We accept both points. The framing claim is not demonstrated by
-this design, and the audit gives a concrete reason: the workload runs the GPU at
-27–56% of its board limit, so what is measured is largely host-side overhead
-(comment 15). The revised framing is that ecosystem choice matters at the
+this design, and the audit gives a concrete reason: in the submitted campaign the
+workload ran the GPU at 24–56% of its board limit, and the re-executed campaign,
+sampled at 1 Hz, puts mean accelerator utilisation between 4.7% (R/torch on
+ResNet-18) and 79.9% (Java/DL4J on VGG-16). What is measured is therefore
+substantially host-side overhead (comment 15). The revised framing is that
+ecosystem choice matters at the
 *binding and runtime* layer, evidenced within a shared backend, and is not
 positioned as a first-order lever at the scales where the field's energy problem
 lives. "First large-scale empirical study" is withdrawn; the work is described
@@ -289,14 +414,19 @@ as a case study throughout, consistent with the abstract.
 
 ### Comment 2 — Workload choice
 
-**MANUSCRIPT; the workload limitation persists and is now quantified.**
-Accepted as a limitation and addressed in the protocol. `results/analysis/repetition_protocol.md`
-§5 requires at least one configuration that actually loads the accelerator —
-native resolution, larger batch, representative arithmetic intensity — and
-requires GPU utilisation to be reported next to energy so that readers can see
-which regime a result belongs to. The 32×32 downsampling of Tiny ImageNet, which
-removes the property that makes it demanding, is stated explicitly in
-`dataset_factors.md`.
+**REQUIRES RE-EXECUTION, and it is the one item re-execution did not close.**
+Accepted as a limitation and addressed in the protocol.
+`results/analysis/repetition_protocol.md` §5 requires at least one configuration
+that actually loads the accelerator — native resolution, larger batch,
+representative arithmetic intensity — and requires GPU utilisation to be reported
+next to energy so that readers can see which regime a result belongs to. The
+32×32 downsampling of Tiny ImageNet, which removes the property that makes it
+demanding, is stated explicitly in `dataset_factors.md`.
+
+The reporting half is done: `19_gpu_utilisation.py` reads the 1 Hz record and
+puts utilisation beside energy for the 157 of 210 runs the record covers, and the
+manuscript quotes it. The workload half is not, and cannot be by re-running the
+same configurations. See comment 15.
 
 ### Comment 3 — Ecosystem framing and shared backends
 
@@ -327,13 +457,26 @@ LibTorch versions disagree — and since a module exported by a newer torch cann
 load into an older LibTorch, a mismatch is a hard failure rather than silent
 drift.
 
-**Original response:** `03_statistics.py` adds the shared-backend control the reviewer asks
-for. The four LibTorch stacks span 4.4× (as measured) to 9.9× (harmonised) of
-energy and 11.6× of time, which is 98–100% of the full eight-stack spread on a
-log scale. This is direct evidence that the variation is host-side. The
-contribution is reframed accordingly: binding, runtime and toolchain overhead,
-measured at ecosystem granularity, not language energy efficiency.
-Table: `results/revision/tables/stats_libtorch_control.md`.
+**What the control group says now.** With the group defined as the stacks that
+share both the exported module and the pinned build — C++/LibTorch,
+Python/PyTorch and Rust/tch, three of the four, since R can load neither — the
+spread inside it is **1.1×–1.6×** against a full seven-stack spread of 7.4×–9.8×,
+which is 3–21% of the log spread: 21% at most on ResNet-18 and 3% at least on
+VGG-16 (`v2_stats_libtorch_control.csv`). The wider LibTorch *family*, R
+included, still accounts for 100% of the ResNet-18 spread and 62% of the VGG-16
+spread, because R is the most expensive stack on ResNet-18. So the reframing
+stands, but it is sharper than the submitted evidence supported: once the module
+and the build are genuinely held fixed, most of the remaining spread is *not*
+inside the shared-backend group, and what carries it is R's data pipeline and
+Java's missing cuDNN path rather than binding overhead as such.
+
+**Original response (submitted campaign):** `03_statistics.py` adds the
+shared-backend control the reviewer asks for. The four LibTorch stacks span 4.4×
+(as measured) to 9.9× (harmonised) of energy and 11.6× of time, which is 98–100%
+of the full eight-stack spread on a log scale. This is direct evidence that the
+variation is host-side. The contribution is reframed accordingly: binding,
+runtime and toolchain overhead, measured at ecosystem granularity, not language
+energy efficiency. Table: `results/revision/tables/stats_libtorch_control.md`.
 
 ### Comment 4 — Energy unit mislabelled (also Reviewer 3, major comment 1)
 
@@ -364,8 +507,17 @@ ecosystems within each block, pairwise Mann-Whitney with Holm correction, and
 Cliff's delta, all on **run totals** — five independent numbers per
 configuration rather than 30 correlated epochs of one. Between-run dispersion is
 now measurable rather than assumed: the median coefficient of variation of
-training energy is 0.44 % and the worst is 1.29 %, so the effects reported are
-comfortably resolved by the design.
+training energy is 0.49 % and the worst is 1.21 % (inference 1.17 % and 3.04 %),
+so the effects reported are far larger than the noise the design carries.
+
+The tests themselves are reported with their limits rather than their headline.
+The omnibus is significant in all 12 blocks with ε² ≥ 0.95 and p ≤ 1.2×10⁻⁵. Not
+one of the 252 pairwise comparisons survives Holm correction — the smallest
+adjusted p is 0.167, against a smallest raw p of 0.0079 — because 21 pairs per
+block at five runs each cannot, whatever the separation. 99 % of those pairs are
+nevertheless *large* by Cliff's delta. We report the effect sizes and say that
+the pairwise tests are underpowered, rather than reporting the omnibus alone and
+letting it stand in for them.
 
 *Outliers.* The submitted analysis had no way to tell an outlier from a
 measurement artefact. It does now: every block carries two independent readings,
@@ -409,11 +561,20 @@ in `repetition_protocol.md` §4, and all seven stacks now honour it.
 and does not depend on the arbitrary 30-epoch budget.
 
 The measured result: under the same epoch budget all seven ecosystems converge
-to within 0.7 percentage points on Fashion-MNIST (91.0–91.6 %), which is the
+to within **0.3 percentage points** on Fashion-MNIST (91.3–91.6 %), which is the
 strongest available evidence that they are now running the same experiment. On
-CIFAR-100 they separate by 13.1 points, and there the energy comparison has to
-be read alongside the accuracy reached rather than instead of it — a stack that
-converges more slowly looks efficient precisely because it accomplished less.
+CIFAR-100 they separate by 4.0 points (30.7–34.7 %) and on Tiny ImageNet by
+1.7 points (14.2–15.9 %), and there the energy comparison has to be read
+alongside the accuracy reached rather than instead of it — a stack that converges
+more slowly looks efficient precisely because it accomplished less. R/torch is
+the top of both of those ranges and the most expensive stack on ResNet-18, which
+is the case in point.
+
+One caveat we owe on the derived quantity: accuracy per kilojoule divides the
+final test accuracy by the **training** energy of the run, evaluation excluded
+(`09_campaign_v2.py`). That is deliberate — the accuracy is what training bought
+— but it is not the run's total energy, and the manuscript now says so where the
+number appears.
 
 ### Comment 7 — Not like-for-like at the implementation level
 
@@ -505,10 +666,15 @@ trade-off a practitioner actually faces and which the submitted design could not
 draw, because no ecosystem recorded its accuracy.
 
 The replicated campaign strengthens the reviewer's point rather than softening
-it. On counter-bracketed durations, energy and time now correlate at ρ ≈ 0.98,
-so a composite of normalised energy and normalised time averages two quantities
-that are very nearly the same measurement. Whatever such an index ranks, it is
-not two dimensions.
+it. On counter-bracketed durations, energy and time correlate at ρ = 0.96 in
+training and 0.92 in inference over the 42 configurations, so a composite of
+normalised energy and normalised time averages two quantities that are very
+nearly the same measurement. Whatever such an index ranks, it is not two
+dimensions. The one place they come apart is inside a block, where the workload
+is fixed and only the ecosystem varies: there ρ runs from 0.68 to 1.00 over the
+twelve cells, and the lowest is ResNet-18 / CIFAR-100 training, with 5 discordant
+pairs of 21. That residual is a real second dimension and it is small; it does
+not rescue a composite index, and we report it rather than round it away.
 
 ### Comment 11 — Industrial extrapolation (also Reviewer 3, major comment 6)
 
@@ -520,8 +686,11 @@ different boundaries, and the product is not a quantity.
 Rather than delete the section, we made it dimensionally honest. The scenario
 assumes a per-accelerator power budget, so the multiplier is now computed from
 **accelerator energy alone** — the NVML counter, CPU package term excluded.
-The boundary choice is not cosmetic: it moves the ecosystem spread from 20.4× to
-18.4×.
+The boundary choice is not cosmetic: on the re-executed campaign the ecosystem
+spread is 24.6× at the counter total and 22.2× at the accelerator boundary, and
+35.9× if the multiplier is taken on time instead. Those are three different
+answers to the same scenario, and which one a reader gets depends entirely on
+which quantity the per-accelerator budget is multiplied by.
 
 The section is retained with the arithmetic stated as arithmetic, and with two
 caveats that come from our own data rather than from convention: the multipliers
@@ -533,19 +702,21 @@ as the boundary they were measured at — the point the reviewer was making.
 ### Related: measurement coverage, and a wrong turn we took
 
 Asking what boundary a number belongs to led us to check what fraction of each
-run lies inside a measured block at all. It is not uniform: tracked time is 44%
-of wall time for JAX and 99.8% for R. More than half of a JAX run happens
-outside any measured block.
+run lies inside a measured block at all. It is not uniform: tracked time is 46%
+of wall time for C++/LibTorch and 100% for R/torch. More than half of a C++ run
+happens outside any measured block.
 
 Our first reading was that the low-coverage stacks do a lot of work between
 phases and are flattered by a per-phase comparison, and we built a bounded
 sensitivity analysis around charging that time back. **That reading was wrong.**
 The gap preceding each block is almost exactly the amount by which CodeCarbon's
 reported window exceeds the counter-bracketed phase — the two correlate at
-r = 0.98 over all 12,600 blocks, their medians differ by 0.23 s, and the window
-excess accounts for 96% of all untracked time. Coverage tracks nothing about the
-ecosystems except the median length of their blocks: JAX has 3.2-second blocks
-and 44% coverage, R has 37-second blocks and 99.8 %.
+r = 0.98 over 12,390 blocks, their medians are 3.51 s and 3.29 s and differ by
+0.26 s, and the window excess accounts for 97% of all untracked time; for three
+ecosystems it accounts for slightly more than all of it, the estimator's window
+overlapping its own gap. Coverage tracks nothing about the ecosystems except the
+median length of their blocks: C++ has 3.1-second blocks and 46% coverage, R has
+33.5-second blocks and 100%.
 
 The untracked time is the instrument holding its window open. It would not exist
 in an uninstrumented run, and charging it to the ecosystems would charge them for
@@ -555,28 +726,37 @@ spreads stand as reported.
 What it does bear on is anyone planning a campaign of this shape: under
 whole-machine tracking that overhead is real energy drawn from the wall and
 attributed to nobody, and its share grows as blocks get shorter — exactly where
-the instrument is already least reliable.
+the instrument is already least reliable. Across this campaign it is 10.5 hours
+and 2.4 MJ, 6% of the total.
 `results/analysis/16_coverage_sensitivity.py`.
 
 ### A second correction, to our own model of the instrument
 
 We fitted CodeCarbon's reported duration twice and got it wrong twice, in the
-same way. First as a floor, `max(phase, 3.99 s)`, R² = 0.993. Then, on finding
-that wrong in the middle of the range, as two regimes — phase plus 3.28 s below
-11 s — R² = 0.998 at a third of the error, which looked conclusive.
+same way. First as a floor, `max(phase, 3.99 s)`, R² = 0.982 at a mean absolute
+error of 1.79 s. Then, on finding that wrong in the middle of the range, as two
+regimes — phase plus 4.58 s below 11 s — R² = 0.998 at 0.53 s, less than a third
+of the error, which looked conclusive.
 
-It is not. The excess is trimodal (0.01 s, 3.27 s, 4.56 s) and block length does
-not determine which mode a block lands in: 450 blocks longer than 11 s are
-padded, 86 shorter than it are not, and one ecosystem is unpadded in every one
-of its 1800 blocks while another is padded in every one of its own. Both fits
-were curves through a predictor that does not govern the phenomenon, and both
-earned their R² against a variable whose range is dominated by phase length
-itself.
+It is not. The excess is trimodal (0.01 s, 4.57 s, 13.38 s) and block length does
+not determine which mode a block lands in: 154 blocks longer than 11 s are
+padded, 3 shorter than it are not, and one ecosystem is unpadded in every one of
+its 1800 blocks while another is padded in every one of its own. Both fits were
+curves through a predictor that does not govern the phenomenon, and both earned
+their R² against a variable whose range is dominated by phase length itself.
 
 We report both failures because they are the paper's own argument turned on us,
 twice: a high R² on a skewed predictor is not evidence of the right functional
-form. The manuscript now states the consequence without any model — divide each
-instrument's energy by its own duration, per phase-length bin — which is what it
+form. The third attempt is not a fit at all. `probe_reported_window.py` measures
+what `EmissionsTracker.stop()` costs against the length of the block it closes,
+on this host: 4.56 s with two geolocation lookups outstanding, 3.01 s with one,
+0.012 s with none, the count set by how much of the tracker's 8-second API-call
+interval the block has already consumed. That is a mechanism, it predicts the
+three modes and the 12-second threshold, and it leaves the 154 padded blocks
+above the threshold as what they are — network latency, which the diurnal split
+of the wide mode (4.58 s at night against 3.29 s by day) shows independently.
+The manuscript states the consequence without a fitted model: divide each
+instrument's energy by its own duration, per phase-length bin, which is what it
 should have done first.
 
 ### Comment 12 — Descriptive answers, no mechanism
@@ -586,12 +766,22 @@ points at: energy = mean power × duration. 98% (inference) and 107% (training)
 of the log spread is attributable to duration, and the mean-power spread is only
 1.3–1.6×. Combined with the GPU-load audit, the LibTorch control and the implementation
 audit, the mechanism is now concrete rather than hypothesised: the stacks differ
-in how long a step takes at low GPU utilisation, and the dominant reason is how
-many CPU threads decode and feed images — Spearman −0.73 (p = 0.04) between
-loader threads and epoch duration, with Rust on 96 cores at one end and R on
-zero workers at the other. This is a data-pipeline story, not a
-kernel-efficiency story and not a language story. Layer-level and function-level profiling remains future work and is now
-described as necessary rather than optional.
+in how long a step takes at low GPU utilisation, and in the submitted campaign
+the dominant reason was how many CPU threads decode and feed images — Spearman
+−0.73 (p = 0.041) between loader threads and epoch duration, with Rust on
+96 cores at one end and R on zero workers at the other.
+
+That divergence is gone: every stack now runs the two loader workers the
+specification mandates, and the spread survives anyway. The 1 Hz record says why
+for the extreme case. R/torch holds 4.5–5.0 % accelerator utilisation on
+ResNet-18 and 12.1–13.4 % on VGG-16, with 1,271–3,001 MiB of device memory
+resident, and its accelerator power stays between 126 W and 141 W whichever
+network it is training, where every other stack's moves by 100 W or more with the
+network. The card is attached and idle; R's two workers are simply slower per
+image. This is still a data-pipeline story, not a kernel-efficiency story and not
+a language story, but it is now measured at the device rather than inferred from
+a thread count. Layer-level and function-level profiling remains future work and
+is now described as necessary rather than optional.
 
 ### Comment 13 — Presentation, and the unvalidated daemon controller
 
@@ -618,19 +808,31 @@ across eight stacks, four of which share a backend.
 
 ### Comment 15 — The workload does not exercise the GPU
 
-**FIXED (analysis); the workload limitation remains open.** Confirmed and quantified.
-Mean GPU power derived from the energy counter is 83–197 W against a 350 W board
-limit — 24–56% — and never approaches the limit in any configuration. GPU energy
-is 30–69% of the measured total; the remainder is host-side.
-`fig_gpu_load.png` and `audit_gpu_load.md` report this per ecosystem and phase.
+**REQUIRES RE-EXECUTION for the workload; FIXED for the measurement of it.**
+Confirmed and quantified. In the submitted campaign, mean GPU power derived from
+the energy counter was 83–197 W against a 350 W board limit — 24–56% — and never
+approached the limit in any configuration; GPU energy was 30–69% of the measured
+total. `fig_gpu_load.png` and `audit_gpu_load.md` report that per ecosystem and
+phase.
 
-**Still open, and stated as such in the manuscript.** The replicated campaign
-runs the same 32×32 workload, so it inherits the limitation: it measures data
-loading and dispatch more than deep learning. We now bound the consequence in a
-known direction rather than leaving it implicit — a saturating workload would
-*compress* the ecosystem spread, because the spread we measure is dominated by
-host-side work. Adding a saturating configuration is the single most useful
-follow-up and is listed first in Future Work.
+The re-executed campaign measures the same thing directly rather than deriving
+it. Sampled at 1 Hz alongside the runs, mean accelerator utilisation spans
+**4.7% to 79.9%** across ecosystem and architecture — R/torch on ResNet-18 at the
+bottom, Java/DL4J on VGG-16 at the top — and mean accelerator power spans
+127–258 W on a 350 W card (`19_gpu_utilisation.py`,
+`v2_gpu_utilisation_by_ecosystem.md`). The record began after the campaign did,
+so it covers 157 of the 210 runs, and the table says so rather than averaging
+over whatever happened to be there.
+
+**Still open, and stated as such in the manuscript.** The re-executed campaign
+runs the same 32×32 workload, so it inherits the limitation: it measures whole
+pipelines more than saturated kernels. We previously wrote that this bounds the
+consequence in a known direction — that a saturating workload would *compress*
+the spread, because the spread we measure is dominated by host-side work. That
+does not follow, and we withdraw it: which way saturation moves the ranking
+depends on where the spread comes from, and a black-box comparison of this shape
+cannot establish that. Adding a saturating configuration is the single most
+useful follow-up and is listed first in Future Work.
 
 ---
 
@@ -654,11 +856,18 @@ ecosystem ran last: 210 runs in total. Every interval, test and effect size in
 the revised manuscript is computed across those runs.
 
 The design also answers a question the submitted one could not ask: how precise
-is the apparatus? Median between-run CV is 0.44 % for training and 1.06 % for
-inference. That is low — and worth stating plainly, because low run-to-run
-variance is what made a single-run design look adequate in the first place. It
-is a property of the measurement, not evidence that the measurement is of the
-right thing.
+is the apparatus? Median between-run CV is 0.49 % for training and 1.17 % for
+inference, worst case 1.21 % and 3.04 %. That is low — and worth stating plainly,
+because low run-to-run variance is what made a single-run design look adequate in
+the first place. It is a property of the measurement, not evidence that the
+measurement is of the right thing.
+
+Four of the 210 runs were not part of the interleaved schedule: the JAX/VGG-16
+runs that predate the Flax dropout fix, replayed two days after the campaign
+finished. The between-window drift this exposes them to is measured rather than
+assumed — one configuration re-executed in a third window under the current
+harness gives **−1.25 % at 1.62 standard deviations** of the within-window spread
+on training and −3.23 % at 3.95 σ on inference (`v2_window_calibration.csv`).
 
 ### Major comment 3 — No accuracy or convergence
 
@@ -670,10 +879,11 @@ on train, 86% once removed), and that the Fashion-MNIST class `T-shirt/top` had
 produced a nested directory that different loaders read differently. Neither is
 visible in energy or runtime.
 
-With the quality metric in place, the three Python ecosystems now agree to within
+With the quality metric in place, the three Python ecosystems agreed to within
 one percentage point after one epoch on Fashion-MNIST (PyTorch 87.11%, JAX
-86.46%, TensorFlow 86.06%), which is the evidence that they solve the same
-problem.
+86.46%, TensorFlow 86.06%) in the pre-campaign smoke test. The campaign itself
+is the stronger statement: over 30 epochs and five repetitions, all seven
+ecosystems land within 0.3 percentage points of each other on Fashion-MNIST.
 
 **Original response:** See Reviewer 1 comment 6. We accept the framing:
 without a quality measure the differences cannot be called "energy efficiency"
@@ -700,7 +910,7 @@ came from the measurement setup.
 
 **The replicated campaign identifies the mechanism.** The submitted RQ3 used
 CodeCarbon's `duration` column as the time axis. That column is not the interval
-the energy was accumulated over: two thirds of blocks carry seconds of tracker
+the energy was accumulated over: 75 % of blocks carry seconds of tracker
 lifetime in which no energy was drawn. Every such block — which is every
 inference phase in the faster stacks, and many of the training epochs — was
 therefore recorded with a *stretched* time and a *correct* energy. That is
@@ -708,9 +918,10 @@ precisely the shape of a "fast but energy-hungry" data point, and it is
 manufactured entirely by the instrument.
 
 Recomputed on counter-bracketed durations, energy and time rank the
-configurations at Spearman ρ ≈ 1 in both phases. `11_instrument_comparison.py`
-reproduces the window characterisation; `14_v2_statistics.py` reproduces the
-correlations.
+configurations at Spearman ρ = 0.96 in training and 0.92 in inference — not the
+ρ ≈ 1 an earlier draft of this document claimed, and not the divergence the
+manuscript claimed either. `11_instrument_comparison.py` reproduces the window
+characterisation; `14_v2_statistics.py` reproduces the correlations.
 
 Efficiency Index: see Reviewer 1 comment 10.
 
@@ -720,9 +931,10 @@ Efficiency Index: see Reviewer 1 comment 10.
 a single common reference cell instead of per-column normalisation
 (`fig_dataset_absolute.png`, `dataset_absolute_energy_*.md`).
 
-The claim also weakens under the correct scale. Training energy grows 1.79×
-from Fashion-MNIST to Tiny ImageNet, but per training image it is 114.8, 109.3
-and 123.1 mJ respectively — essentially flat. The effect is dataset *size*, not
+The claim also weakens under the correct scale. In the submitted campaign,
+training energy grows 1.79× from Fashion-MNIST to Tiny ImageNet, but per training
+image it is 114.8, 109.3 and 123.1 mJ respectively — essentially flat. The effect
+is dataset *size*, not
 difficulty. `dataset_factors.md` lists what "complexity" conflates: training-set
 size, class count, channel count and native resolution all differ
 simultaneously, and Tiny ImageNet is downsampled 64×64 → 32×32. The design
@@ -742,10 +954,13 @@ contains **2,880** tracked measurement blocks: 8 ecosystems × 2 models ×
 blocks, from 48 configurations run **once** each. The explicit table the reviewer
 asks for is `audit_design.md`, generated from the data rather than restated.
 
-The carbon figure changes accordingly: the tracked blocks total **4.02 kWh** and
-**1.33 kg CO₂eq** at 331 gCO₂eq/kWh, not 3.3 kg. This is a lower bound — it
-excludes compilation, dataset preparation, idle time and discarded runs — and is
-now stated as such (`campaign_carbon_footprint.md`).
+The carbon figure changes accordingly: the submitted campaign's tracked blocks
+total **4.02 kWh** and **1.33 kg CO₂eq** at 331 gCO₂eq/kWh, not 3.3 kg. This is a
+lower bound — it excludes compilation, dataset preparation, idle time and
+discarded runs — and is now stated as such (`campaign_carbon_footprint.md`). The
+campaign this document reports is larger and is stated on the same basis: 210
+runs, 12,600 blocks, **40.4 MJ = 11.2 kWh** inside the measured windows, of which
+36.0 MJ is training.
 
 ### Major comment 8 — Language versus ecosystem
 
@@ -754,8 +969,10 @@ now stated as such (`campaign_carbon_footprint.md`).
 `MATLAB/DLT`, `Python/TensorFlow`, `Python/JAX`. The mapping is in
 `common.py::ECOSYSTEM` and is applied to every table, figure axis and caption; no
 figure axis is labelled "Language" any more. Statements are phrased as
-"Rust/tch versus Java/DL4J". The count is eight ecosystems over six languages,
-stated consistently.
+"Rust/tch versus Java/DL4J". The submitted campaign's count was eight ecosystems
+over six languages; the campaign reported here is **seven ecosystems over five
+host languages** (Python, C++, Java, R and Rust), MATLAB being out of scope, and
+that count is stated consistently and generated from the data.
 
 ### Minor comments
 
@@ -791,6 +1008,9 @@ Five independent implementations within 3.6 percentage points, and the four over
 LibTorch within one. This is the check reviewer 1 comment 6 and reviewer 3 major
 comment 3 asked for, and it is what caught two further defects
 (TensorFlow evaluating in training mode; Fashion-MNIST's nested class directory).
+The campaign supersedes it as evidence: over the full 30 epochs and five
+repetitions, the seven agree to 0.3 points on Fashion-MNIST and 4.0 on
+CIFAR-100.
 
 **Two residual divergences we could not remove**, both properties of the
 ecosystems rather than oversights:
@@ -823,11 +1043,16 @@ Every quantity the manuscript quotes is **generated**, not transcribed.
 time. This is a direct response to how the unit error occurred: a number that no
 author types is a number no author can mislabel.
 
+It builds, at 36 pages in the `cas-dc` two-column format.
+
 Figures are regenerated by `results/analysis/13_paper_figures.py`. The four
-submitted figures are replaced by six: the instrument's duration floor and its
+submitted figures are replaced by seven: the instrument's duration floor and its
 effect on power, energy per ecosystem with genuine between-run intervals, energy
 against accuracy reached, the two instruments against each other, between-run
-repeatability, and the VGG-16 convergence failures against ResNet-18.
+repeatability, the convergence traces of this campaign, and — generated by the
+same script under `--campaign v1` — the first campaign's VGG-16 collapses against
+ResNet-18, which is the only figure in the paper drawn from the superseded
+records and is labelled as such.
 
 ### The apparatus now polices the manuscript as well as the experiment
 
@@ -836,51 +1061,89 @@ the unit error did. The manuscript quoted 57 conformance checks while the
 checker ran 63, and claimed five catalogue entries were the authors' own while
 four carried the mark. Both are now counted by
 `results/analysis/12_paper_numbers.py` from the checker and from the table
-itself, so neither can drift again. The highlights uploaded to the submission
-form are expanded from the manuscript's own `highlights` environment by
-`scripts/emit_highlights.py` for the same reason.
+itself, so neither can drift again: the checker runs **92 checks, 92 passing,
+0 failing**, and the defect catalogue holds **34 entries, 12 of them ours**. The
+highlights uploaded to the submission form are expanded from the manuscript's own
+`highlights` environment by `scripts/emit_highlights.py` for the same reason.
 
-The raw records — 13,231 files and 54 MB of per-block CSVs — are consolidated by
+Counting them was not enough on its own, and this is the second correction of
+this kind we owe. `12_paper_numbers.py` counted a *skipped* check as a passing
+one, so a run in which three checks could not read their input would have
+published 92 of 92 passing; it now refuses to emit the conformance macros at all
+unless every check actually ran. It also refuses to emit any macro whose value
+formats as `nan`, after a chi-square that is undefined on a table of zeros
+reached the manuscript as "p = nan".
+
+The raw records — 13,441 files and 54 MB of per-block CSVs — are consolidated by
 `scripts/consolidate_raw.py` into four gzipped tables under
-`results/replication/`, 2.2 MB, carrying the identical records with the run
-identity on every row. `--check` verifies the package against the raw tree.
+`results/replication/`, 2.3 MB, carrying the identical records with the run
+identity on every row: 12,600 counter rows, 12,600 estimator rows, 6,300 epoch
+metric rows and 210 manifests. `--check` verifies the package against the raw
+tree, and the script now refuses to build a package at all unless the campaign is
+complete and every run directory in it passed the completeness gate. It runs at
+the *end* of `run_all.sh`, because it is an output of the pipeline; it used to be
+read as an input, which is the defect corrected above.
 
 ## What is still outstanding
 
-1. **A GPU-saturating workload.** At 32×32 the accelerator runs well below its
-   board power limit, so the campaign measures data loading and dispatch more
-   than deep learning (Reviewer 1 comments 2 and 15). This bounds the absolute
-   figures in a known direction — a saturating workload would compress the
-   spread — and it is stated as such in the manuscript rather than left implicit.
+1. **A GPU-saturating workload.** At 32×32 the accelerator runs between 4.7% and
+   79.9% utilisation depending on stack and network, so the campaign measures
+   whole pipelines more than saturated kernels (Reviewer 1 comments 2 and 15).
+   This is the one item the re-execution did not close, and it is the one item we
+   cannot bound in a known direction: whether saturation compresses the ecosystem
+   spread depends on where that spread comes from, which this design cannot
+   establish. The manuscript states it as a limitation on external validity
+   without naming a direction.
 2. **A wall-meter reference.** We report a chip-level boundary (NVML + RAPL) and
    decline to extrapolate to whole-system energy. Relating the two needs
-   hardware we do not have.
-3. **Two residual toolchain divergences**, both properties of the ecosystems
+   hardware we do not have. The counters are un-baselined — they include the
+   machine's static draw within their own boundary — and the idle floor is
+   measured rather than assumed: on a quiet host, 60 seconds at a one-minute load
+   average of 0.26, the accelerator draws 24.6 W and the CPU package 38.9 W,
+   63.5 W together (`v2_idle_baseline.json`, measured 5 September 2026, 10:44
+   UTC).
+3. **Accelerator utilisation for 53 runs.** The 1 Hz sampler was started after
+   the campaign began, so it covers 157 of 210 runs. The tables say which, and no
+   utilisation figure is averaged over an unstated subset.
+4. **Two residual toolchain divergences**, both properties of the ecosystems
    rather than of the design: DL4J 1.0.0-M2.1 is the last release of its API and
    links CUDA 11.6, so Java cannot join the CUDA 12 group; and R's `torch`
    cannot switch a script module between train and eval mode, so R alone cannot
    load the shared TorchScript module of specification S1.
-4. **MATLAB** remains out of scope. It cannot be brought into conformance with
+5. **No harness provenance in the manifests.** All 210 manifests record the
+   environment, the CodeCarbon configuration, the precision policy and the
+   machine state, but not the revision of the harness that wrote them. Provenance
+   for this campaign is established by argument — one source revision, the four
+   replayed runs included — where it should be a field in the file.
+6. **MATLAB** remains out of scope. It cannot be brought into conformance with
    the specification, and including a stack that provably runs a different
    experiment would reintroduce the confound the design exists to remove.
 
 ---
 
-## What the re-execution changes in this document
+## What the re-execution changed in this document
 
-Listed so that no reader has to work it out from the dates. Each of these is a
-quantity or a claim taken from the superseded campaign; each will be replaced
-from the generated macros once the second campaign completes.
+Listed so that no reader has to work it out from the dates. Each of these was a
+quantity or a claim taken from the superseded campaign; each has now been
+replaced from the generated macros, and this table records the replacement rather
+than announcing one.
 
-| Section | Claim | Why it changes |
+| Section | Claim as it stood | What the re-executed campaign gives |
 |---|---|---|
-| VGG-16 collapse | "12 of 105 VGG-16 runs", the per-ecosystem spread (Java 5/10, TensorFlow 4/10, C++ 2/10, PyTorch 1/10, and never in JAX, R, Rust) | The rates reflect four different initialisers. With one exported set of weights the phenomenon has not recurred: 0 collapses in the first 22 many-class VGG-16 runs of the second campaign. |
-| VGG-16 energy, everywhere it appears | every per-ecosystem VGG-16 figure and ratio | Four different networks were being compared, spanning 9.1× in parameters. |
-| RQ1 mechanism | the attribution of the spread to ecosystem behaviour | TF32 was on for some stacks and off for others. |
-| JAX inference ranking | JAX as cheapest at inference | Measured with asynchronous dispatch unsynchronised; 35.9% of the work finished after the tracker closed. |
-| Loader configuration table | "0 (R/torch), 1 (JAX, TensorFlow, MATLAB), 2 (PyTorch, C++, Java), 96 (Rust)" | Describes the state that was found, not the state that was measured: all stacks now run two loader workers. MATLAB is out of the study. |
-| Homogeneity of collapse | the permutation p-value | Replaced by the exact Freeman--Halton test; on the first campaign's table, p = 0.0040. |
+| VGG-16 collapse | "12 of 105 VGG-16 runs", the per-ecosystem spread (Java 5/10, TensorFlow 4/10, C++ 2/10, PyTorch 1/10, and never in JAX, R, Rust) | Kept, as a **first-campaign** result with a first-campaign cause: the rates reflect four different initialisers (He 0/6, Glorot 2/6, Xavier 4/6). With one exported set of weights the phenomenon does not recur — **0 of 105** VGG-16 runs, 0 of 210 overall. |
+| VGG-16 energy, everywhere it appears | every per-ecosystem VGG-16 figure and ratio | Re-measured on one canonical 15,028,644-parameter network. The VGG-16 spread is 7.4× in every dataset, TensorFlow or JAX cheapest and Java most expensive. |
+| RQ1 mechanism | the attribution of the spread to ecosystem behaviour | TF32 is now allowed for all seven, and the effect it was hiding is reported as a declared ablation: 3.14× on the one cleanly comparable cell, three control stacks moving ≤ 1.3 %. |
+| JAX inference ranking | JAX as cheapest at inference | Withdrawn. Measured with asynchronous dispatch unsynchronised, 35.9 % of the work finished after the tracker closed. Synchronised, **C++/LibTorch is cheapest at inference in all six blocks** and JAX ranks third to fifth. |
+| Loader configuration table | "0 (R/torch), 1 (JAX, TensorFlow, MATLAB), 2 (PyTorch, C++, Java), 96 (Rust)" | Kept as a description of the state that was *found* in the submitted package. All seven stacks now run two loader workers, verified by the checker; MATLAB is out of the study. |
+| Homogeneity of collapse | the permutation p-value, p = 0.07, contrasted with chi-square p = 0.0065 | Replaced by the exact Freeman–Halton test: on the first campaign's table **p = 0.0040**, with no approximation and no seed. On this campaign's table there is nothing to test — every cell is zero — and the chi-square macro is not emitted at all rather than typeset as `nan`. |
+| Between-window calibration | "training energy 0.21 % apart at 0.61 σ", from a calibration run on 29 August against the first campaign | Withdrawn. Run against the re-executed campaign the same calibration reads 201 % apart at 293 σ, because the two windows differ in precision policy and not only in time. Re-measured under the current harness on 4 September: **−1.25 % at 1.62 σ** on training, −3.23 % at 3.95 σ on inference. |
+| Conformance | "one failing check" | The check was reading a superseded replication package. Reading the campaign: **92 pass, 0 fail, 0 skip**. |
+| Precision ablation | the 4.81× four-cell table in `REVISION_LOG.md` §1 and the 13.3×/16.7× cuDNN bound in §19 | Both had no script behind them and quoted 50-step totals as per-step figures. Both are re-derived and scripted: campaign contrast **3.14×**, kernel probe **3.62×** for TF32 and **13.08× / 16.30×** for cuDNN disabled. |
 
 The instrument comparison, the padding and window-floor results, the boundary
 argument and the source-level defects are properties of the tooling and the code
-rather than of the campaign's numbers, and are unaffected.
+rather than of the campaign's numbers. Their *magnitudes* have moved with the new
+records — the padded share from 67 % to 75 %, the worst power understatement from
+11.2× to 13.0×, the two-instrument agreement from 0.5 % to 0.3 % — and the
+mechanism behind the window excess is now measured rather than fitted, but none
+of the conclusions drawn from them changes.

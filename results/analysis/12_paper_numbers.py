@@ -27,8 +27,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import (REPO_ROOT, announce_scope,  # noqa: E402
-                    campaign_is_partial, TABLES_RESOLVER, tables_dir)
+from common import (CAMPAIGN_DIR, REPO_ROOT, announce_scope,  # noqa: E402
+                    campaign_is_partial, read_campaign_metrics,
+                    TABLES_RESOLVER, tables_dir)
 
 TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 # The manuscript's own inputs. Diverted alongside the tables while the campaign
@@ -50,6 +51,10 @@ SHORT = {
     "R/torch": "R",
     "Rust/tch": "Rust",
 }
+#: The superseded campaign. Read only by first_campaign_collapse_facts, which
+#: says why; everything else in this file is the campaign the paper reports.
+FIRST_CAMPAIGN = REPO_ROOT / "results" / "campaign_v2_first_campaign"
+
 DATASET = {"fashionmnist": "Fashion-MNIST", "cifar100": "CIFAR-100",
            "tinyimagenet": "Tiny ImageNet"}
 MODEL = {"resnet18": "ResNet-18", "vgg16": "VGG-16"}
@@ -57,14 +62,86 @@ MODEL = {"resnet18": "ResNet-18", "vgg16": "VGG-16"}
 macros: dict[str, str] = {}
 
 
+def sibling(stem: str):
+    """Import one of the numbered analysis scripts as a module.
+
+    ``09_campaign_v2`` is not an importable identifier, which is presumably why
+    the two frames below were built here from ``results/replication/`` instead
+    of from the campaign. That package is an output of the pipeline, not an
+    input: it held the FIRST campaign for a fortnight while this script quoted
+    ten macros from it, and nothing said so. Reaching through importlib for the
+    collection code that already exists is cheaper than a second copy of it
+    drifting away from the completeness gate.
+    """
+    import importlib.util
+    path = Path(__file__).resolve().parent / f"{stem}.py"
+    spec = importlib.util.spec_from_file_location(stem, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+#: What a float that is not a number formats to, in every spelling pandas,
+#: numpy and Python produce.
+NOT_A_NUMBER = {"nan", "-nan", "inf", "-inf", "infinity", "-infinity", "none",
+                "<na>", "nat"}
+
+
 def macro(name: str, value) -> None:
-    """Register one \\newcommand. Names must be letters only (TeX restriction)."""
+    """Register one \\newcommand. Names must be letters only (TeX restriction).
+
+    A macro is refused rather than typeset if it would carry a value that is
+    not a number. ``num()`` is ``f"{x:.4f}"``, and ``f"{nan:.4f}"`` is the
+    string ``"nan"``: with zero collapses in the campaign chi2_contingency
+    raises on a zero expected frequency, 15_convergence records NaN, and
+    paper.tex typeset "a chi^2 test on that table returns p = nan, which would
+    license a claim that ecosystems differ in robustness". A paper cannot print
+    nan, and a build that silently prints it is worse than one that fails: the
+    caller must decide what the quantity is when it is undefined, or leave the
+    macro out and let LaTeX fail on the undefined command.
+    """
     assert name.isalpha(), f"macro name {name!r} must be letters only"
-    macros[name] = str(value)
+    s = str(value)
+    if s.strip().lower() in NOT_A_NUMBER:
+        raise ValueError(f"macro {name} would emit {s!r} into the manuscript; "
+                         "give the quantity a defined value or do not emit it")
+    macros[name] = s
+
+
+def only_row(frame: pd.DataFrame, table: str, macro_name: str):
+    """The row of a one-row table, or a refusal that says which macro is lost.
+
+    An empty table is now what a script writes when it has nothing to report,
+    so ``.iloc[0]`` on one is reachable. Pandas' IndexError names neither the
+    table nor the quantity the manuscript wanted; this does both, which is the
+    difference between a build that tells you the campaign has no collapses and
+    one that tells you position 0 is out of bounds.
+    """
+    if frame.empty:
+        raise ValueError(f"{table} has no rows, so \\{macro_name} and the "
+                         f"macros beside it are not defined for this campaign")
+    return frame.iloc[0]
+
+
+def span(lo: float, hi: float, digits: int = 1, unit: str = "") -> str:
+    """``lo--hi`` at one precision, or a single value when the ends round equal.
+
+    The padding table printed C++'s inference blocks as "0.3--0\\,s" -- the low
+    end at one decimal and the high end at none, so the range read as ending
+    below where it starts. A range is one quantity: both ends carry the same
+    precision, and if that precision cannot tell them apart it prints once
+    rather than as a range from a number to itself.
+    """
+    a, b = f"{lo:.{digits}f}", f"{hi:.{digits}f}"
+    return f"{a}{unit}" if a == b else f"{a}--{b}{unit}"
 
 
 def num(x, digits: int = 0) -> str:
-    """A number formatted for siunitx, without thousands separators."""
+    """A number formatted for siunitx, without thousands separators.
+
+    Non-finite input is left to format as "nan"/"inf" and rejected by
+    ``macro()``, which is the one place that knows which macro is at fault.
+    """
     return f"{x:.{digits}f}"
 
 
@@ -82,7 +159,11 @@ def sci_upper(x: float, digits: int = 2) -> str:
     no leading zero left to match.
     """
     import math
-    if not math.isfinite(x) or x <= 0:
+    if not math.isfinite(x):
+        # Zero is a legitimate bound; NaN is not a bound at all, and returning
+        # "0" for one would quote the tightest limit possible from no data.
+        raise ValueError(f"cannot bound {x!r}: not a finite number")
+    if x <= 0:
         return "0"
     exp = math.floor(math.log10(x))
     scale = 10.0 ** (digits - 1)
@@ -122,9 +203,22 @@ def apparatus_facts() -> None:
 
     results = check_consistency.run()
     macro("vConformanceChecks", len(results))
+    # A skipped check has not passed. This counted passes as "everything that
+    # did not fail", so a checker run in which three checks could not read their
+    # input published 92 of 92 passing -- the checker's own EXPECTED_CHECKS note
+    # says a check that stops running is indistinguishable from one that passed,
+    # and this is where that becomes a number in the manuscript. Refuse the run
+    # instead: the conformance figures may only come from a run in which every
+    # check actually ran.
+    skipped = [x for x in results if x.status == check_consistency.SKIP]
+    if skipped:
+        raise ValueError(
+            "conformance checks did not run, so \\vConformancePassing cannot be "
+            "derived: " + ", ".join(f"{x.check} ({x.detail})" for x in skipped))
     failing = [x for x in results if x.status == check_consistency.FAIL]
     macro("vConformanceFailing", len(failing))
-    macro("vConformancePassing", len(results) - len(failing))
+    macro("vConformancePassing",
+          sum(1 for x in results if x.status == check_consistency.PASS))
     if failing:
         macro("vConformanceFailName", failing[0].check.replace("_", r"\_"))
         macro("vConformanceFailDetail", failing[0].detail.split(" missing")[0])
@@ -141,23 +235,48 @@ def catalogue_facts() -> None:
     sentence is derived from it, and this makes that direction explicit.
     """
     tex = (REPO_ROOT / "paper" / "paper.tex").read_text()
-    anchor = tex.index(r"\label{tab:catalogue}")
-    start = tex.index(r"\begin{tabularx}", anchor)
-    body = tex[start:tex.index(r"\end{tabularx}", start)]
+
+    # Every table* float whose caption mentions the catalogue, not just the one
+    # carrying \label{tab:catalogue}. The catalogue outgrew a single float and
+    # is being split across two, and a parser anchored on the label would have
+    # counted the first half and reported it as the total -- silently, and in a
+    # macro whose whole purpose is to stop a table and a sentence about it
+    # drifting apart.
+    floats = []
+    for start in _positions(tex, r"\begin{table*}"):
+        end = tex.index(r"\end{table*}", start)
+        block = tex[start:end]
+        caption = block[block.index(r"\caption{"):] if r"\caption{" in block else ""
+        if "catalogue" in caption[:400].lower() or r"\label{tab:catalogue}" in block:
+            floats.append(block)
+    assert floats, "no catalogue float found in paper.tex"
 
     total = ours = 0
-    for row in body.split("\\\\\n"):
-        lines = [ln.strip() for ln in row.strip().split("\n") if ln.strip()]
-        lines = [ln for ln in lines
-                 if not ln.startswith((r"\toprule", r"\midrule", r"\addlinespace",
-                                       r"\bottomrule", r"\begin{tabularx}"))]
-        if not lines or lines[0].startswith((r"\multicolumn", r"\textbf")):
-            continue
-        total += 1
-        ours += r"$^\ast$" in row
+    for block in floats:
+        for body_start in _positions(block, r"\begin{tabularx}"):
+            body = block[body_start:block.index(r"\end{tabularx}", body_start)]
+            for row in body.split("\\\\\n"):
+                lines = [ln.strip() for ln in row.strip().split("\n") if ln.strip()]
+                lines = [ln for ln in lines
+                         if not ln.startswith((r"\toprule", r"\midrule",
+                                               r"\addlinespace", r"\bottomrule",
+                                               r"\begin{tabularx}"))]
+                if not lines or lines[0].startswith((r"\multicolumn", r"\textbf")):
+                    continue
+                total += 1
+                ours += r"$^\ast$" in row
     assert total > 10 and 0 < ours < total, f"catalogue parse looks wrong: {total}/{ours}"
+    print(f"  catalogue: {total} rows ({ours} ours) across {len(floats)} float(s)")
     macro("vDefectCount", total)
     macro("vDefectOurs", ours)
+
+
+def _positions(text: str, needle: str) -> list[int]:
+    out, i = [], text.find(needle)
+    while i != -1:
+        out.append(i)
+        i = text.find(needle, i + 1)
+    return out
 
 
 # ------------------------------------------------------------ instrument ----
@@ -315,7 +434,7 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
                          f"{int(r.lookups_outstanding)} \\\\")
         lines += [r"\bottomrule", r"\end{tabular}"]
         (OUT / "tab_mechanism.tex").write_text("\n".join(lines) + "\n")
-        print("  wrote paper/generated/tab_mechanism.tex")
+        print(f"  wrote {(OUT / 'tab_mechanism.tex').relative_to(REPO_ROOT)}")
 
     # A single length threshold, and how well it does.
     blk_thr = pd.read_csv(TABLES / "v2_instrument_epochs.csv",
@@ -345,7 +464,7 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
                                      values="padded", aggfunc="mean"))
     # Per phase: a range over both phases beside a per-phase rate reads as a
     # counterexample to the threshold when it is nothing of the kind.
-    span = blk_all.groupby(["ecosystem", "phase"]).duration_hw_s.agg(["min", "max"])
+    length = blk_all.groupby(["ecosystem", "phase"]).duration_hw_s.agg(["min", "max"])
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
         r"\begin{tabular}{lrrrr}",
@@ -359,13 +478,13 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     for eco in piv.sort_values("Training").index:
         cells = []
         for ph in ("Training", "Inference"):
-            lo, hi = span.loc[(eco, ph), "min"], span.loc[(eco, ph), "max"]
-            cells.append(f"{lo:.1f}--{hi:.0f}\\,s")
+            lo, hi = length.loc[(eco, ph), "min"], length.loc[(eco, ph), "max"]
+            cells.append(span(lo, hi, 1, r"\,s"))
             cells.append(f"{piv.loc[eco, ph]:.0f}\\%")
         lines.append(f"{SHORT[eco]} & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_padding.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_padding.tex")
+    print(f"  wrote {(OUT / 'tab_padding.tex').relative_to(REPO_ROOT)}")
     infer_padded = blk_all[blk_all.phase == "Inference"]
     non_r = infer_padded[infer_padded.ecosystem != "R/torch"]
     macro("vPaddedInferPct", num(100 * non_r.padded.mean(), 0))
@@ -374,14 +493,47 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     macro("vPaddedLongestPaddedS", num(
         blk_all[blk_all.padded].duration_hw_s.max(), 1))
 
+    # The wide excess mode is two levels and the hour of day decides which one a
+    # block gets: the estimator's reported duration carries the round-trip time
+    # of a geolocation lookup, so it is worse when the network is busy. A
+    # measured, reproducible source of variation in a number the tool reports as
+    # a duration.
+    macro("vLongestBlockS", num(blk_all.duration_hw_s.max(), 1))
+
+    # Ecosystems where the instrument's own window accounts for more than all of
+    # the untracked time -- the excess cannot be attributed to anything else,
+    # and a share above 100% is the estimator overlapping its own gap.
+    cov = pd.read_csv(TABLES / "v2_coverage_by_ecosystem.csv")
+    macro("vCoverageOverAttributedEcos",
+          int((cov.untracked_that_is_instrument_pct > 100).sum()))
+
+    dl = pd.read_csv(TABLES / "v2_coverage_window_diurnal.csv")
+    if not dl.empty:
+        night = dl[dl.window == "night"].iloc[0]
+        day = dl[dl.window == "day"].iloc[0]
+        macro("vWindowNightMedianS", num(night.median_excess_s, 2))
+        macro("vWindowDayMedianS", num(day.median_excess_s, 2))
+        macro("vWindowNightHours", night.hours)
+        macro("vWindowNightShare", num(night.share_in_level_pct, 0))
+        macro("vWindowDayShare", num(day.share_in_level_pct, 0))
+
     # The two ecosystems that rule out any length-based model, named by the data.
     blk = pd.read_csv(TABLES / "v2_coverage_per_block.csv",
                       usecols=["ecosystem", "window_excess_s"])
     padded_share = blk.assign(p=blk.window_excess_s > 0.5).groupby("ecosystem").p.mean()
-    never = padded_share.idxmin()
+    # "The ecosystem that is never padded" is a claim about a set, and idxmin
+    # returns one name whether the set has one member, none, or three. Name it
+    # only when it is one; otherwise give the list, and let the sentence quoting
+    # a singular macro fail rather than silently name an arbitrary member.
+    unpadded = sorted(padded_share[padded_share == 0].index)
     always = padded_share.idxmax()
-    macro("vWindowUnpaddedEco", SHORT[never])
-    macro("vWindowUnpaddedEcoBlocks", int((blk.ecosystem == never).sum()))
+    if len(unpadded) == 1:
+        never = unpadded[0]
+        macro("vWindowUnpaddedEco", SHORT[never])
+        macro("vWindowUnpaddedEcoBlocks", int((blk.ecosystem == never).sum()))
+    else:
+        macro("vWindowUnpaddedEcos",
+              ", ".join(SHORT[e] for e in unpadded) if unpadded else "none")
     macro("vWindowAlwaysPaddedEco", SHORT[always])
     macro("vWindowAlwaysPaddedEcoBlocks", int((blk.ecosystem == always).sum()))
 
@@ -394,7 +546,11 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     macro("vPowerMeasuredWorstW", num(worst.measured_power_w, 0))
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
-        r"\begin{tabular}{lrrrr}",
+        # tabularx rather than tabular: the three right-hand headers are what
+        # made this table half again as wide as a column, and \resizebox then
+        # set it at 5.3 pt. As X columns the headers wrap and the body stays at
+        # the surrounding \footnotesize.
+        r"\begin{tabularx}{\linewidth}{@{}lrRRR@{}}",
         r"\toprule",
         r"\textbf{Phase length} & \textbf{Blocks} & "
         r"\textbf{Power from the reported fields} & \textbf{Measured power} & "
@@ -405,13 +561,13 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
         label = str(r["bin"]).replace("<", "$<$").replace(">", "$>$").replace("-", "--")
         lines.append(f"{label} & {int(r.n_blocks)} & {r.reported_power_w:.0f}\\,W & "
                      f"{r.measured_power_w:.0f}\\,W & {r.understated_by:.2f}$\\times$ \\\\")
-    lines += [r"\bottomrule", r"\end{tabular}"]
+    lines += [r"\bottomrule", r"\end{tabularx}"]
     (OUT / "tab_power_distortion.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_power_distortion.tex")
+    print(f"  wrote {(OUT / 'tab_power_distortion.tex').relative_to(REPO_ROOT)}")
 
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
-        r"\begin{tabular}{lrrr}",
+        r"\begin{tabularx}{\linewidth}{@{}lrrR@{}}",
         r"\toprule",
         r"\textbf{Ecosystem} & \textbf{Median block} & \textbf{Tracked share} "
         r"& \textbf{Of the untracked rest, the instrument} \\",
@@ -424,9 +580,9 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
         lines.append(
             f"{SHORT[row.ecosystem]} & {row.median_block_s:.1f}\\,s & "
             f"{row.coverage_pct:.0f}\\% & {share:.1f}\\% \\\\")
-    lines += [r"\bottomrule", r"\end{tabular}"]
+    lines += [r"\bottomrule", r"\end{tabularx}"]
     (OUT / "tab_coverage.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_coverage.tex")
+    print(f"  wrote {(OUT / 'tab_coverage.tex').relative_to(REPO_ROOT)}")
 
     dist = pd.read_csv(TABLES / "v2_instrument_power_distortion.csv")
     sub = dist.set_index("phase_length")
@@ -533,7 +689,7 @@ def write_energy_table(stats: pd.DataFrame, phase: str, stem: str) -> None:
         lines.append(f"{eco} & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / f"{stem}.tex").write_text("\n".join(lines) + "\n")
-    print(f"  wrote paper/generated/{stem}.tex")
+    print(f"  wrote {(OUT / f'{stem}.tex').relative_to(REPO_ROOT)}")
 
 
 def write_spread_table(spread: pd.DataFrame) -> None:
@@ -553,7 +709,7 @@ def write_spread_table(spread: pd.DataFrame) -> None:
         lines.append(" & ".join(c.replace(",", "\\,") for c in cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_spread.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_spread.tex")
+    print(f"  wrote {(OUT / 'tab_spread.tex').relative_to(REPO_ROOT)}")
 
 
 # ---------------------------------------------------------------- quality --
@@ -658,7 +814,7 @@ def quality_facts() -> None:
         tlines.append(f"{SHORT[eco]} & " + " & ".join(cells) + r" \\")
     tlines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_energy_to_target.tex").write_text("\n".join(tlines) + "\n")
-    print("  wrote paper/generated/tab_energy_to_target.tex")
+    print(f"  wrote {(OUT / 'tab_energy_to_target.tex').relative_to(REPO_ROOT)}")
     macro("vTargetFashion", num(q[q.dataset == "fashionmnist"].target_acc_pct.iat[0], 0))
     macro("vTargetCifar", num(q[q.dataset == "cifar100"].target_acc_pct.iat[0], 0))
     macro("vTargetTiny", num(q[q.dataset == "tinyimagenet"].target_acc_pct.iat[0], 0))
@@ -668,31 +824,69 @@ def quality_facts() -> None:
     macro("vTargetNeverStacks",
           int((tgt[tgt.dataset == "tinyimagenet"].reached == 0).sum()))
 
+    # Per (architecture, dataset), not pooled. The manuscript's most quoted
+    # accuracy figures -- \vAccBlockSpreadFashionMax and
+    # \vAccBlockSpreadTrainedMax -- are per-block quantities, and the pooled
+    # table that used to stand here could not be read for either of them: a
+    # referee checking 0.5 against it found 0.3 and no way to get from one to
+    # the other. The block spreads are printed as their own row, so both
+    # numbers are read off the table that produces them.
+    ARCH = {"resnet18": "R-18", "vgg16": "VGG-16"}
+    models = [m for m in ("resnet18", "vgg16") if m in set(per_block.model)]
+    datasets = [d for d in ("fashionmnist", "cifar100", "tinyimagenet")
+                if d in set(per_block.dataset)]
+    group, sub, rules = [], [], []
+    for i, d in enumerate(datasets):
+        span = len(models)
+        group.append(r"\multicolumn{%d}{c}{\textbf{%s}}" % (span, DATASET[d]))
+        sub.extend(ARCH[m] for m in models)
+        first = 2 + i * span
+        rules.append(r"\cmidrule(lr){%d-%d}" % (first, first + span - 1))
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
-        r"\begin{tabular}{lrrr}",
+        r"\begin{tabular}{@{}l" + ("r" * (len(models) * len(datasets))) + r"@{}}",
         r"\toprule",
-        r"\textbf{Ecosystem} & \textbf{Fashion-MNIST} & \textbf{CIFAR-100} "
-        r"& \textbf{Tiny ImageNet} \\",
+        " & ".join([""] + group) + r" \\",
+        "".join(rules),
+        " & ".join([r"\textbf{Ecosystem}"] + sub) + r" \\",
         r"\midrule",
     ]
-    piv = summ.pivot(index="ecosystem", columns="dataset", values="final_test_acc_pct")
-    piv_ok = summ_ok.pivot(index="ecosystem", columns="dataset",
-                           values="final_test_acc_pct")
-    for eco, row in piv.iterrows():
+    blk_ok = ok_block.set_index(["model", "dataset", "ecosystem"]).final_test_acc_pct
+    blk_all = per_block.set_index(["model", "dataset", "ecosystem"]).final_test_acc_pct
+    for eco in summ.ecosystem.drop_duplicates():
         cells = []
-        for d in ("fashionmnist", "cifar100", "tinyimagenet"):
-            v, w = row.get(d, np.nan), piv_ok.loc[eco].get(d, np.nan)
-            if pd.isna(v):
-                cells.append("--")
-            elif pd.isna(w) or abs(v - w) < 0.005:
-                cells.append(f"{v:.2f}")
-            else:  # collapsed runs excluded, in parentheses
-                cells.append(f"{v:.2f} ({w:.2f})")
+        for d in datasets:
+            for m in models:
+                v = blk_all.get((m, d, eco), np.nan)
+                w = blk_ok.get((m, d, eco), np.nan)
+                if pd.isna(v):
+                    cells.append("--")
+                elif pd.isna(w) or abs(v - w) < 0.005:
+                    cells.append(f"{v:.2f}")
+                else:  # collapsed runs excluded, in parentheses
+                    cells.append(f"{v:.2f} ({w:.2f})")
         lines.append(f"{SHORT[eco]} & " + " & ".join(cells) + r" \\")
+    spread = blk.set_index(["model", "dataset"]).spread
+    spread_ok = ok_blk.set_index(["model", "dataset"]).spread
+
+    def spread_cell(m: str, d: str) -> str:
+        # One decimal, because the manuscript quotes these two cells through
+        # \vAccBlockSpreadFashionMax and \vAccBlockSpreadTrainedMax, which are
+        # one-decimal macros. A two-decimal row here would print 0.52 beside a
+        # sentence saying 0.5 and invite the reader to wonder which is wrong.
+        v, w = spread.get((m, d), np.nan), spread_ok.get((m, d), np.nan)
+        if pd.isna(v):
+            return "--"
+        if pd.isna(w) or abs(v - w) < 0.05:
+            return f"{v:.1f}"
+        return f"{v:.1f} ({w:.1f})"
+
+    lines.append(r"\midrule")
+    lines.append(r"\textbf{Spread} & " + " & ".join(
+        spread_cell(m, d) for d in datasets for m in models) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_accuracy.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_accuracy.tex")
+    print(f"  wrote {(OUT / 'tab_accuracy.tex').relative_to(REPO_ROOT)}")
 
 
 # ------------------------------------------------------------- statistics --
@@ -731,6 +925,15 @@ def statistics_facts() -> None:
     macro("vPhaseIdenticalOrder", int(pc.identical_order.sum()))
     macro("vPhaseBlocks", len(pc))
 
+    # The pooled correlation is mostly the workload: a VGG-16/Tiny ImageNet run
+    # outranks a ResNet-18/Fashion-MNIST run on every stack. Within a cell only
+    # the ecosystem varies, which is the comparison the recommendation rests on.
+    cr = pd.read_csv(TABLES / "v2_stats_cell_rho.csv")
+    if not cr.empty:
+        macro("vCellRhoMin", num(cr.spearman_rho.min(), 2))
+        macro("vCellRhoMax", num(cr.spearman_rho.max(), 2))
+        macro("vCellRhoCells", len(cr))
+
     ct = pd.read_csv(TABLES / "v2_stats_libtorch_control.csv")
     macro("vCtrlSpreadMin", num(ct.spread_shared_module.min(), 1))
     macro("vCtrlSpreadMax", num(ct.spread_shared_module.max(), 1))
@@ -745,14 +948,25 @@ def statistics_facts() -> None:
     macro("vCtrlSpreadResnetMax", num(resnet.spread_shared_module.max(), 1))
     macro("vCtrlSpreadVggMin", num(vgg.spread_shared_module.min(), 1))
     macro("vCtrlSpreadVggMax", num(vgg.spread_shared_module.max(), 1))
+    # \vCtrlShareMin/Max are extrema over all six blocks, so a sentence about
+    # what the control group accounts for *on ResNet-18* cannot be built from
+    # them: the two architectures sit at opposite ends of this quantity.
+    macro("vCtrlShareResnetMax", num(resnet.share_of_log_spread_pct.max(), 0))
+    macro("vCtrlShareVggMin", num(vgg.share_of_log_spread_pct.min(), 0))
 
     lines = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
-        r"\begin{tabular}{llrrrr}",
+        r"\begin{tabularx}{\linewidth}{@{}llRRRR@{}}",
         r"\toprule",
+        # Both group sizes come from 14's table, which builds them from
+        # SHARED_MODULE and LIBTORCH_FAMILY. The family size was written here as
+        # "shared module + 1", which is a literal wearing the shape of a
+        # derivation. The header says "module & build" because that is what the
+        # group holds fixed: the same exported TorchScript module on the same
+        # pinned LibTorch build, which is the pair R shares neither of.
         r"\textbf{Model} & \textbf{Dataset} & \textbf{All " + str(int(ct.n_all.max()))
-        + r"} & \textbf{Shared module (" + str(int(ct.n_shared_module.max()))
-        + r")} & \textbf{LibTorch family (" + str(int(ct.n_shared_module.max()) + 1)
+        + r"} & \textbf{Shared module \& build (" + str(int(ct.n_shared_module.max()))
+        + r")} & \textbf{LibTorch family (" + str(int(ct.n_libtorch_family.max()))
         + r")} & \textbf{Share of log spread} \\",
         r"\midrule",
     ]
@@ -762,9 +976,9 @@ def statistics_facts() -> None:
             f"{r.spread_shared_module:.1f}$\\times$ & "
             f"{r.spread_libtorch_family:.1f}$\\times$ & "
             f"{r.share_of_log_spread_pct:.0f}\\% \\\\")
-    lines += [r"\bottomrule", r"\end{tabular}"]
+    lines += [r"\bottomrule", r"\end{tabularx}"]
     (OUT / "tab_control.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_control.tex")
+    print(f"  wrote {(OUT / 'tab_control.tex').relative_to(REPO_ROOT)}")
 
 
 # ------------------------------------------------------------- instrument --
@@ -787,7 +1001,7 @@ def instrument_table() -> None:
                      f"{r.p05:.3f}--{r.p95:.3f} & {r.campaign_weighted:.3f} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_instrument.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_instrument.tex")
+    print(f"  wrote {(OUT / 'tab_instrument.tex').relative_to(REPO_ROOT)}")
 
 
 # --------------------------------------------------------------- scenario --
@@ -889,7 +1103,7 @@ def industrial_scenario() -> None:
         lines.append(" & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "tab_industrial.tex").write_text("\n".join(lines) + "\n")
-    print("  wrote paper/generated/tab_industrial.tex")
+    print(f"  wrote {(OUT / 'tab_industrial.tex').relative_to(REPO_ROOT)}")
 
 
 # --------------------------------------------------- the audited campaign ----
@@ -982,6 +1196,10 @@ def convergence_facts() -> None:
           int(be[be.n_collapsed > 0].ecosystem.nunique()))
 
     cond = pd.read_csv(TABLES / "v2_convergence_conditional.csv")
+    if cond.empty:
+        raise ValueError("v2_convergence_conditional has no rows, so "
+                         "\\vCondBlockName and the spread macros beside it are "
+                         "not defined for this campaign")
     worst = cond.loc[cond.raw_spread_pp.idxmax()]
     macro("vCondBlockRaw", num(worst.raw_spread_pp, 1))
     macro("vCondBlockConverged", num(worst.converged_spread_pp, 1))
@@ -1014,22 +1232,42 @@ def convergence_facts() -> None:
         macro("vDefectLossDropMax", num(r.train_loss_drop_pct.max(), 0))
         macro("vDefectAccMax", num(r.final_test_acc_pct.max(), 1))
 
+    initialiser_facts()
+    campaign_record_facts()
+    utilisation_facts()
     collapse_mechanism_facts()
 
     ht = pd.read_csv(TABLES / "v2_convergence_homogeneity.csv")
+    # 15 writes this with a header and no rows when no cell is susceptible at
+    # all; there is then no rate, no p and nothing to say about homogeneity.
+    only_row(ht, "v2_convergence_homogeneity", "vCollapseHomogeneityP")
     macro("vCollapseRateMin", num(ht.collapse_pct.min(), 0))
     macro("vCollapseRateMax", num(ht.collapse_pct.max(), 0))
     macro("vCollapseRateOverall", num(ht.overall_pct.iat[0], 0))
     macro("vCollapseHomogeneityP", num(ht.permutation_p.iat[0], 2))
     macro("vCollapseNeverEcosystems",
           int((ht.n_collapsed == 0).sum()))
+    # The exact answer, and the one the manuscript should be quoting: 15 has
+    # computed Freeman-Halton since commit 5622c7e and nothing carried it out of
+    # the table, so the paper argued about a permutation p and a chi-square p
+    # while the test that needs neither an approximation nor a seed sat unread
+    # in a column beside them.
+    macro("vCollapseExactP", num(ht.exact_p.iat[0], 4))
     # The manuscript contrasts the permutation p with the chi-square one it
     # declines to use. It quoted 0.017 for the latter, which belonged to an
-    # earlier version of this table; the value is 0.0065.
-    macro("vCollapseChiSqP", num(ht.chi_square_p.iat[0], 4))
-    macro("vCollapseChiSqMinExpected", num(ht.chi_square_min_expected.iat[0], 1))
+    # earlier version of this table; the value is 0.0065. Both are conditional
+    # on chi-square being defined at all: with no collapses anywhere the
+    # expected frequencies are zero, scipy raises, 15 records NaN, and there is
+    # no approximate answer to contrast the exact one with. Emitting nothing
+    # here fails the LaTeX build on \vCollapseChiSqP, which is the correct
+    # outcome -- the passage that quotes it is arguing about a table that has
+    # become all zeros and has to be rewritten, not filled in.
+    if pd.notna(ht.chi_square_p.iat[0]):
+        macro("vCollapseChiSqP", num(ht.chi_square_p.iat[0], 4))
+        macro("vCollapseChiSqMinExpected", num(ht.chi_square_min_expected.iat[0], 1))
 
-    w = pd.read_csv(TABLES / "v2_convergence_waste.csv").iloc[0]
+    w = only_row(pd.read_csv(TABLES / "v2_convergence_waste.csv"),
+                 "v2_convergence_waste", "vWastedPct")
     macro("vWastedPct", num(w.wasted_pct, 1))
     macro("vWastedMJ", num(w.collapsed_energy_MJ, 1))
     macro("vTrainingEnergyMJ", num(w.training_energy_MJ, 1))
@@ -1047,27 +1285,230 @@ def collapse_mechanism_facts() -> None:
     byte-identical exported module, from identical weights, disagree about
     which repetitions collapse: so what decides it is the stochastic path
     through training, not the starting point.
+
+    The per-epoch traces come from common.read_campaign_metrics, the one reader
+    15_convergence and check_consistency also use, so the collapse count here
+    and \\vSigCollapseN there cannot describe different populations of the same
+    campaign. They used to come from results/replication/metrics.csv.gz
+    -- the replication package, which nothing in the pipeline rebuilds, and
+    which held the first campaign. That is worse than staleness here: in the
+    first campaign Python/PyTorch built torchvision fresh and loaded no shared
+    module, so the discordance below was measured between stacks that did not
+    share weights, under a sentence asserting that they did.
     """
-    m = pd.read_csv(REPO_ROOT / "results" / "replication" / "metrics.csv.gz")
+    facts = collapse_mechanism(read_campaign_metrics())
+    macro("vCollapseRuns", facts["n_collapsed"])
+    if facts["loss_deviation_max"] is not None:
+        macro("vCollapseLossDeviationMax", f"{facts['loss_deviation_max']:.4f}")
+    # With no collapsed run there is no worst deviation from ln(N), and no
+    # defensible value to invent for one: the macro is left undefined and the
+    # sentence quoting it has to go, which is the point of \vCollapseRuns above.
+
+    macro("vCollapseDiscordantCells", facts["discordant_cells"])
+    macro("vCollapseSharedStacks", facts["shared_stacks"])
+    macro("vSigCollapseJava", facts["java_collapses"])
+
+
+def campaign_record_facts() -> None:
+    """Two facts about what the stacks record, from what they recorded.
+
+    train_acc is optional by design -- the spec says "where the stack computes
+    it" -- and no analysis reads it, so the manuscript's claim about how many
+    stacks provide it can only be checked against the files. The fingerprint
+    count is the size of the sample every stack's data-parity claim rests on,
+    and it has to be the same number everywhere or the claim is not about the
+    same thing; that is asserted here rather than assumed.
+    """
+    m = read_campaign_metrics()
+    if "train_acc" in m:
+        have = m.groupby("ecosystem").train_acc.apply(lambda s: s.notna().any())
+        macro("vTrainAccStacks", int(have.sum()))
+
+    counts = set()
+    for run_dir in sorted(CAMPAIGN_DIR.glob("*")):
+        path = run_dir / "data_fingerprint.csv"
+        if not path.is_dir() and path.exists() and path.stat().st_size:
+            fp = pd.read_csv(path)
+            # The two writers name the column differently: the Python harness
+            # writes n_values, the shared bridge writes n.
+            column = "n_values" if "n_values" in fp else "n"
+            if column in fp:
+                counts.update(int(v) for v in fp[column].dropna())
+    if len(counts) == 1:
+        macro("vDataFpValues", counts.pop())
+    elif counts:
+        raise ValueError(
+            "the stacks fingerprinted different numbers of values, so "
+            "\\vDataFpValues is not one number and the data-parity claim is "
+            f"not about one sample: {sorted(counts)}")
+
+
+def utilisation_facts() -> None:
+    """Utilisation beside energy, for the stack the energy tables call cheapest.
+
+    R draws about half the power of the others and takes far longer. Energy
+    alone cannot say whether that is a slow kernel or a card waiting on a host,
+    and the difference matters to every conclusion drawn from R's numbers. The
+    1 Hz record answers it directly -- see 19_gpu_utilisation, including which
+    runs the record covers, since it began after the campaign did.
+    """
+    path = TABLES / "v2_gpu_utilisation_by_ecosystem.csv"
+    if not path.exists():
+        return
+    u = pd.read_csv(path)
+    if u.empty:
+        return
+    # The stack with the lowest utilisation, found rather than named.
+    worst = u.groupby("ecosystem").util_mean_pct.mean().idxmin()
+    macro("vLowestGpuUtilEco", SHORT[worst])
+    e = u[u.ecosystem == worst]
+    for model, tag in (("resnet18", "Resnet"), ("vgg16", "Vgg")):
+        row = e[e.model == model]
+        if not row.empty:
+            macro(f"vLowestGpuUtil{tag}Pct",
+                  span(row.util_min_pct.iat[0], row.util_max_pct.iat[0], 1))
+    macro("vLowestGpuMemMinMiB", num(e.mem_min_mib.min(), 0))
+    macro("vLowestGpuMemMaxMiB", num(e.mem_max_mib.max(), 0))
+    macro("vLowestGpuRunMinW", num(e.power_min_w.min(), 0))
+    macro("vLowestGpuRunMaxW", num(e.power_max_w.max(), 0))
+    runs = pd.read_csv(TABLES / "v2_gpu_utilisation_by_run.csv")
+    # How much of the campaign the record saw, so no reader has to assume all.
+    macro("vGpuUtilCoveredRuns", len(runs))
+
+
+def initialiser_facts() -> None:
+    """What actually decides whether VGG-16 collapses.
+
+    Held framework, optimiser, learning rate and data order fixed and varied
+    only the initialiser. These runs were not part of either campaign and no
+    script here can regenerate them, so they live in results/revision/record/
+    beside the pipeline defect -- but they are read from that file rather than
+    typed in, because a number the manuscript quotes should have exactly one
+    place it can be corrected.
+    """
+    path = REPO_ROOT / "results" / "revision" / "record" / "initialiser_trials.csv"
+    if not path.exists():
+        return
+    r = pd.read_csv(path, comment="#")
+    trials = r[r.quantity == "collapse_trials"].set_index("initialiser")
+    counts = trials.n_trials.unique()
+    assert len(counts) == 1, f"initialisers were not tried equally often: {counts}"
+    macro("vInitCollapseTrials", int(counts[0]))
+    for name in ("He", "Glorot", "Xavier"):
+        macro(f"vInitCollapse{name}", int(trials.n_collapsed.loc[name]))
+    width = r[r.quantity == "stem_width_ratio"]
+    macro("vInitStemWidthRatioJava", num(width.value.iat[0], 1))
+    # flax's lecun_normal stem, the same comparison for JAX (REVISION_LOG section 14).
+    jax = r[r.quantity == "stem_width_ratio_jax"]
+    if len(jax):
+        macro("vInitStemWidthRatioJax", num(jax.value.iat[0], 1))
+
+    # Two more first-campaign counts with no table behind them, for the same
+    # reason: the code that produced them has been corrected, so nothing in the
+    # analysis can rederive them. Read, not typed.
+    div = REPO_ROOT / "results" / "revision" / "record" / "first_campaign_divergences.csv"
+    if div.exists():
+        d = pd.read_csv(div, comment="#").set_index("quantity")
+        macro("vSeedDivergentStacks", int(d.n_stacks.loc["seed_divergent"]))
+        macro("vPixelDivergentStacks", int(d.n_stacks.loc["pixel_divergent"]))
+
+
+def collapse_mechanism(m: pd.DataFrame) -> dict:
+    """The collapse quantities derivable from one campaign's per-epoch traces.
+
+    Shared by the current campaign and the superseded one rather than written
+    twice: the manuscript now reports both, this campaign's zero beside the
+    first campaign's twelve, and two copies of this arithmetic would be two
+    definitions of what a collapse is.
+    """
     chance = {"fashionmnist": 10.0, "cifar100": 1.0, "tinyimagenet": 0.5}
     n_classes = {"fashionmnist": 10, "cifar100": 100, "tinyimagenet": 200}
     final = m.sort_values("epoch").groupby("run").tail(1).copy()
     final["collapsed"] = final.test_acc <= final.dataset.map(chance) * 1.5
     collapsed_runs = set(final[final.collapsed].run)
     traces = m[m.run.isin(collapsed_runs)].copy()
-    traces["ln_n"] = np.log(traces.dataset.map(n_classes))
-    dev = (traces.train_loss - traces.ln_n).abs().max()
-    macro("vCollapseLossDeviationMax", f"{dev:.4f}")
+
+    deviation = None
+    if collapsed_runs:
+        traces["ln_n"] = np.log(traces.dataset.map(n_classes))
+        deviation = float((traces.train_loss - traces.ln_n).abs().max())
 
     # Do the byte-identical-module stacks agree about which runs collapse?
-    shared = ["C++/LibTorch", "Python/PyTorch", "Rust/tch"]
+    # 14_v2_statistics defines the control group; a second list here is a second
+    # opinion about which stacks load the shared module, and the two would only
+    # ever be found to disagree by a reader.
+    shared = sibling("14_v2_statistics").SHARED_MODULE
     f = final[final.ecosystem.isin(shared)]
     per_cell = f.groupby(["model", "dataset", "repetition"]).collapsed
-    discordant = int(per_cell.apply(lambda x: 0 < x.sum() < len(x)).sum())
-    macro("vCollapseDiscordantCells", discordant)
-    macro("vCollapseSharedStacks", len(shared))
-    java = final[final.collapsed & (final.ecosystem == "Java/DL4J")]
-    macro("vSigCollapseJava", len(java))
+    vgg = final[final.model == "vgg16"]
+    return {
+        "n_collapsed": len(collapsed_runs),
+        "loss_deviation_max": deviation,
+        "discordant_cells": int(per_cell.apply(
+            lambda x: 0 < x.sum() < len(x)).sum()),
+        # Counted from the campaign, not from the length of the list:
+        # SHARED_MODULE carries both spellings of C++/LibTorch, so it has four
+        # entries for three stacks.
+        "shared_stacks": int(f.ecosystem.nunique()),
+        "java_collapses": int((final.collapsed
+                               & (final.ecosystem == "Java/DL4J")).sum()),
+        "vgg_collapses": int(vgg.collapsed.sum()),
+        "vgg_runs": int(len(vgg)),
+    }
+
+
+def first_campaign_collapse_facts() -> None:
+    """The collapse finding, which belongs to the campaign that has it.
+
+    The second campaign has no collapses at all -- every stack now initialises
+    from the same exported weights, which is what log 3 predicted -- so the
+    manuscript reports the phenomenon as the first campaign's result and this
+    campaign's zero as the evidence that the alignment closed it. Both sets of
+    numbers therefore have to be derived, and the first campaign's cannot be
+    typed in from the superseded numbers.tex.
+
+    results/campaign_v2_first_campaign/ is read here and in 18_precision_ablation
+    and nowhere else. The tables come from 15_convergence --campaign v1.
+    """
+    ht = TABLES / "v1_convergence_homogeneity.csv"
+    if not ht.exists():
+        raise ValueError(
+            "v1_convergence_homogeneity.csv is missing, so the "
+            "\\vCollapseFirst* macros cannot be derived; run "
+            "15_convergence.py --campaign v1")
+    ht = only_row(pd.read_csv(ht), "v1_convergence_homogeneity",
+                  "vCollapseFirstRateOverall")
+    macro("vCollapseFirstRateOverall", num(ht.overall_pct, 0))
+    macro("vCollapseFirstExactP", num(ht.exact_p, 4))
+    macro("vCollapseFirstChiSqMinExpected", num(ht.chi_square_min_expected, 1))
+
+    w = only_row(pd.read_csv(TABLES / "v1_convergence_waste.csv"),
+                 "v1_convergence_waste", "vCollapseFirstWastedPct")
+    macro("vCollapseFirstWastedPct", num(w.wasted_pct, 1))
+
+    sig = pd.read_csv(TABLES / "v1_convergence_signature.csv")
+    macro("vCollapseFirstSigCollapseN",
+          int(sig.diagnosis.str.startswith("optimisation").sum()))
+    macro("vCollapseFirstSigPipelineN",
+          int(sig.diagnosis.str.startswith("pipeline").sum()))
+
+    facts = collapse_mechanism(read_campaign_metrics(root=FIRST_CAMPAIGN))
+    macro("vCollapseFirstVgg", facts["vgg_collapses"])
+    macro("vCollapseFirstVggRuns", facts["vgg_runs"])
+    macro("vCollapseFirstJava", facts["java_collapses"])
+    macro("vCollapseFirstDiscordantCells", facts["discordant_cells"])
+    macro("vCollapseFirstLossDeviationMax",
+          f"{facts['loss_deviation_max']:.4f}")
+
+    # What this campaign's zero can and cannot say. With no events in n trials
+    # the exact one-sided 95% upper bound on the rate is 1 - 0.05^(1/n): the
+    # largest rate that would still produce zero collapses one time in twenty.
+    # It is the honest form of "the collapses are gone" -- log 25 wrote the
+    # same bound at 20 runs, where it was 13.9%.
+    hv2 = pd.read_csv(TABLES / "v2_convergence_homogeneity.csv")
+    n = int(hv2.n_runs.sum())
+    macro("vCollapseSusceptibleRuns", n)
+    macro("vCollapseRateUpperNinetyFive", num(100 * (1 - 0.05 ** (1 / n)), 1))
 
 
 def reexecution_facts() -> None:
@@ -1077,10 +1518,17 @@ def reexecution_facts() -> None:
     -- "the twenty Rust runs on Fashion-MNIST and Tiny ImageNet" against 25 runs
     over five configurations including VGG-16 on CIFAR-100. Read the timestamps.
     A run belongs to the later window if it started more than a day after the
-    campaign's last first-window start; the two windows here are eight days
-    apart, so the threshold is not delicate.
+    campaign's last first-window start; the largest gap inside a window is under
+    an hour and the gap to the re-execution is days, so the threshold is not
+    delicate.
+
+    The timestamps are 11's consolidated per-block table, which is this
+    campaign. They were read from results/replication/codecarbon.csv.gz, which
+    is not: it is a package the pipeline writes and never rebuilds, and it still
+    held the first campaign's eight-day window, so this function reported a late
+    window that belonged to a campaign the manuscript no longer describes.
     """
-    cc = pd.read_csv(REPO_ROOT / "results" / "replication" / "codecarbon.csv.gz",
+    cc = pd.read_csv(TABLES / "v2_instrument_epochs.csv",
                      usecols=["ecosystem", "model", "dataset", "repetition",
                               "timestamp"])
     cc["t"] = pd.to_datetime(cc.timestamp)
@@ -1105,9 +1553,13 @@ def reexecution_facts() -> None:
 
     # The between-window drift, measured rather than asserted: one configuration
     # re-executed in a third window and compared with its original runs.
+    # An empty table means 17 refused the comparison -- see its
+    # comparability_objection. The \vCalib* macros are then simply absent and the
+    # LaTeX build fails on them, which is what should happen: the alternative is
+    # the manuscript quoting a drift figure that nobody was willing to compute.
     cal_path = TABLES / "v2_window_calibration.csv"
-    if cal_path.exists():
-        cal = pd.read_csv(cal_path)
+    cal = pd.read_csv(cal_path) if cal_path.exists() else pd.DataFrame()
+    if not cal.empty:
         macro("vCalibConfig", f"{SHORT[cal.ecosystem.iat[0]]}, "
                               f"{MODEL[cal.model.iat[0]]} on {DATASET[cal.dataset.iat[0]]}")
         for phase, tag in (("Training", "Train"), ("Inference", "Infer")):
@@ -1116,6 +1568,10 @@ def reexecution_facts() -> None:
                 continue
             r = row.iloc[0]
             macro(f"vCalib{tag}DiffPct", num(abs(r.difference_pct), 1))
+            # The same difference in the unit the instrument reads, because a
+            # percentage of an inference block and of a training block are not
+            # comparable quantities.
+            macro(f"vCalib{tag}DiffJ", num(abs(r.original_J - r.recheck_J), 1))
             macro(f"vCalib{tag}SD", num(r.difference_in_sd, 1))
             macro(f"vCalib{tag}CVPct", num(r.within_window_cv_pct, 1))
 
@@ -1133,6 +1589,279 @@ def ranking_facts() -> None:
         macro(f"vRank{tag}Cells", len(g))
 
 
+#: The comparability notes 18 writes are paragraphs, because they have to carry
+#: their own evidence. A table column cannot, so each is abbreviated to a key
+#: here and the note itself is printed under the table. Matched on a
+#: distinctive fragment rather than in full, so a reworded note fails loudly at
+#: the assertion below rather than silently printing the wrong reason.
+#:
+#: The previous version of this table put the whole note in the last column and
+#: wrapped the result in \resizebox{\columnwidth}, which set the paper's most
+#: important new table at 3.9 pt -- unreadable in print and below any journal's
+#: floor. Keys plus a footnote list carry the same information at the
+#: surrounding \footnotesize.
+#: fragment -> (key printed in the column, footnote text, comparable?)
+NOTE_SHORT = {
+    "no known between-campaign difference": ("yes", None, True),
+    "TorchScript module": (
+        "yes",
+        "PyTorch's harness also moved from eager torchvision to the exported "
+        "TorchScript module between the executions, so this ratio bounds the "
+        "precision effect from above.", True),
+    "projection shortcut": (
+        "network",
+        "Python/TensorFlow ran a Model Garden ResNet-18 with a projection "
+        "shortcut the other stacks do not have, and dropped its last partial "
+        "batch.", False),
+    "ConvolutionMode.Truncate": (
+        "network",
+        "Java/DL4J built its graph by hand, with truncated convolution padding "
+        "and a bias on every convolution.", False),
+    "block_until_ready": (
+        "window",
+        "Python/JAX was measured through a window that did not force "
+        "completion in the first execution and does in this one.", False),
+    "28x28 -> 32x32": (
+        "data",
+        "Fashion-MNIST training images were re-encoded $28\\to32$ on disk "
+        "between the executions, so every stack's loader does different work.",
+        False),
+    "64x64 -> 32x32": (
+        "data",
+        "Tiny ImageNet training images were re-encoded $64\\to32$ on disk "
+        "between the executions, so every stack's loader does different work.",
+        False),
+}
+
+
+def precision_table(ct: pd.DataFrame) -> None:
+    """Table~\\ref{tab:precision_contrast}: the ablation, cell by cell.
+
+    Every ResNet-18 training cell is listed, comparable or not, because the
+    argument is the exclusions as much as the ratio: a reader has to be able to
+    see that the one stack which changed precision policy moved 3x while the
+    stacks that did not moved by 1%, and that the cells left out were left out
+    for a stated reason rather than for their answer.
+
+    The comparable cells come first, because they are the argument; the rest
+    follow under a rule, keyed to the notes printed beneath the table. The
+    table is sized to fit a column at \\footnotesize rather than scaled down to
+    fit it, which is how it came to be set at 3.9 pt.
+    """
+    rows = ct[(ct.row_kind == "stack contrast") & (ct.phase == "Training")
+              & (ct.model == "resnet18")].copy()
+
+    def short(note: str):
+        for fragment, entry in NOTE_SHORT.items():
+            if fragment in note:
+                return entry
+        raise ValueError(f"no short form for comparability note {note!r}; "
+                         "18_precision_ablation's wording changed and "
+                         "NOTE_SHORT has to change with it")
+
+    # One footnote letter per distinct note, in the order the rows use them, so
+    # the list under the table reads top to bottom with the rows.
+    letters, notes = {}, []
+    ordered = pd.concat([rows[rows.comparable == "yes"].sort_values(
+                             ["dataset", "ecosystem"]),
+                         rows[rows.comparable != "yes"].sort_values(
+                             ["dataset", "ecosystem"])])
+    body = []
+    for _, r in ordered.iterrows():
+        key, note, _ok = short(r.comparability_note)
+        mark = ""
+        if note is not None:
+            if note not in letters:
+                letters[note] = chr(ord("a") + len(letters))
+                notes.append(note)
+            mark = "$^{\\mathrm{%s}}$" % letters[note]
+        cited = r.ecosystem == "Python/PyTorch" and r.comparable == "yes"
+        name = SHORT[r.ecosystem]
+        body.append(
+            ((r"\textbf{" + name + r"}") if cited else name)
+            + f" & {DATASET[r.dataset]} & {r.value_v1:.0f} & {r.value_v2:.0f} & "
+            + ((r"\textbf{" + f"{r.ratio_v1_v2:.2f}" + r"$\times$}") if cited
+               else f"{r.ratio_v1_v2:.2f}$\\times$")
+            + f" & {key}{mark} \\\\")
+    split = int((ordered.comparable == "yes").sum())
+
+    lines = [
+        r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
+        r"\begin{table}[t]",
+        r"\centering",
+        r"\caption{Mean GPU energy per training epoch, ResNet-18, in the "
+        r"superseded campaign (TF32 denied for Python/PyTorch alone) against "
+        r"the current one (TF32 allowed for all seven). Five repetitions and "
+        r"150 epochs per cell on each side. \textbf{Python/PyTorch on "
+        r"CIFAR-100 is the contrast the text cites}; the cells above the rule "
+        r"are the ones the two executions leave comparable, and each cell "
+        r"below it is excluded for the stated reason rather than for its "
+        r"value.}",
+        r"\label{tab:precision_contrast}",
+        r"\footnotesize",
+        r"\setlength{\tabcolsep}{3pt}",
+        r"\begin{tabular}{@{}llrrrl@{}}",
+        r"\toprule",
+        r"\textbf{Ecosystem} & \textbf{Dataset} & \textbf{TF32} "
+        r"& \textbf{TF32} & \textbf{Ratio} & \textbf{Compar-} \\",
+        r" & & \textbf{off (J)} & \textbf{on (J)} & & \textbf{able} \\",
+        r"\midrule",
+    ]
+    lines += body[:split]
+    lines += [r"\midrule"] + body[split:]
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    if notes:
+        lines.append(r"\par\vspace{2pt}")
+        lines.append(r"\begin{minipage}{\columnwidth}\footnotesize\raggedright")
+        lines.append(r"\par".join(
+            r"$^{\mathrm{%s}}$~%s" % (letters[note], note) for note in notes))
+        lines.append(r"\end{minipage}")
+    lines.append(r"\end{table}")
+    (OUT / "tab_precision_contrast.tex").write_text("\n".join(lines) + "\n")
+    print(f"  wrote {(OUT / 'tab_precision_contrast.tex').relative_to(REPO_ROOT)}")
+
+
+def precision_ablation_facts() -> None:
+    """What TF32 cost, from the campaigns and from the kernel probe.
+
+    Two measurements of one effect, and the manuscript needs both because
+    neither is sufficient alone. 18_precision_ablation reads the two campaigns:
+    Python/PyTorch ran with TF32 denied in the first and allowed in the second
+    while six stacks did not change, which is an ablation with a control group
+    at 150 training epochs per cell. scripts/probe_tf32 measures the kernels
+    directly, which the campaign contrast cannot isolate because PyTorch also
+    moved from eager torchvision to the exported TorchScript module between the
+    campaigns.
+
+    Only the cells 18 grades comparable are used. The rest are excluded there
+    for stated reasons -- a different network, a re-encoded dataset, a changed
+    measurement window -- and pulling a ratio out of one of them would be
+    quoting the audit as if it were the flag.
+    """
+    ct = pd.read_csv(TABLES / "v2_tf32_campaign_contrast.csv")
+    train = ct[(ct.phase == "Training") & (ct.model == "resnet18")
+               & (ct.comparable == "yes")]
+
+    stacks = train[train.row_kind == "stack contrast"]
+    pt = stacks[stacks.ecosystem == "Python/PyTorch"]
+    if pt.empty:
+        raise ValueError("no comparable Python/PyTorch cell in "
+                         "v2_tf32_campaign_contrast, so \\vPrecisionPytorchRatioMin "
+                         "and the macros beside it are not defined")
+    macro("vPrecisionPytorchRatioMin", num(pt.ratio_v1_v2.min(), 2))
+    macro("vPrecisionPytorchRatioMax", num(pt.ratio_v1_v2.max(), 2))
+    # The control group is the argument: stacks whose precision policy did not
+    # change must not move, or the ratio above is measuring something else.
+    others = stacks[stacks.ecosystem != "Python/PyTorch"]
+    macro("vPrecisionOthersMaxChangePct",
+          num(100 * (others.ratio_v1_v2 - 1).abs().max(), 1))
+    macro("vPrecisionControlStacks", len(others))
+
+    precision_table(ct)
+
+    gaps = train[train.row_kind == "PyTorch/C++ gap"]
+    if len(gaps) != 1:
+        # One comparable cell today (ResNet-18 on CIFAR-100). If 18 ever grades
+        # a second one comparable these become a range, and quietly taking the
+        # first would put one dataset's number under a sentence about both.
+        raise ValueError(
+            f"{len(gaps)} comparable PyTorch/C++ gap cells, not 1; "
+            f"\\vPrecisionGapBefore and \\vPrecisionGapAfter name a single "
+            f"cell and need rewriting as a range: "
+            f"{', '.join(sorted(gaps.dataset))}")
+    gap = gaps.iloc[0]
+    macro("vPrecisionGapBefore", num(gap.value_v1, 2))
+    macro("vPrecisionGapAfter", num(gap.value_v2, 2))
+    macro("vPrecisionGapDataset", DATASET[gap.dataset])
+
+    # "Precision", not "Tf32": a TeX control sequence is letters only, so
+    # \vTf32EnergyRatio parses as \vTf followed by the text "32EnergyRatio" and
+    # \newcommand never sees a name. macro()'s assert catches it.
+    # The kernel probe. Read by flag rather than by row order: the table gained
+    # a fifth cell and a matmul column after these macros were written, and a
+    # positional read would have silently picked up the wrong row.
+    probe_path = TABLES / "v2_tf32_ablation.csv"
+    if not probe_path.exists():
+        return
+    probe = pd.read_csv(probe_path)
+
+    def cell(column: str, matmul: bool = False, **flags):
+        """One row of the probe, chosen by flag rather than by position.
+
+        The table has gained a matmul column, a fifth cell and a cuDNN-disabled
+        sixth since these macros were written, and a positional read would have
+        silently moved to a different configuration each time. A flag the table
+        does not carry is not filtered on, so an older probe output still
+        answers for the cells it does have.
+        """
+        want = pd.Series(True, index=probe.index)
+        for name, value in flags.items():
+            # A flag the table does not carry means the cell asked for is not in
+            # it. Returning None rather than ignoring the flag: ignoring it
+            # matched the cuDNN-disabled cell against the default row of a table
+            # that has no such cell, and emitted a ratio of exactly 1.00.
+            if name not in probe:
+                return None
+            want &= probe[name].astype(str).str.lower() == str(value).lower()
+        # The cells that isolate the v1 defect hold matmul off; the fifth is
+        # v2's configuration and is not part of the v1 ratios. Pinned only when
+        # the column exists, so an older probe output still answers.
+        if "matmul_allow_tf32" in probe:
+            want &= (probe.matmul_allow_tf32.astype(str).str.lower()
+                     == str(matmul).lower())
+        rows = probe[want]
+        return None if rows.empty or column not in rows else float(rows[column].iat[0])
+
+    #: The probe's median columns are rounded for display -- 0.0978 s against a
+    #: 0.0060 s baseline -- and dividing them gave 16.30 where the probe's own
+    #: ratio column, computed from the unrounded medians, says 16.417. A
+    #: referee recomputing from the released CSV got a different number from the
+    #: one the manuscript printed. So the ratios are read, not recomputed.
+    RATIO_COLUMN = {"gpu_j_median": "ratio_gpu_j_vs_%s",
+                    "wall_s_median": "ratio_wall_s_vs_%s"}
+
+    def ratio(name: str, column: str, base_kind: str, **flags) -> None:
+        """Emit one macro from the probe's own ratio column for that cell.
+
+        `base_kind` is "v1_baseline" or "v2_default" and names the column the
+        probe already computed the quotient into, so the macro and the CSV
+        cannot drift apart. A probe output predating those columns falls back
+        to dividing the medians, which is what the manuscript used to do.
+        """
+        col = RATIO_COLUMN[column] % base_kind
+        value = cell(col, **flags) if col in probe else None
+        if value is None:
+            base_flags = (dict(matmul=False, cudnn_allow_tf32=True,
+                               cudnn_deterministic=False)
+                          if base_kind == "v1_baseline"
+                          else dict(matmul=True, cudnn_enabled=True,
+                                    cudnn_allow_tf32=True,
+                                    cudnn_deterministic=False))
+            here, base = cell(column, **flags), cell(column, **base_flags)
+            if not (here and base):
+                return
+            value = here / base
+        macro(name, num(value, 2))
+
+    for column, tag in (("gpu_j_median", "Energy"), ("wall_s_median", "Time")):
+        ratio(f"vPrecisionKernel{tag}Ratio", column, "v1_baseline",
+              cudnn_allow_tf32=False, cudnn_deterministic=False)
+        if tag == "Energy":
+            ratio("vPrecisionKernelDetEnergyRatio", column, "v1_baseline",
+                  cudnn_allow_tf32=False, cudnn_deterministic=True)
+            ratio("vPrecisionKernelDetOnlyRatio", column, "v1_baseline",
+                  cudnn_allow_tf32=True, cudnn_deterministic=True)
+        # cuDNN disabled entirely, against v2's own configuration rather than
+        # v1's baseline: this one answers "what does the library buy", which is
+        # a different question from "what does TF32 buy", and it is the only
+        # cell whose matmul flag matches v2 rather than v1. Absent from an older
+        # probe output, and then simply not emitted -- the probe is a host
+        # measurement and may legitimately be run without the cell.
+        ratio(f"vCudnnOff{tag}Ratio", column, "v2_default",
+              matmul=True, cudnn_enabled=False, cudnn_allow_tf32=True,
+              cudnn_deterministic=False)
+
+
 def main() -> None:
     epochs = design_facts()
     apparatus_facts()
@@ -1147,6 +1876,8 @@ def main() -> None:
     instrument_table()
     industrial_scenario()
     ranking_facts()
+    precision_ablation_facts()
+    first_campaign_collapse_facts()
 
     body = [
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
@@ -1155,7 +1886,7 @@ def main() -> None:
     for name in sorted(macros):
         body.append(f"\\newcommand{{\\{name}}}{{{macros[name]}}}")
     (OUT / "numbers.tex").write_text("\n".join(body) + "\n")
-    print(f"  wrote paper/generated/numbers.tex ({len(macros)} macros)")
+    print(f"  wrote {(OUT / 'numbers.tex').relative_to(REPO_ROOT)} ({len(macros)} macros)")
 
 
 if __name__ == "__main__":

@@ -62,6 +62,30 @@ def glob_read(*patterns: str, exclude: tuple[str, ...] = ()) -> dict[str, str]:
     return out
 
 
+def _dict_literal(text: str, name: str) -> str | None:
+    """Return the body of the ``name = {...}`` assignment in `text`.
+
+    Splitting on a bare identifier finds every mention of it, including
+    argparse defaults and subscripts; a scope check built that way inspects
+    whatever happens to follow the last one. This finds the assignment itself
+    and balances braces, so what comes back is the declared set and nothing
+    else. Returns None if there is no such assignment -- the caller must treat
+    that as a failure rather than as an empty set.
+    """
+    m = re.search(r"^%s\s*=\s*\{" % re.escape(name), text, re.MULTILINE)
+    if not m:
+        return None
+    depth, i = 0, m.end() - 1
+    for j in range(i, len(text)):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[i + 1:j]
+    return None
+
+
 def strip_comments(files: dict[str, str]) -> dict[str, str]:
     """Blank out // and /* */ comments, keeping line numbers intact.
 
@@ -307,6 +331,26 @@ def _check_run_dir_contract() -> list[Result]:
                       f'"campaign_v2" appears {bench.count(chr(34) + "campaign_v2" + chr(34))}x '
                       f"in deepgreen_bench.py"))
     return out
+
+
+def _campaign_metrics():
+    """``(frame, "")`` of the campaign's quality rows, or ``(None, why not)``.
+
+    Shared with the analysis rather than parsed here: common.read_campaign_metrics
+    applies the same completeness gate every table in the paper is built behind,
+    so this check and those tables cannot end up describing different subsets of
+    the same campaign.
+    """
+    try:
+        sys.path.insert(0, str(REPO / "results" / "analysis"))
+        import common  # noqa: E402  -- path set immediately above
+
+        metrics = common.read_campaign_metrics()
+    except Exception as exc:
+        return None, f"{type(exc).__name__}: {exc}"[:60]
+    if metrics.empty:
+        return None, "no complete run under results/campaign_v2/"
+    return metrics, ""
 
 
 def run() -> list[Result]:
@@ -593,26 +637,36 @@ def run() -> list[Result]:
     # verify that the values arrive: Java wrote NaN for test_loss in all 900 of
     # its epoch rows, which left half the collapse/pipeline discriminator blind
     # for the stack contributing five of the twelve collapses.
-    records = REPO / "results" / "replication" / "metrics.csv.gz"
-    if records.exists():
-        try:
-            import pandas as _pd
-            met = _pd.read_csv(records)
-            for column in ("test_acc", "test_loss", "train_loss"):
-                if column not in met:
-                    r.append(Result("all", f"S5 {column} present in metrics",
-                                    FAIL, "column missing"))
-                    continue
-                missing = met.groupby("ecosystem")[column].apply(
-                    lambda x: float(x.isna().mean()))
-                worst = missing.idxmax()
-                pct = 100 * missing.max()
-                r.append(Result(
-                    "all", f"S5 {column} populated by every stack",
-                    PASS if pct == 0 else FAIL,
-                    "all stacks" if pct == 0 else f"{worst} missing {pct:.0f}%"))
-        except Exception as exc:
-            r.append(Result("all", "S5 metrics populated", SKIP, str(exc)[:60]))
+    #
+    # Read from the campaign, through the analysis's own reader. This read
+    # results/replication/metrics.csv.gz, which is an output of the pipeline
+    # that nothing rebuilds, so it still held the FIRST campaign -- and
+    # 12_paper_numbers calls run() to derive \vConformanceFailName and
+    # \vConformanceFailDetail, so the manuscript disclosed "Java/DL4J test_loss
+    # missing 100%" as its single conformance failure while describing a
+    # campaign in which that column has no NaN at all. A check on measured data
+    # must read the measurements, not a copy of an older set of them.
+    #
+    # All three results are emitted whether or not there is a campaign to read.
+    # EXPECTED_CHECKS cannot tell a check that stopped running from one that
+    # passed, and the old `if records.exists()` made the manuscript's
+    # \vConformanceChecks depend on whether a superseded artefact happened to be
+    # on disk: 92 with it, 89 without.
+    metrics, why_not = _campaign_metrics()
+    for column in ("test_acc", "test_loss", "train_loss"):
+        name = f"S5 {column} populated by every stack"
+        if metrics is None:
+            r.append(Result("all", name, SKIP, why_not))
+        elif column not in metrics:
+            r.append(Result("all", name, FAIL, "column missing"))
+        else:
+            missing = metrics.groupby("ecosystem")[column].apply(
+                lambda x: float(x.isna().mean()))
+            worst = missing.idxmax()
+            pct = 100 * missing.max()
+            r.append(Result("all", name, PASS if pct == 0 else FAIL,
+                            "all stacks" if pct == 0
+                            else f"{worst} missing {pct:.0f}%"))
 
     # ---------------- S6: replication ---------------------------------------
     # The specification has six parts and the checker covered five of them, so
@@ -758,10 +812,24 @@ def run() -> list[Result]:
                          r"jax\.block_until_ready\("))
 
     # ---------------- scope -------------------------------------------------
+    # This check used to read rc.split("EXTERNAL_ECOSYSTEMS")[-1], which lands
+    # after the *last* mention of the name -- an argparse default -- and so
+    # inspected boilerplate rather than the set. Adding MATLAB to the campaign
+    # would have left it green. It now reads both ecosystem dictionaries by
+    # their assignments, so a stack added to either one is seen.
     rc = read("scripts/run_campaign.py")
-    r.append(Result("all", "V2 scope excludes MATLAB",
-                    PASS if "MATLAB" not in rc.split("EXTERNAL_ECOSYSTEMS")[-1].split("}")[0] else FAIL,
-                    "scripts/run_campaign.py"))
+    scope_bodies = [_dict_literal(rc, name)
+                    for name in ("PYTHON_ECOSYSTEMS", "EXTERNAL_ECOSYSTEMS")]
+    if any(body is None for body in scope_bodies):
+        scope = Result("all", "V2 scope excludes MATLAB", FAIL,
+                       "scripts/run_campaign.py: ecosystem set not found")
+    else:
+        joined = "".join(scope_bodies)
+        scope = Result("all", "V2 scope excludes MATLAB",
+                       PASS if "MATLAB" not in joined.upper() else FAIL,
+                       "scripts/run_campaign.py: %d ecosystems declared"
+                       % sum(b.count(":") for b in scope_bodies))
+    r.append(scope)
     return r
 
 

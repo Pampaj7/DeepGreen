@@ -1,6 +1,9 @@
 {
   "seconds": 60.01,
-  "gpu_w": 24.63,
-  "cpu_package_w": 38.87,
-  "total_w": 63.49
+  "gpu_w": 24.59,
+  "cpu_package_w": 38.91,
+  "total_w": 63.5,
+  "utc": "2026-09-05T10:44:39+00:00",
+  "load_average_1min": 0.26,
+  "forced": false
 }

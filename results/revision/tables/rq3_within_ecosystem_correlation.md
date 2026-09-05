@@ -1,4 +1,4 @@
-**Energy-duration correlation inside each ecosystem**
+**Energy-duration correlation inside each ecosystem, FIRST SUBMISSION campaign (results/data/), eight ecosystems including MATLAB/DLT. Not read by the manuscript**
 
 | ecosystem         | phase     | energy_definition   |   pearson_r |   r_squared |   spearman_rho |   p_spearman |
 |:------------------|:----------|:--------------------|------------:|------------:|---------------:|-------------:|

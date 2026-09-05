@@ -38,6 +38,16 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import write_table_path, REPO_ROOT, TABLES_RESOLVER, save_table  # noqa: E402
 
+#: Named so that a campaign with nothing padded still writes the header.
+DIURNAL_COLUMNS = ["window", "hours", "n_blocks", "median_excess_s", "level",
+                   "share_in_level_pct", "level_boundary_s"]
+
+#: Off-hours, local time, as the blocks' own timestamps record them. The switch
+#: falls inside a single hour at each end -- 08:00 is still at the upper level
+#: and 09:00 at the lower, 20:00 lower and 21:00 upper -- so the boundary is not
+#: a judgement call about where to cut a gradient.
+NIGHT_HOURS = [21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+
 TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
 
 
@@ -175,6 +185,76 @@ def window_model(a: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def diurnal(a: pd.DataFrame) -> pd.DataFrame:
+    """The wide excess mode is two levels, and the clock decides which.
+
+    window_model finds the modes as gaps in the sorted excess, and the middle
+    one comes out 2.1 s wide against 0.016 s for the mode beside it. A mode that
+    wide is more than one thing, and the thing that separates them is the hour
+    of day: blocks between 21:00 and 09:00 sit at 4.58 s and blocks outside that
+    window at 3.29 s.
+
+    That is consistent with the mechanism the rest of this file establishes.
+    stop() blocks on two network lookups before returning, so the excess is
+    round-trip time, and round-trip time to a geolocation service is worse when
+    the network is busy. It is worth a table because it is a measured,
+    reproducible source of variation in a quantity the estimator reports as a
+    duration -- a reader who finds two levels in their own data should be told
+    where to look rather than left to rediscover it.
+
+    The hours are the input and the levels are the result, not the other way
+    round. Splitting on the widest gap in the excess instead was tried and is
+    wrong twice over: the widest gap in the whole distribution is the one to a
+    single 13.4 s outlier, and the widest gap inside the mode falls between two
+    sub-clusters of the *lower* level, because the region between the levels is
+    sparsely populated rather than empty. A gap statistic cannot find a boundary
+    that has points in it; the clock can.
+    """
+    m = a[a.window_excess_s > 0.5].copy()
+    if m.empty:
+        return pd.DataFrame(columns=DIURNAL_COLUMNS)
+    m["hour"] = pd.to_datetime(m.timestamp).dt.hour
+    m["window"] = np.where(m.hour.isin(NIGHT_HOURS), "night", "day")
+
+    medians = m.groupby("window").window_excess_s.median()
+    if len(medians) < 2:
+        return pd.DataFrame(columns=DIURNAL_COLUMNS)
+    # Halfway between the two windows' medians: the level a block belongs to,
+    # judged without reference to the hour that put it there, so the share
+    # below is a test of the split rather than a restatement of it.
+    split = float(medians.mean())
+    m["level"] = np.where(m.window_excess_s > split, "upper", "lower")
+
+    rows = []
+    for window, level in (("night", "upper"), ("day", "lower")):
+        g = m[m.window == window]
+        hours = NIGHT_HOURS if window == "night" else [
+            h for h in range(24) if h not in NIGHT_HOURS]
+        rows.append({
+            "window": window,
+            "hours": _hour_range(hours),
+            "n_blocks": len(g),
+            "median_excess_s": round(float(g.window_excess_s.median()), 3),
+            "level": level,
+            "share_in_level_pct": round(100 * float((g["level"] == level).mean()), 1),
+            "level_boundary_s": round(split, 3),
+        })
+    return pd.DataFrame(rows, columns=DIURNAL_COLUMNS)
+
+
+def _hour_range(hours: list[int]) -> str:
+    """``[21,22,23,0,...,8]`` -> ``"21:00-09:00"``. Wraps midnight."""
+    present = set(hours)
+    starts = [h for h in sorted(present) if (h - 1) % 24 not in present]
+    if len(starts) != 1:
+        return ", ".join(f"{h:02d}:00" for h in sorted(present))
+    start = starts[0]
+    end = start
+    while (end + 1) % 24 in present:
+        end = (end + 1) % 24
+    return f"{start:02d}:00-{(end + 1) % 24:02d}:00"
+
+
 def power_distortion(a: pd.DataFrame) -> pd.DataFrame:
     """The consequence, stated without a model.
 
@@ -283,6 +363,13 @@ def main() -> None:
     print(dist.to_string(index=False))
     save_table(dist, "v2_coverage_power_distortion",
                "Derived power from the estimator's own fields against the counters")
+
+    dl = diurnal(a)
+    print("\n--- the wide excess mode is two levels, and the clock decides ---")
+    print(dl.to_string(index=False))
+    save_table(dl, "v2_coverage_window_diurnal",
+               "The merged excess mode split into its two levels, and the hours "
+               "each belongs to")
 
     cov = coverage(a)
     print("\n--- coverage, and how much of the shortfall is the instrument ---")

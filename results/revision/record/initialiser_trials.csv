@@ -1,0 +1,34 @@
+# Record of the initialiser side experiment, run 2026-08-26, reported in
+# REVISION_LOG.md section 3.
+#
+# The submitted manuscript reported the VGG-16 collapse rate as a property of
+# the ecosystem, and argued that initialisation was NOT the deciding factor
+# because three stacks loading a byte-identical module disagreed about which
+# repetitions collapsed. That premise was false: PyTorch built torchvision
+# fresh and loaded no module, and C++ and Rust each loaded a module from a
+# separate unseeded export. So the question was reopened and answered directly.
+#
+# Framework, optimiser, learning rate and data order held fixed; only the
+# initialiser varied. Six runs per initialiser, VGG-16 on the many-class
+# datasets, collapse judged by the same criterion 15_convergence.py uses
+# (final test accuracy at or below 1.5x chance).
+#
+# The stem_width row is not a trial count. It is the ratio of the standard
+# deviation of the first 7x7 convolution's weights under Deeplearning4j's
+# WeightInit.RELU -- a truncated normal with sqrt(2 / fan_in), 0.116 -- to
+# torchvision's kaiming_normal_(fan_out, relu), untruncated, sqrt(2 / fan_out),
+# 0.025. DL4J was the one stack with a hand-rolled initialiser and carried five
+# of the twelve collapses. n_trials and n_collapsed are blank for it because it
+# is a property of the distribution rather than an outcome.
+#
+# This is a record rather than a derived table: the runs were not part of
+# either campaign and no script in results/analysis/ can regenerate it. It is
+# preserved for the same reason as vgg_fashion_pipeline_defect.csv beside it --
+# the manuscript quotes these numbers, and a claim about a mechanism should be
+# as traceable as a claim about a result.
+quantity,initialiser,n_trials,n_collapsed,value
+collapse_trials,He,6,0,
+collapse_trials,Glorot,6,2,
+collapse_trials,Xavier,6,4,
+stem_width_ratio,Java/DL4J WeightInit.RELU over torchvision kaiming_normal_,,,4.6
+stem_width_ratio_jax,Python/JAX flax lecun_normal over torchvision kaiming_normal_,,,3.3

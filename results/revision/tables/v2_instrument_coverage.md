@@ -2,10 +2,10 @@
 
 | ecosystem         |   n_runs |   coverage_pct |   coverage_min_pct |   untracked_s_per_run |
 |:------------------|---------:|---------------:|-------------------:|----------------------:|
-| Cpp/LibTorch      |       30 |           55.3 |               26.8 |                 249.1 |
-| Java/DL4J         |       30 |           92.8 |               88.5 |                 127.2 |
-| Python/JAX        |       30 |           41   |               17.6 |                 235   |
-| Python/PyTorch    |       30 |           76.1 |               55.4 |                 151.6 |
-| Python/TensorFlow |       30 |           52.6 |               27.2 |                 208.3 |
-| R/torch           |       30 |           99.7 |               99.6 |                   6.7 |
-| Rust/tch          |       30 |           71.8 |               36.2 |                 198.3 |
+| Cpp/LibTorch      |       30 |           43.8 |               26.9 |                 244.2 |
+| Java/DL4J         |       30 |           92.7 |               88.7 |                 129.9 |
+| Python/JAX        |       30 |           48.2 |               36.9 |                 239.3 |
+| Python/PyTorch    |       30 |           52.8 |               36.8 |                 218.4 |
+| Python/TensorFlow |       30 |           47.8 |               35.4 |                 234.5 |
+| R/torch           |       30 |           99.7 |               99.6 |                   6.5 |
+| Rust/tch          |       30 |           56.8 |               35   |                 212.9 |

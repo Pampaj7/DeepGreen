@@ -133,6 +133,19 @@ def tables_dir() -> Path:
     return real if not campaign_is_partial() else real.with_name(real.name + "_partial")
 
 
+def figures_dir() -> Path:
+    """Where this run may write figures: the real directory, or a partial sibling.
+
+    The same diversion as :func:`tables_dir`, for the same reason and with a
+    sharper edge -- a figure carries no run count on its face, so a substituted
+    one looks exactly like the right one. 12 and 13 divert; 08 wrote straight to
+    ``FIG_DIR``, so a monitoring run of the first-campaign audit replaced
+    committed figures with whatever was on disk at the time.
+    """
+    real = FIG_DIR
+    return real if not campaign_is_partial() else real.with_name(real.name + "_partial")
+
+
 def freeman_halton_exact(rows: "np.ndarray") -> tuple[float, float]:
     """Exact test of homogeneity for an r x 2 table. Returns ``(p, p_observed)``.
 
@@ -238,6 +251,59 @@ def read_complete_counters(run_dir: Path) -> tuple[pd.DataFrame | None, dict]:
     if any(counts[ph] < EXPECTED_EPOCHS for ph in PHASES):
         return None, counts
     return hw, counts
+
+#: The columns every stack's metrics.csv carries. Three header shapes coexist in
+#: the campaign -- 30 Python/PyTorch runs have no ``train_acc``, 58 runs add a
+#: ``precision`` column -- so a union of columns is expected and only these are
+#: guaranteed.
+METRICS_COLUMNS = ["run", "ecosystem", "model", "dataset", "repetition", "seed",
+                   "epoch", "train_loss", "test_loss", "test_acc"]
+
+
+def read_campaign_metrics(complete_only: bool = True,
+                          root: Path | None = None) -> pd.DataFrame:
+    """Every run's per-epoch quality rows, concatenated, with a ``run`` column.
+
+    One reader, because there were three, over three different populations of
+    the same campaign: 09's collector joins metrics onto the energy blocks
+    behind the completeness gate, 15_convergence walks the run directories with
+    no gate at all, and scripts/check_consistency read
+    ``results/replication/metrics.csv.gz`` -- a package the pipeline writes and
+    nothing rebuilds. That last one is how the manuscript came to disclose a
+    conformance failure the campaign it describes does not have: Java/DL4J's
+    ``test_loss`` is NaN in every row of the first campaign and in none of the
+    second, and the checker was reading the first.
+
+    ``root`` defaults to the current campaign and exists so that the superseded
+    one can be read through the same gate -- the collapse finding belongs to it
+    and the manuscript now presents it as its own -- rather than through a
+    second walk of the directories.
+
+    Returns an empty frame with :data:`METRICS_COLUMNS` when there is nothing to
+    read, so a caller can test ``.empty`` rather than guess at the shape.
+    """
+    frames = []
+    for run_dir in sorted(p for p in (root or CAMPAIGN_DIR).glob("*") if p.is_dir()):
+        if complete_only and read_complete_counters(run_dir)[0] is None:
+            continue
+        path = run_dir / "metrics.csv"
+        # The file exists from the moment the harness opens it and has no header
+        # until the first epoch closes, so a live campaign produces both of
+        # these.
+        if not path.exists() or not path.stat().st_size:
+            continue
+        try:
+            m = pd.read_csv(path)
+        except pd.errors.EmptyDataError:
+            continue
+        if m.empty:
+            continue
+        m["run"] = run_dir.name
+        frames.append(m)
+    if not frames:
+        return pd.DataFrame(columns=METRICS_COLUMNS)
+    return pd.concat(frames, ignore_index=True)
+
 
 # Hardware reference values for the measurement platform (used only for
 # plausibility checks and utilisation reporting, never to derive energy).
@@ -526,7 +592,7 @@ def fmt_sci(x: float, digits: int = 2) -> str:
 # --------------------------------------------------------------------------
 def ensure_dirs() -> None:
     tables_dir().mkdir(parents=True, exist_ok=True)
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    figures_dir().mkdir(parents=True, exist_ok=True)
 
 
 def save_table(df: pd.DataFrame, name: str, caption: str = "") -> None:

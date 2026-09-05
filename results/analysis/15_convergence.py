@@ -35,6 +35,8 @@ Writes results/revision/tables/v2_convergence_*.{md,csv}.
 
 from __future__ import annotations
 
+import argparse
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -44,9 +46,20 @@ from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (REPO_ROOT, TABLES_RESOLVER,  # noqa: E402
-                    freeman_halton_exact, save_table)
+                    freeman_halton_exact, read_campaign_metrics, save_table)
 
 TABLES = TABLES_RESOLVER  # writes divert on a live campaign, reads fall back
+
+# Which campaign this run analyses. The collapse finding belongs to the first
+# campaign -- the second has none -- and the manuscript now presents it as that
+# campaign's result, so this script has to be able to produce both. The outputs
+# are named apart (v1_convergence_*, v2_convergence_*) so that running one can
+# never overwrite the other's tables, which is the same rule 23 of the revision
+# log arrived at for partial campaigns.
+CAMPAIGNS = {
+    "v2": REPO_ROOT / "results" / "campaign_v2",
+    "v1": REPO_ROOT / "results" / "campaign_v2_first_campaign",
+}
 
 # Accuracy of a classifier that always predicts one class.
 CHANCE_PCT = {"fashionmnist": 100 / 10, "cifar100": 100 / 100,
@@ -56,15 +69,60 @@ CHANCE_PCT = {"fashionmnist": 100 / 10, "cifar100": 100 / 100,
 # chance, so no borderline case depends on where the line is drawn.
 COLLAPSE_FACTOR = 1.5
 
+# The columns of <prefix>_convergence_signature, named here so that a campaign
+# nothing to report still writes the header. See main() for why that matters.
+SIGNATURE_COLUMNS = ["run", "ecosystem", "model", "dataset", "final_test_acc_pct",
+                     "train_loss_drop_pct", "test_loss_first", "test_loss_last",
+                     "diagnosis"]
+HOMOGENEITY_COLUMNS = ["ecosystem", "n_collapsed", "n_runs", "collapse_pct",
+                       "overall_pct", "exact_p", "permutation_p", "chi_square",
+                       "chi_square_p", "chi_square_min_expected"]
+CONDITIONAL_COLUMNS = ["model", "dataset", "n_ecosystems", "raw_spread_pp",
+                       "converged_spread_pp", "converged_min_pct",
+                       "converged_max_pct"]
 
-def load() -> pd.DataFrame:
-    q = pd.read_csv(TABLES / "v2_quality_normalised.csv")
-    q["chance_pct"] = q.dataset.map(CHANCE_PCT)
+#: The quantities load() must have as floats.
+NUMERIC = ("final_test_acc_pct", "train_energy_total_J", "acc_per_kJ",
+           "target_acc_pct", "energy_to_target_J")
+
+
+def campaign_module():
+    """09's collector and quality normalisation, imported rather than copied."""
+    path = Path(__file__).resolve().parent / "09_campaign_v2.py"
+    spec = importlib.util.spec_from_file_location("09_campaign_v2", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def load(prefix: str, campaign_dir: Path) -> pd.DataFrame:
+    """The per-run quality table for this campaign.
+
+    For the current campaign that is the table 09 writes. For the superseded one
+    there is no such table and there should not be -- 09 aggregates the campaign
+    the paper reports -- so it is computed here from 09's own collector with the
+    root parameterised, the way 18_precision_ablation reads the same directory.
+    """
+    path = TABLES / f"{prefix}_quality_normalised.csv"
+    if path.exists():
+        q = pd.read_csv(path)
+    else:
+        nine = campaign_module()
+        q = nine.quality_normalised(nine.collect(campaign_dir)).round(3)
+    # A header-only CSV -- which 09 now writes when a campaign has produced no
+    # quality rows yet -- reads back with object columns, and every arithmetic
+    # below then behaves differently from the populated case: sum() returns an
+    # int 0, so the waste share raises ZeroDivisionError rather than being zero.
+    # Coerce once here instead of defending against dtype in five places.
+    for column in NUMERIC:
+        if column in q:
+            q[column] = q[column].astype(float)
+    q["chance_pct"] = q.dataset.map(CHANCE_PCT).astype(float)
     q["collapsed"] = q.final_test_acc_pct <= q.chance_pct * COLLAPSE_FACTOR
     return q
 
 
-def collapse_signature() -> pd.DataFrame:
+def collapse_signature(campaign_dir: Path) -> pd.DataFrame:
     """Distinguish a failed recipe from a broken pipeline.
 
     Both produce chance test accuracy, and in an energy table they are
@@ -85,19 +143,20 @@ def collapse_signature() -> pd.DataFrame:
     chance for thirty epochs. Nothing in the energy data showed it, and the
     collapse-rate table alone would have filed it under "VGG-16 sometimes fails
     to train".
+
+    The traces come from common.read_campaign_metrics, which is also what
+    12_paper_numbers's collapse_mechanism_facts and check_consistency's S5 read.
+    This walked the run directories itself with no completeness gate, while 12
+    counted the same phenomenon behind one, so \\vSigCollapseN and
+    \\vCollapseRuns could describe different populations of the same campaign
+    and nothing would say which. They are both zero today, which is exactly how
+    a divergence like that stays invisible until it matters.
     """
-    campaign = REPO_ROOT / "results" / "campaign_v2"
-    rows = []
-    for run_dir in sorted(p for p in campaign.glob("*") if p.is_dir()):
-        mpath = run_dir / "metrics.csv"
-        if not mpath.exists():
-            continue
-        try:
-            m = pd.read_csv(mpath)
-        except pd.errors.EmptyDataError:
-            continue
-        if m.empty or "test_acc" not in m or "train_loss" not in m:
-            continue
+    rows: list[dict] = []
+    metrics = read_campaign_metrics(root=campaign_dir)
+    if metrics.empty or not {"test_acc", "train_loss"}.issubset(metrics.columns):
+        return pd.DataFrame(rows, columns=SIGNATURE_COLUMNS)
+    for run, m in metrics.groupby("run"):
         m = m.sort_values("epoch")
         dataset = str(m.dataset.iat[0])
         chance = CHANCE_PCT.get(dataset)
@@ -111,7 +170,7 @@ def collapse_signature() -> pd.DataFrame:
         test_first = float(m.test_loss.iat[0]) if "test_loss" in m else float("nan")
         test_last = float(m.test_loss.iat[-1]) if "test_loss" in m else float("nan")
         rows.append({
-            "run": run_dir.name,
+            "run": run,
             "ecosystem": str(m.ecosystem.iat[0]), "model": str(m.model.iat[0]),
             "dataset": dataset,
             "final_test_acc_pct": round(final_acc, 2),
@@ -124,7 +183,7 @@ def collapse_signature() -> pd.DataFrame:
                           if loss_drop > 0.5 and test_last >= test_first
                           else "optimisation collapse"),
         })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=SIGNATURE_COLUMNS)
 
 
 def by_model(q: pd.DataFrame) -> pd.DataFrame:
@@ -173,6 +232,14 @@ def homogeneity_test(q: pd.DataFrame, n_permutations: int = 20000) -> pd.DataFra
     not be able to stop the pipeline.
     """
     v = q[(q.model == "vgg16") & (q.dataset.isin(["cifar100", "tinyimagenet"]))]
+    if v.empty:
+        # No susceptible cell in this campaign: there is no table to test and
+        # no statistic that means anything over one. The permutation statistic
+        # would reduce max() over an empty array, and Freeman--Halton would
+        # index past the end of a zero-group margin. Return the header and let
+        # main() write it -- see there for why an empty table still has to be
+        # written.
+        return pd.DataFrame(columns=HOMOGENEITY_COLUMNS)
     table = v.groupby("ecosystem").collapsed.agg(["sum", "size"])
 
     def spread(labels: np.ndarray, groups: np.ndarray) -> float:
@@ -226,13 +293,13 @@ def conditional_accuracy(q: pd.DataFrame) -> pd.DataFrame:
             "converged_min_pct": round(per_eco.min(), 2),
             "converged_max_pct": round(per_eco.max(), 2),
         })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=CONDITIONAL_COLUMNS)
 
 
 def wasted_energy(q: pd.DataFrame) -> pd.DataFrame:
     """Energy spent by runs that learned nothing."""
-    total = q.train_energy_total_J.sum()
-    wasted = q[q.collapsed].train_energy_total_J.sum()
+    total = float(q.train_energy_total_J.sum())
+    wasted = float(q[q.collapsed].train_energy_total_J.sum())
     return pd.DataFrame([{
         "n_runs": len(q),
         "n_collapsed": int(q.collapsed.sum()),
@@ -240,56 +307,89 @@ def wasted_energy(q: pd.DataFrame) -> pd.DataFrame:
         # quoting them against a train+eval total would flatter the figure.
         "training_energy_MJ": round(total / 1e6, 2),
         "collapsed_energy_MJ": round(wasted / 1e6, 2),
-        "wasted_pct": round(100 * wasted / total, 1),
+        # No training energy at all means no share of it wasted. Zero is the
+        # answer, not a division to defend -- and n_runs beside it says the
+        # campaign is empty, so the row cannot be mistaken for a result.
+        "wasted_pct": round(100 * wasted / total, 1) if total else 0.0,
     }])
 
 
-def main() -> None:
-    q = load()
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    ap.add_argument("--campaign", choices=sorted(CAMPAIGNS), default="v2",
+                    help="v2 (default) is the campaign the paper reports; v1 is "
+                         "the superseded one, which is where the collapses are")
+    args = ap.parse_args(argv)
+    prefix, campaign_dir = args.campaign, CAMPAIGNS[args.campaign]
+    if not campaign_dir.is_dir():
+        print(f"no campaign under {campaign_dir.relative_to(REPO_ROOT)}")
+        return
+    print(f"campaign {prefix}: {campaign_dir.relative_to(REPO_ROOT)} "
+          f"-> {prefix}_convergence_*")
+
+    # Every one of the six tables below is written, populated or not. Three of
+    # them used not to be: with an empty quality table -- the early-monitoring
+    # case tables_dir() exists to serve -- homogeneity_test reduced max() over
+    # an empty array and wasted_energy divided by zero, so the script died after
+    # writing three tables and before writing the other three, and
+    # 12_paper_numbers read those three through a resolver that falls back to
+    # the committed copy. A partial run then quoted the FIRST campaign's
+    # homogeneity p, conditional spread and wasted share, silently. Refusing to
+    # write is not a safe failure here; it is the failure.
+    q = load(prefix, campaign_dir)
 
     bm = by_model(q)
     print("--- collapse rate by model and dataset ---")
     print(bm.to_string(index=False))
-    save_table(bm, "v2_convergence_by_model",
+    save_table(bm, f"{prefix}_convergence_by_model",
                "Runs that never exceeded chance accuracy, by model and dataset")
 
     be = by_ecosystem(q)
     print("\n--- which ecosystems saw it (VGG-16 only) ---")
     print(be.to_string(index=False))
-    save_table(be, "v2_convergence_by_ecosystem",
+    save_table(be, f"{prefix}_convergence_by_ecosystem",
                "VGG-16 collapses per ecosystem; the effect is not stack-specific")
 
-    sig = collapse_signature()
+    sig = collapse_signature(campaign_dir)
     if len(sig):
         print("\n--- failed recipe, or broken pipeline? ---")
         print(sig[["run", "final_test_acc_pct", "train_loss_drop_pct",
                    "test_loss_first", "test_loss_last", "diagnosis"]]
               .to_string(index=False))
-        save_table(sig, "v2_convergence_signature",
-                   "Chance-accuracy runs separated by their per-epoch traces")
-        broken = sig[sig.diagnosis.str.startswith("pipeline")]
-        if len(broken):
-            print(f"\n  !! {len(broken)} run(s) show a pipeline defect, "
-                  f"not an optimisation failure:")
-            for r in broken.run:
-                print(f"     {r}")
+    else:
+        print("\n--- no run finished at chance accuracy ---")
+    # Written even when empty. This was guarded by `if len(sig)`, and with zero
+    # collapses the table was simply not written -- so 12_paper_numbers's
+    # `.exists()` check resolved to the first campaign's committed copy and
+    # emitted \vSigCollapseN from twelve runs that are no longer in the
+    # campaign. A table this script owns has to exist for every campaign it
+    # analyses, header and no rows when there is nothing to report, or a
+    # downstream existence check silently means "the previous campaign".
+    save_table(sig, f"{prefix}_convergence_signature",
+               "Chance-accuracy runs separated by their per-epoch traces")
+    broken = sig[sig.diagnosis.str.startswith("pipeline")]
+    if len(broken):
+        print(f"\n  !! {len(broken)} run(s) show a pipeline defect, "
+              f"not an optimisation failure:")
+        for r in broken.run:
+            print(f"     {r}")
 
     ht = homogeneity_test(q)
     print("\n--- is the collapse rate the same in every ecosystem? ---")
     print(ht.to_string(index=False))
-    save_table(ht, "v2_convergence_homogeneity",
+    save_table(ht, f"{prefix}_convergence_homogeneity",
                "VGG-16 collapse rate per ecosystem, with a permutation test of homogeneity")
 
     ca = conditional_accuracy(q)
     print("\n--- cross-ecosystem accuracy spread, raw against converged-only ---")
     print(ca.to_string(index=False))
-    save_table(ca, "v2_convergence_conditional",
+    save_table(ca, f"{prefix}_convergence_conditional",
                "Cross-ecosystem accuracy spread before and after excluding collapsed runs")
 
     we = wasted_energy(q)
     print("\n--- energy spent on runs that learned nothing ---")
     print(we.to_string(index=False))
-    save_table(we, "v2_convergence_waste",
+    save_table(we, f"{prefix}_convergence_waste",
                "Share of campaign energy consumed by collapsed runs")
 
 

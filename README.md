@@ -32,7 +32,7 @@ This repository contains the replication package for the paper:
 >
 > The seven in-scope ecosystems are now held to a single written specification
 > (`results/analysis/experiment_spec.md`), enforced by
-> `scripts/check_consistency.py` (47 checks) and by runtime smoke tests for the
+> `scripts/check_consistency.py` (92 checks) and by runtime smoke tests for the
 > shared model, the measurement harness, and every non-Python build.
 >
 > Nothing in `results/scripts/`, `results/plots/` or `results/tables/` should be
@@ -41,7 +41,7 @@ This repository contains the replication package for the paper:
 > The revised manuscript is in **[paper/](./paper)**. All seven in-scope
 > ecosystems now run on the GPU under one shared measurement contract
 > (`tools/deepgreen_tracker.py`) and record per-epoch accuracy; conformance is
-> enforced by `scripts/check_consistency.py` (57 checks).
+> enforced by `scripts/check_consistency.py` (92 checks).
 
 ---
 

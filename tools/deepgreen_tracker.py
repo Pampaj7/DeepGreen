@@ -112,6 +112,17 @@ def _machine_state() -> dict:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
+def _provenance() -> dict:
+    """The same provenance block the Python harness writes; shared, not copied."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        from deepgreen_bench import provenance
+
+        return provenance()
+    except Exception as exc:                     # never lose a run over a manifest
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
 def data_fingerprint(**fields) -> None:
     """Record what this stack's loader actually produced.
 
@@ -154,6 +165,7 @@ def write_manifest(extra: dict | None = None) -> None:
         "env": {k: v for k, v in os.environ.items() if k.startswith("DEEPGREEN_")},
         "hardware_counters": (_hardware().describe() if _hardware() is not None else None),
         "machine_state": _machine_state(),
+        "provenance": _provenance(),
     }
     if extra:
         manifest |= extra

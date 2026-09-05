@@ -86,7 +86,7 @@ value disappears the build fails rather than printing a stale figure.
 | Energy against measured time, phase consistency | `14_v2_statistics.py` |
 | Training collapses and conditional accuracy | `15_convergence.py` |
 | Defect catalogue | the audit of the earlier campaign, `01`–`10` |
-| Conformance: 63 checks | `scripts/check_consistency.py` |
+| Conformance: 92 checks | `scripts/check_consistency.py` |
 
 ## Figures
 

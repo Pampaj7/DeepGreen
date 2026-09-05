@@ -1,0 +1,30 @@
+# Record of two first-campaign divergences the alignment closed, reported in
+# REVISION_LOG.md sections 7 and 17. Compiled 2026-09-05.
+#
+# Both are properties of the FIRST campaign's source tree, not of any
+# measurement, so no analysis script can derive them: the code that produced
+# them has been corrected and the runs re-executed. They are recorded here for
+# the same reason as initialiser_trials.csv and vgg_fashion_pipeline_defect.csv
+# beside it -- the manuscript counts them, and a count in the prose that exists
+# nowhere else is a number that drifts the first time someone edits the list.
+#
+# seed_divergent (section 7). The S6 check reported "5 of 5 distinct seeds"
+# having asked the campaign PLANNER, which never sees whether a stack uses the
+# seed it is handed. Java hardcoded RNG_SEED = 123 for its data order, so all
+# five repetitions shuffled identically; JAX never passed the seed to its
+# loader, so tf.data shuffled with seed=None; and two of six Rust binaries
+# rebuilt the generator inside the epoch loop, replaying one permutation thirty
+# times. Three stacks, three different ways of ignoring the seed.
+#
+# pixel_divergent (section 17). Over Tiny ImageNet's whole test split,
+# 30,720,000 values apiece, the standard deviation fell into three groups:
+# 0.263919-0.263923 for C++, Java and R; 0.258406 for Rust; 0.256103-0.256110
+# for PyTorch and TensorFlow. Means agreeing to 0.1% while variances differ by
+# 3.0% is the signature of a resampling filter rather than of different content.
+# Four stacks of seven were seeing different pixels on a third of the campaign.
+# Counted as the stacks away from the reference resampling (C++, Java, R and
+# Rust); the fix removed the question rather than aligning four answers, by
+# resizing every image once, offline, to 32x32.
+quantity,n_stacks,stacks,log_section
+seed_divergent,3,Java/DL4J; Python/JAX; Rust/tch,7
+pixel_divergent,4,C++/LibTorch; Java/DL4J; R/torch; Rust/tch,17

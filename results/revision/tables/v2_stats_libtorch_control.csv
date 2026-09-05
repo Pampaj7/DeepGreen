@@ -1,7 +1,7 @@
-model,dataset,n_all,n_shared_module,spread_all,spread_shared_module,spread_libtorch_family,share_of_log_spread_pct,family_share_of_log_spread_pct
-resnet18,cifar100,7,3,14.9,3.75,9.57,48.9,83.6
-resnet18,fashionmnist,7,3,18.23,3.79,10.83,45.9,82.1
-resnet18,tinyimagenet,7,3,10.18,3.24,8.51,50.7,92.3
-vgg16,cifar100,7,3,7.9,1.1,1.69,4.8,25.4
-vgg16,fashionmnist,7,3,7.94,1.07,1.91,3.5,31.4
-vgg16,tinyimagenet,7,3,7.82,1.41,1.81,16.6,28.9
+model,dataset,n_all,n_shared_module,n_libtorch_family,spread_all,spread_shared_module,spread_libtorch_family,share_of_log_spread_pct,family_share_of_log_spread_pct
+resnet18,cifar100,7,3,4,9.71,1.32,9.71,12.1,100.0
+resnet18,fashionmnist,7,3,4,9.78,1.26,9.78,10.0,100.0
+resnet18,tinyimagenet,7,3,4,9.3,1.6,9.3,21.2,100.0
+vgg16,cifar100,7,3,4,7.39,1.13,3.49,6.1,62.5
+vgg16,fashionmnist,7,3,4,7.36,1.07,3.48,3.2,62.4
+vgg16,tinyimagenet,7,3,4,7.38,1.24,3.49,10.8,62.5

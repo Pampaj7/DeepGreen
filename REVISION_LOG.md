@@ -943,27 +943,291 @@ the code, not of the campaign's numbers.
 The remaining numeric claims still need re-deriving from the macros one by one.
 This closes the part that could mislead on its own.
 
+
+---
+
+## 27. Closing the campaign, and auditing the pipeline against it
+
+Two days of finishing work. The campaign ended on Wednesday morning; everything
+below happened on Thursday and Friday, and almost all of it was found by
+attacking the pipeline rather than by reading it.
+
+### The four replayed runs
+
+The campaign's last run started at 05:47 UTC on Wednesday 2 September, 210 of
+210. (Times in this section are UTC, which is what the manifests record; section
+20's clock is local, two hours ahead.) Four of those runs were not part of the
+interleaved schedule: the JAX/VGG-16 runs of section 20, which raised on the
+Flax dropout PRNG before the fix. Their directories were deleted and the
+configuration replayed on Thursday evening -- `tinyimagenet_rep0`,
+`fashionmnist_rep0`, `cifar100_rep0` and `tinyimagenet_rep1`, starting at 18:22,
+18:33, 18:42 and 18:52 on 4 September. All fifteen JAX VGG-16 runs now come from
+one source revision, which is the property that mattered.
+
+**What it costs.** Four runs of 210 sit two days outside the interleaved window,
+and for them the design's central protection -- drift spread across conditions
+rather than aliased onto whichever ecosystem ran last -- does not hold. That is
+what the calibration is for, and it is why I did the calibration before writing
+the threats section rather than after.
+
+### The calibration was measuring a harness change and calling it drift
+
+**Defect.** `results/calibration/` held five Python/PyTorch ResNet-18 /
+Fashion-MNIST runs from 29 August, produced by the harness that pinned
+`matmul.allow_tf32 = False`, `cudnn.allow_tf32 = False` and
+`cudnn.deterministic = True` for the Python stacks. Every run of the second
+campaign records `DEEPGREEN_TF32=1`. `17_window_calibration.py` joined the two
+anyway: it matches on ecosystem, model, dataset and phase, and nothing in it
+asked whether the two windows were produced by the same instrument.
+
+**Evidence.** Against the first campaign the table read **-0.21 % at 0.61
+standard deviations** of the within-window spread, and the manuscript quoted that
+as drift "below the noise the design already carries". Against the re-executed
+campaign the same five runs read **201 % apart at 293 standard deviations**.
+Neither figure is drift. The first is drift plus a precision change that happened
+to land on top of it; the second is the precision change alone, wearing a
+between-window-drift label and a manuscript sentence saying it is small.
+
+**Fix.** `comparability_objection()` refuses the comparison when the two windows
+do not record the same precision policy, and when every calibration run predates
+the campaign's earliest run -- a calibration that predates the campaign is a
+comparison across harness versions, it cannot be re-executed to match a harness
+that did not exist when it ran, so the campaign is the fixed side and the
+calibration is the one that has to be produced again. Two details the refusal
+needed. Run start times now come from `machine_state.utc`, written when the
+harness opens the run, rather than from `counters.csv`'s mtime, which is the
+*end* of the run and does not survive a copy or an rsync. And both roots are
+walked through the same completeness gate, because one leftover directory under
+either of them reads as a run recording no precision policy and would disable the
+comparison permanently while blaming a key every real run does record.
+
+The old calibration is kept as `results/calibration_first_harness/`. Five runs
+under the current harness on Thursday, 19:15 to 19:50, immediately after the
+replays above.
+
+**Result.** Between-window drift is **-1.25 % at 1.62 sigma** on training and
+-3.23 % at 3.95 sigma on inference, against within-window CVs of 0.59 % and
+0.95 %. Small on training; on inference it is nearly four sigma of a very tight
+spread, and I would rather quote it that way than round it to "negligible".
+
+### Five pipeline defects, found by attacking the pipeline
+
+The reviewers I set on the analysis were told to try to make it produce a wrong
+number, not to read it for correctness. All five below came out of that, and
+four of them had already reached the manuscript.
+
+**Twelve macros were reading a superseded replication package.**
+`12_paper_numbers.py` built two frames from `results/replication/` --
+`metrics.csv.gz` for `collapse_mechanism_facts` (`\vCollapseLossDeviationMax`,
+`\vCollapseDiscordantCells`, `\vCollapseSharedStacks`, `\vSigCollapseJava`) and
+`codecarbon.csv.gz` for `reexecution_facts` (`\vLateRuns`, `\vLateConfigurations`,
+`\vLateEcosystems`, `\vLateGapDays`, `\vLateBlocks`, `\vInterleavedRuns`). That package
+is an *output* of the pipeline and nothing in `run_all.sh` rebuilt it, so for a
+fortnight it held the first campaign while ten macros quoted it as the current
+one. Worse than staleness in one case: in the first campaign Python/PyTorch built
+torchvision fresh and loaded no shared module, so the discordance
+`\vCollapseDiscordantCells` reports was measured between stacks that did not share
+weights, under a sentence in the paper asserting that they did. Both frames come
+from the campaign now, through `common.read_campaign_metrics` and
+`09_campaign_v2.collect`, and the package is built at the *end* of `run_all.sh`
+where an output belongs. It also refuses to build from a partial campaign, which
+every other consumer of the raw tree had been given and it had not.
+
+**And the checker was reading it too, which is where the other two macros came
+from.** `check_consistency.py`'s three S5 metrics checks read the same
+`metrics.csv.gz`. Java/DL4J's `test_loss` is NaN in all 900 of its rows in the
+first campaign and in none of the second, so the checker reported a failure that
+belonged to a campaign the paper does not describe -- and `12_paper_numbers`
+calls `check_consistency.run()` to derive `\vConformanceFailName` and
+`\vConformanceFailDetail`, so the manuscript disclosed "one failing check:
+Java/DL4J `test_loss`" as a property of the campaign it reports. It was a
+first-campaign fact. The checks read the campaign now, through the same
+completeness gate the tables are built behind, and they emit a result whether or
+not there is a campaign to read: the old `if records.exists()` made
+`\vConformanceChecks` depend on whether a superseded artefact happened to be on
+disk, 92 with it and 89 without.
+
+**A SKIP counted as a PASS.** `\vConformancePassing` was `len(results) -
+len(failing)`, which is "everything that did not fail". A checker run in which
+three checks could not read their input would therefore have published 92 of 92
+passing. The checker's own note says a check that stops running is
+indistinguishable from one that passed; this is where that becomes a number in a
+paper. `apparatus_facts` now raises rather than emitting the conformance macros
+if any check skipped, and counts PASS explicitly. In the same pass I made
+`macro()` refuse any value that formats as `nan`: with zero collapses,
+`chi2_contingency` raises on a zero expected frequency, `15_convergence` records
+NaN, and `paper.tex` had typeset "a chi-square test on that table returns
+p = nan, which would license a claim that ecosystems differ in robustness".
+
+**Stale-table fallbacks on zero rows.** `TABLES_RESOLVER` falls back to the
+committed copy of a table when the current run has not produced it -- which is
+correct for a partial campaign and silently wrong when a script *dies* before
+writing. Three of `15_convergence`'s six tables were in that position: with an
+empty quality table `homogeneity_test` reduced `max()` over an empty array and
+`wasted_energy` divided by zero, so the script wrote three tables, raised, and
+left `12_paper_numbers` to read the other three from the first campaign's
+committed copies. `collapse_signature` had the same shape from the other
+direction: it was guarded by `if len(sig)`, and with zero collapses it wrote
+nothing at all, so `\vSigCollapseN` resolved to twelve runs that are not in this
+campaign. Every table a script owns is written now, header and no rows when there
+is nothing to report, and `only_row()` names the missing macro instead of raising
+`IndexError` at position 0.
+
+**`measure_idle.py` was measuring the idle host from inside the pipeline.** It
+ran unconditionally in `run_all.sh`, so a full pipeline run measured the machine
+while being the only load on it. The CPU package term came out 3.6 W above a
+reading taken an hour earlier on a quiet host, and it wrote that straight over a
+manuscript input. An idle baseline measured by the load is the defect this paper
+catalogues, committed by this paper. The script records the one-minute load
+average and a UTC timestamp in the file now, refuses to write above 0.5 without
+`--force`, and writes through `write_table_path` like every other table;
+`run_all.sh` runs it and `probe_reported_window.py` only under
+`DEEPGREEN_MEASURE_HOST=1` and otherwise prints when the committed baseline was
+measured. I re-measured on a quiet host this morning: 60.01 s at load 0.26,
+**24.59 W accelerator, 38.91 W CPU package, 63.50 W together**, 2026-09-05
+10:44:39 UTC.
+
+### The precision numbers in this log had no script behind them
+
+**Defect.** The four-cell table in section 1 -- 0.352 s / 78.3 J against
+1.221 s / 407.6 J, the 4.81x -- has no script, no CSV and no commit anywhere in
+this repository's history. Nor does section 19's Deeplearning4j bound, "13.3x the
+energy and 16.7x the time", 100.3 J and 0.353 s against 1333.2 J and 5.874 s. I
+went looking for the code that produced them and there is none.
+
+**Evidence that they are also wrong.** Both tables are labelled per step. The
+campaign's own per-step figures for the same two configurations, CIFAR-100
+training at 390 steps per epoch, are about 0.0075 s and 1.9 J for C++/LibTorch
+with TF32 on and about 0.022 s and 7.5 J for Python/PyTorch as the pre-fix
+harness ran it. The logged figures are roughly 50 times those. They are almost
+certainly 50-step totals with a per-step label, which is the same class of error
+as kilowatt-hours labelled as joules, in a log written to catalogue it.
+
+**Fix, in two parts, because the two campaigns already contain the experiment.**
+`results/analysis/18_precision_ablation.py` reports the ablation that was sitting
+on disk unread: PyTorch changed precision policy between the campaigns and six
+stacks did not, on the same configurations, five repetitions and 150 training
+epochs per cell. `scripts/probe_tf32.py` is the kernel-level mechanism check
+underneath it -- six cells over `matmul.allow_tf32`, `cudnn.allow_tf32`,
+`cudnn.deterministic` and `cudnn.enabled`, a wall-clock warm-up budget rather
+than a step count so the GPU is out of its idle P-state, cells shuffled within
+each repeat, and the counter window recorded in the table so a reader can check
+it against NVML's 10 Hz tick instead of trusting it.
+
+**What they reproduce.** Campaign contrast: **3.14x** GPU energy per training
+epoch for Python/PyTorch on ResNet-18 / CIFAR-100, with C++, R and Rust as
+controls at 1.00x, 0.99x and 1.01x -- at most 1.3 % of movement in three stacks
+that did not change policy. Kernel probe: denying TF32 to cuDNN costs **3.62x**
+the GPU energy and 3.12x the time, 4.05x with `deterministic` on top, and
+disabling cuDNN outright costs **13.08x the energy and 16.30x the time**. The
+kernel ratio sits a little above the end-to-end one, which is what it should do
+and what section 1 claimed without being able to show.
+
+**Comparability, which was the hard part.** Only CIFAR-100 supports a clean
+contrast, and only for four stacks. VGG-16 is out entirely because it ran as four
+different networks (section 2). TensorFlow is out on architecture -- Model
+Garden's projection shortcut -- and Java on three axes of hand-built graph.
+Fashion-MNIST and Tiny ImageNet are out because
+`scripts/normalise_dataset_resolution.py` rewrote their *training* splits to
+32x32 between the campaigns, so on those two every stack decodes different pixels
+and does different loader work; I checked that against the trees each campaign
+actually read rather than taking section 17's word for it, and 300 sampled
+CIFAR-100 training files came back pixel-identical while 300 each of the other
+two came back changed. JAX carries a caveat rather than an exclusion for
+`drop_remainder` (390 steps against 391, 0.26 %), because a control group of one
+is not a control group. One confound survives inside the comparable cells and is
+stated rather than removed: v1 PyTorch built torchvision eagerly and v2 loads the
+exported TorchScript module, so 3.14x is an upper bound on the precision effect.
+
+### Persistence mode: sections 9 and 21 disagreed, and the manifests settle it
+
+Section 9 records persistence mode as **Disabled** on this host and offers it as
+the most plausible mechanism for a bimodal accelerator power state. Section 21,
+written three weeks later from `nvidia-smi` during a run, says "persistence mode
+is on, which keeps the driver resident". Both cannot be true of the same campaign
+and I had left both standing.
+
+The manifests answer it without either of us remembering: `machine_state.gpu` is
+written per run, and all 210 runs of this campaign record **Enabled**, on driver
+595.84, with a 350.00 W limit. Section 21 is right for the campaign the paper
+reports; section 9's reading was taken before the driver fix
+(`scripts/fix_nvidia_driver.sh`) and describes the machine as it was, not as it
+measured. The bimodal power state therefore needs a different explanation than
+the one section 9 offers, and the paper no longer offers that one. This is the
+argument for recording machine state per run in one sentence: two entries in my
+own log contradicted each other and the data resolved it in a minute.
+
+### The manuscript rewrite, and what reviewing it in pieces caught
+
+I rewrote `paper/paper.tex` yesterday across all sections -- 1,043 lines inserted
+and 398 deleted, `git diff --stat` against the last commit -- and it builds to
+36 pages. I did it in six clusters rather than end to end (apparatus and
+instrument; the campaign and its statistics; RQ1 and the precision ablation;
+quality, accuracy and the scenario; the collapse finding and the defect
+catalogue; threats, related work and future work), and put each cluster through
+an adversarial review before starting the next, on the theory that a reviewer
+given one section and told to break it does better than one given a paper and
+told to check it. Three catches worth recording, because none of them is a typo
+and all three are the same shape -- a number whose *denominator* or *population*
+was not what the sentence said.
+
+**Accuracy per kilojoule is not per kilojoule of the run.** `09_campaign_v2.py`
+computes it as final test accuracy over the run's **training** energy, evaluation
+excluded. That is defensible -- the accuracy is what training bought -- but the
+text read as though it were the run's total, and the ratio it quotes would move
+if it were. Stated at the point the number appears now.
+
+**A 28-sample probe was standing in for a 1 Hz record.** Section 21's "5.7 % GPU
+utilisation over 28 samples" was sampled by hand during one R/torch run, and the
+draft carried it into the results as R's utilisation. The 1 Hz record covers 157
+of the 210 runs and gives **4.5-5.0 % on ResNet-18 and 12.1-13.4 % on VGG-16**,
+which is a different number, a different sample and a different claim. The probe
+identified the phenomenon; it could not measure it. `19_gpu_utilisation.py`
+reports which runs the record covers rather than averaging over whatever happens
+to be there, for the same reason an energy figure over an unstated subset is not
+a figure.
+
+**"Six control stacks" were three.** The precision ablation's control group is
+the stacks whose policy did not change *and* whose cell is comparable, which on
+CIFAR-100 / ResNet-18 is C++, R and Rust. The draft said six, counting every
+stack that did not change policy and ignoring that TensorFlow and Java are
+excluded on architecture and JAX on its measurement window. The same error in a
+different place: `tab_control.tex` printed the LibTorch family size as "shared
+module + 1", a literal wearing the shape of a derivation, where the group is
+defined in `14_v2_statistics` and its size is in the table. Both are derived from
+the data now, and the shared-module column is headed "shared module & build",
+because that is the pair R shares neither of.
+
 ---
 
 ## Still open
 
-- Re-run the campaign (~57 h) and re-derive every number. *In flight since
-  23:09:25 on Sunday 30 August; job 57 of 210 at 15:42 on Monday 31 August,
-  3.4 jobs/h, finishing around midday on Wednesday 2 September. Four failures,
-  all the one bug in section 20.*
-- Replay the four JAX/VGG-16 runs that predate the dropout fix (section 20).
-- Report per-stack GPU utilisation next to energy, and say why R draws half the
-  power the others do (section 21).
-- Give the analysis one shared "complete runs only" filter, so no aggregate can
-  include a crashed run again (section 21).
-- Rewrite the sections this invalidates: RQ1's mechanism, every VGG-16
-  comparison, the collapse attribution, JAX's inference ranking, the omnibus *p* bound that rounds the wrong way, the within-cell
-  ρ macros, the ε² saturation, the exact collapse test, the Welch-versus-rank
-  discussion, the idle-subtraction sensitivity, the bimodal power state.
-- Re-derive every numeric claim in `REVIEWERS_RESPONSE.md` from the generated
-  macros; several overclaim against the current tree.
-- Make the replication package round-trip (13,037 of ~13,230 files differ on
-  restore: float truncation, manifest type coercion, list flattening, row order).
-- Re-run the claim-evidence review that stopped on a rate limit.
-- Unchanged from before: CRediT roles, competing-interest declaration, Zenodo
-  deposit, author photographs.
+Everything above this line is done. What is left is either administrative or is
+a limitation of the design that no amount of re-running fixes.
+
+- **CRediT roles, competing-interest declaration, Zenodo deposit, author
+  photographs.** Unchanged from before, and all four are submission paperwork
+  rather than work on the study.
+- **The accelerator-saturation threat.** At 32x32 the workload does not saturate
+  the card -- mean utilisation runs from 4.7 % (R/torch, ResNet-18) to 79.9 %
+  (Java/DL4J, VGG-16) -- so the campaign compares whole pipelines rather than
+  saturated kernels. This is the one open item that re-execution cannot close,
+  because the workload is the thing at issue. I had been writing that a
+  saturating workload would *compress* the ecosystem spread, on the grounds that
+  the spread is dominated by host-side work; that does not follow and it is out
+  of both documents now. Which way saturation moves the ranking depends on where
+  the spread comes from, and a black-box comparison of this shape cannot
+  establish that. It is Reviewer 1's comments 2 and 15 and it is declared rather
+  than answered.
+- **53 runs with no utilisation coverage.** `scripts/sample_gpu_utilisation.sh`
+  was started on 31 August at 13:43 UTC, after the campaign had begun, so the
+  1 Hz record covers 157 of 210 runs. `19_gpu_utilisation.py` says which, and no
+  per-stack figure is averaged over an unstated subset -- but a full-coverage
+  record would be a better number and this one is not it.
+- **No harness provenance in the 210 manifests.** They record the environment,
+  the CodeCarbon configuration, the precision policy, the GPU state, the
+  governor and a UTC timestamp, and not the revision of the harness that wrote
+  them. The claim that all 210 runs come from one source revision is therefore
+  established by argument -- the four replayed runs of section 27 included --
+  where it should be a field in the file. It is the same lesson as section 18:
+  a clause enforced against argument rather than artefact is barely enforced.

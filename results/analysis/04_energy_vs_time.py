@@ -6,6 +6,16 @@ RQ3: is execution time a reliable proxy for energy?
 Addresses:
   R3 M4  -- replaces the qualitative quadrant plot with a quantified analysis
   R1 c12 -- decomposes the difference into duration and mean power
+
+This is one of the 01-08 audit scripts: it reads results/data/combined_data.csv,
+the FIRST SUBMISSION's campaign, and its tables therefore carry eight
+ecosystems including MATLAB/DLT, which the replicated campaign excludes. That is
+correct rather than stale -- removing an ecosystem from an audit of what was
+submitted would misrepresent what was submitted -- but the tables under
+results/revision/tables/ mix the two families and are told apart only by their
+names, so the captions say which campaign they describe. Nothing in paper.tex or
+12_paper_numbers.py reads either rq3_* table; the manuscript's RQ3 numbers come
+from 14_v2_statistics.py's v2_stats_energy_time.
 """
 
 from __future__ import annotations
@@ -111,13 +121,17 @@ def main() -> None:
         "  energy is a constant host power multiplied by duration."
     )
     save_table(wc.round(6), "rq3_within_ecosystem_correlation",
-               "Energy-duration correlation inside each ecosystem")
+               "Energy-duration correlation inside each ecosystem, FIRST "
+               "SUBMISSION campaign (results/data/), eight ecosystems including "
+               "MATLAB/DLT. Not read by the manuscript")
 
     ri = rank_inversions(df)
     print("\n--- cross-ecosystem agreement between the energy and time rankings ---")
     print(ri.round(4).to_string(index=False))
     save_table(ri.round(6), "rq3_rank_inversions",
-               "Agreement between the energy ranking and the time ranking")
+               "Agreement between the energy ranking and the time ranking, "
+               "FIRST SUBMISSION campaign (results/data/). Not read by the "
+               "manuscript")
 
     pdc = power_decomposition(df).round(2)
     print("\n--- decomposition: energy = mean power x duration ---")

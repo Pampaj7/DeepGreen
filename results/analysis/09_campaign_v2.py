@@ -34,15 +34,28 @@ TARGET_ACCURACY = {  # per dataset, chosen well below the achievable ceiling
     "tinyimagenet": 20.0,
 }
 
+# The columns of v2_quality_normalised, named here so that a campaign with no
+# quality rows still writes the header rather than leaving the previous
+# campaign's file to be found by a downstream .exists() check. See main().
+QUALITY_COLUMNS = ["ecosystem", "model", "dataset", "repetition",
+                   "final_test_acc_pct", "train_energy_total_J", "acc_per_kJ",
+                   "target_acc_pct", "energy_to_target_J"]
 
 
 
-def collect() -> pd.DataFrame:
-    """Join per-epoch CodeCarbon output with per-epoch quality metrics."""
+
+def collect(campaign_dir: Path = CAMPAIGN_DIR) -> pd.DataFrame:
+    """Join per-epoch CodeCarbon output with per-epoch quality metrics.
+
+    ``campaign_dir`` defaults to the current campaign. It is a parameter so that
+    18_precision_ablation can read the superseded campaign through this
+    collector -- and its completeness gate -- rather than growing a second copy
+    of the parsing.
+    """
     rows = []
     skipped = []
     no_metrics = []
-    for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
+    for run_dir in sorted(p for p in campaign_dir.glob("*") if p.is_dir()):
         metrics_path = run_dir / "metrics.csv"
         hw, counts = read_complete_counters(run_dir)
         if hw is None:
@@ -122,7 +135,7 @@ def collect() -> pd.DataFrame:
     # most useful, so it must survive one.
     kept = set(df["run_dir"].unique())
     meta = []
-    for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
+    for run_dir in sorted(p for p in campaign_dir.glob("*") if p.is_dir()):
         if run_dir.name not in kept:
             continue
         mp = run_dir / "metrics.csv"
@@ -213,7 +226,7 @@ def quality_normalised(df: pd.DataFrame) -> pd.DataFrame:
                 "energy_to_target_J": e_to_target,
             }
         )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=QUALITY_COLUMNS)
 
 
 def main() -> None:
@@ -245,23 +258,27 @@ def main() -> None:
     save_table(brs, "v2_between_run_statistics",
                "Between-run energy statistics; CI95 is a genuine run-level interval")
 
-    qn = quality_normalised(df).round(3)
-    if not qn.empty:
-        print("\n--- energy normalised by achieved quality ---")
-        print(qn.to_string(index=False))
-        save_table(qn, "v2_quality_normalised",
-                   "Final accuracy, accuracy per kJ, and energy to reach a target accuracy")
-        summary = (
-            qn.groupby(["ecosystem", "dataset"], observed=True)[
-                ["final_test_acc_pct", "acc_per_kJ", "energy_to_target_J"]
-            ]
-            .agg(["mean", "std"])
-            .round(3)
-        )
-        print("\n--- summary across repetitions ---")
-        print(summary.to_string())
-        save_table(summary.reset_index(), "v2_quality_summary",
-                   "Quality-normalised efficiency, mean and sd across repetitions")
+    # Both tables are written whether or not there is anything in them. They
+    # used to sit behind `if not qn.empty`, and a table this script owns that
+    # goes unwritten does not read as absent downstream: 12_paper_numbers finds
+    # the previous campaign's copy under the same name and quotes it.
+    qn = quality_normalised(df).astype(
+        {c: float for c in QUALITY_COLUMNS[4:]}).round(3)
+    print("\n--- energy normalised by achieved quality ---")
+    print(qn.to_string(index=False) if not qn.empty else "  (no run reported quality)")
+    save_table(qn, "v2_quality_normalised",
+               "Final accuracy, accuracy per kJ, and energy to reach a target accuracy")
+    summary = (
+        qn.groupby(["ecosystem", "dataset"], observed=True)[
+            ["final_test_acc_pct", "acc_per_kJ", "energy_to_target_J"]
+        ]
+        .agg(["mean", "std"])
+        .round(3)
+    )
+    print("\n--- summary across repetitions ---")
+    print(summary.to_string())
+    save_table(summary.reset_index(), "v2_quality_summary",
+               "Quality-normalised efficiency, mean and sd across repetitions")
 
 
 if __name__ == "__main__":

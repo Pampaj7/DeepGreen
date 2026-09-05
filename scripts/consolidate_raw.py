@@ -100,7 +100,41 @@ def flatten(obj, prefix: str = "") -> dict[str, object]:
     return out
 
 
+def refuse_if_partial() -> None:
+    """A replication package is a whole campaign or it is nothing.
+
+    This walked every directory under results/campaign_v2/ and packaged whatever
+    it found. The analysis grew one shared completeness gate so that no
+    aggregate could include a crashed run again, and this script -- the one that
+    produces the artefact a reader checks the paper against -- was the only
+    consumer of the raw tree that never got it. A package that silently omits or
+    silently includes runs is worse than one that will not build.
+
+    Two conditions, because the count and the coverage are different questions:
+    the campaign must have produced every run it plans, and every directory
+    present must be complete. A stray directory is how the first test alone can
+    read 210 of 210 with a real configuration missing.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "results" / "analysis"))
+    from common import campaign_status, read_complete_counters  # noqa: E402
+
+    done, want = campaign_status()
+    incomplete = [d.name for d in sorted(RAW.glob("*"))
+                  if d.is_dir() and read_complete_counters(d)[0] is None]
+    if done < want:
+        raise SystemExit(
+            f"{done} of {want} runs are complete: the campaign is still in "
+            f"flight and a package built now would be a fragment of it. "
+            f"Consolidate when it finishes.")
+    if incomplete:
+        raise SystemExit(
+            f"{len(incomplete)} incomplete run directory(ies) under "
+            f"{RAW.relative_to(REPO_ROOT)}: {', '.join(incomplete)}. Remove or "
+            f"finish them; the package must be a complete campaign.")
+
+
 def collect() -> dict[str, pd.DataFrame]:
+    refuse_if_partial()
     runs = sorted(d for d in RAW.iterdir() if d.is_dir())
     if not runs:
         raise SystemExit(f"no run directories under {RAW}")

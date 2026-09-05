@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from common import FIG_DIR, GPU_TDP_W, ensure_dirs, load, order_ecosystems
+from common import GPU_TDP_W, ensure_dirs, figures_dir, load, order_ecosystems
 
 plt.rcParams.update(
     {
@@ -67,7 +67,7 @@ def fig_component_stack(df: pd.DataFrame) -> None:
         ax.legend(fontsize=8)
     fig.suptitle("Measured energy is dominated by host-side terms, not by the GPU", fontsize=11)
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "fig_component_breakdown.png", bbox_inches="tight")
+    fig.savefig(figures_dir() / "fig_component_breakdown.png", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -98,7 +98,7 @@ def fig_panels(df: pd.DataFrame) -> None:
             fontsize=10,
         )
         fig.tight_layout()
-        fig.savefig(FIG_DIR / f"fig_panels_{phase.lower()}.png", bbox_inches="tight")
+        fig.savefig(figures_dir() / f"fig_panels_{phase.lower()}.png", bbox_inches="tight")
         plt.close(fig)
 
 
@@ -130,7 +130,7 @@ def fig_pareto(df: pd.DataFrame) -> None:
         fontsize=11,
     )
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "fig_pareto.png", bbox_inches="tight")
+    fig.savefig(figures_dir() / "fig_pareto.png", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -160,7 +160,7 @@ def fig_dataset_absolute(df: pd.DataFrame) -> None:
         fontsize=10,
     )
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "fig_dataset_absolute.png", bbox_inches="tight")
+    fig.savefig(figures_dir() / "fig_dataset_absolute.png", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -181,7 +181,7 @@ def fig_gpu_load(df: pd.DataFrame) -> None:
     ax.set_title("The workload never approaches the GPU power limit")
     ax.legend(fontsize=8)
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "fig_gpu_load.png", bbox_inches="tight")
+    fig.savefig(figures_dir() / "fig_gpu_load.png", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -193,8 +193,9 @@ def main() -> None:
     fig_pareto(df)
     fig_dataset_absolute(df)
     fig_gpu_load(df)
-    for p in sorted(FIG_DIR.glob("*.png")):
-        print(f"  wrote {p.relative_to(FIG_DIR.parents[2])}")
+    out = figures_dir()
+    for p in sorted(out.glob("*.png")):
+        print(f"  wrote {p.relative_to(out.parents[2])}")
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ of the four survives as drawn, so this script replaces them.
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -105,7 +106,29 @@ def save(fig, stem: str) -> None:
     path = FIGDIR / f"{stem}.png"
     fig.savefig(path)
     plt.close(fig)
-    print(f"  wrote paper/figures/{stem}.png")
+    print(f"  wrote {path.relative_to(REPO_ROOT)}")
+
+
+def refuse(stem: str, reason: str) -> None:
+    """Draw nothing, and remove any figure of this name left by an earlier run.
+
+    A blank plot is the figure pipeline's version of the stale-table fallback,
+    and a worse one. fig_energy_accuracy drew three empty log-scaled panels from
+    a zero-row frame with no error and no warning -- an empty groupby body never
+    executes, an empty step plot is legal, and the legend handles are
+    hard-coded, so matplotlib never complains -- and the result overwrote the
+    committed PNG looking exactly like the right figure.
+
+    Deleting instead makes the LaTeX build fail on \\includegraphics, which is
+    the only loud channel a figure has. Only inside FIGDIR, so a partial run
+    removes its own copy and never the manuscript's.
+    """
+    path = FIGDIR / f"{stem}.png"
+    if path.exists():
+        path.unlink()
+        print(f"  REMOVED {path.relative_to(REPO_ROOT)}: {reason}")
+    else:
+        print(f"  not drawn: {stem}.png -- {reason}")
 
 
 # --------------------------------------------------------------------------
@@ -344,7 +367,8 @@ def fig_repeatability(stats: pd.DataFrame) -> None:
     save(fig, "fig_repeatability")
 
 
-def fig_convergence(conditional: pd.DataFrame, by_eco: pd.DataFrame) -> None:
+def fig_convergence(conditional: pd.DataFrame, by_eco: pd.DataFrame,
+                    stem: str = "fig_convergence") -> None:
     """What the collapsed runs were hiding.
 
     Comparing cross-ecosystem accuracy before and after excluding the runs that
@@ -366,7 +390,15 @@ def fig_convergence(conditional: pd.DataFrame, by_eco: pd.DataFrame) -> None:
            xlabel="cross-ecosystem accuracy spread (percentage points)")
     ax.tick_params(labelsize=7.5)
     ax.legend(fontsize=8, loc="lower right")
-    ax.set_title("(a) the stacks agree, once the collapses are removed",
+    # Both panel titles were literals and both were false for a campaign with
+    # no collapses: panel (a) said the collapses had been removed when the two
+    # bars were the same runs, and panel (b) said "four of seven ecosystems"
+    # over seven bars at zero. They are derived from the data they sit over.
+    n_collapsed = int(by_eco[by_eco.dataset.isin(("cifar100", "tinyimagenet"))]
+                      .n_collapsed.sum())
+    ax.set_title("(a) the stacks agree, once the collapses are removed"
+                 if n_collapsed else
+                 "(a) no run failed to train: both bars are the same runs",
                  fontsize=9.5, loc="left")
 
     by_eco = by_eco[by_eco.dataset.isin(("cifar100", "tinyimagenet"))]
@@ -388,27 +420,98 @@ def fig_convergence(conditional: pd.DataFrame, by_eco: pd.DataFrame) -> None:
         lbl.set_rotation(20)
         lbl.set_ha("right")
     ax2.legend(fontsize=8)
-    # The old title said "every ecosystem is susceptible" over a panel showing
-    # three ecosystems at zero.
-    ax2.set_title("(b) four of seven ecosystems, VGG-16 only",
+    # The title before this one said "every ecosystem is susceptible" over a
+    # panel showing three ecosystems at zero; its replacement said "four of
+    # seven" and outlived the campaign that made it true.
+    hit = int((piv.sum(axis=1) > 0).sum())
+    ax2.set_title(f"(b) {hit} of {len(piv)} ecosystems, VGG-16 only" if hit
+                  else f"(b) none of {len(piv)} ecosystems, VGG-16 only",
                   fontsize=9.5, loc="left")
-    save(fig, "fig_convergence")
+    save(fig, stem)
 
 
-def main() -> None:
+def draw(stem: str, fn, **inputs) -> None:
+    """Draw one figure, or refuse it when a table it reads has no rows."""
+    empty = [name for name, frame in inputs.items() if frame.empty]
+    if empty:
+        return refuse(stem, f"{' and '.join(empty)} has no rows")
+    fn()
+
+
+def first_campaign_figure() -> None:
+    """The collapse figure for the campaign that has the collapses.
+
+    The second campaign has none, so panel (b) is seven bars at zero and panel
+    (a) compares a set of runs with itself. The finding is real and belongs to
+    the first campaign; the manuscript now says so, and this draws it from that
+    campaign's tables under its own name. Never the v2 name: a figure carries no
+    campaign on its face, which is the whole reason 23 of the revision log
+    exists.
+    """
+    conditional = TABLES / "v1_convergence_conditional.csv"
+    by_eco = TABLES / "v1_convergence_by_ecosystem.csv"
+    if not (conditional.exists() and by_eco.exists()):
+        return refuse("fig_convergence_first_campaign",
+                      "v1_convergence_* not built; run "
+                      "15_convergence.py --campaign v1")
+    draw("fig_convergence_first_campaign",
+         lambda: fig_convergence(pd.read_csv(conditional), pd.read_csv(by_eco),
+                                 stem="fig_convergence_first_campaign"),
+         v1_convergence_conditional=pd.read_csv(conditional),
+         v1_convergence_by_ecosystem=pd.read_csv(by_eco))
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    ap.add_argument("--campaign", choices=("v1", "v2"), default="v2",
+                    help="v2 (default) draws every figure the paper uses; v1 "
+                         "draws only the collapse figure, from the superseded "
+                         "campaign's tables, as fig_convergence_first_campaign")
+    if ap.parse_args(argv).campaign == "v1":
+        first_campaign_figure()
+        return
+
     epochs = pd.read_csv(TABLES / "v2_instrument_epochs.csv")
     stats = pd.read_csv(TABLES / "v2_between_run_statistics.csv")
     quality = pd.read_csv(TABLES / "v2_quality_normalised.csv")
-
-    fig_window_floor(epochs)
-    fig_energy_ci(stats)
-    fig_energy_accuracy(quality)
-    fig_instrument(epochs)
-    fig_repeatability(stats)
-
     conditional = pd.read_csv(TABLES / "v2_convergence_conditional.csv")
     by_eco = pd.read_csv(TABLES / "v2_convergence_by_ecosystem.csv")
-    fig_convergence(conditional, by_eco)
+
+    # The emptiness check is here rather than inside each figure because no
+    # figure in this file raises on a zero-row frame -- an empty groupby body
+    # never executes, an empty step plot is legal -- so an empty campaign would
+    # otherwise produce a complete set of blank figures under the right
+    # filenames. One guard, over every figure, naming the table that is empty.
+    draw("fig_window_floor", lambda: fig_window_floor(epochs),
+         v2_instrument_epochs=epochs)
+    draw("fig_energy_ci", lambda: fig_energy_ci(stats),
+         v2_between_run_statistics=stats)
+    draw("fig_energy_accuracy", lambda: fig_energy_accuracy(quality),
+         v2_quality_normalised=quality)
+    draw("fig_instrument", lambda: fig_instrument(epochs),
+         v2_instrument_epochs=epochs)
+    draw("fig_repeatability", lambda: fig_repeatability(stats),
+         v2_between_run_statistics=stats)
+    # With no collapse anywhere in the campaign this figure has nothing to
+    # draw: panel (a) plots one set of runs against itself and panel (b) is an
+    # empty axis with a legend. The manuscript states the zero in text and
+    # carries the first campaign's figure instead. The code path stays, because
+    # a campaign that does collapse needs the figure -- it is the branch that is
+    # skipped, not the plot.
+    collapsed = int(by_eco[by_eco.dataset.isin(("cifar100", "tinyimagenet"))]
+                    .n_collapsed.sum()) if not by_eco.empty else -1
+    # -1 is the empty-table case, which draw() refuses with its own reason:
+    # "no collapses" and "no data" must not print the same message.
+    if collapsed != 0:
+        draw("fig_convergence", lambda: fig_convergence(conditional, by_eco),
+             v2_convergence_conditional=conditional,
+             v2_convergence_by_ecosystem=by_eco)
+    else:
+        refuse("fig_convergence",
+               "no run in this campaign collapsed, so panel (a) would compare "
+               "one set of runs with itself and panel (b) would be empty; the "
+               "manuscript reports the zero in text and shows "
+               "fig_convergence_first_campaign")
 
 
 if __name__ == "__main__":

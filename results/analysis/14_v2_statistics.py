@@ -158,7 +158,12 @@ def libtorch_control(runs: pd.DataFrame) -> pd.DataFrame:
         family_spread = family.max() / family.min()
         rows.append({
             "model": model, "dataset": dataset,
+            # Both group sizes are carried so that no consumer has to restate
+            # them: 12's control table used to print the family size as
+            # "shared module + 1", which is only true while R is the only
+            # member LIBTORCH_FAMILY adds.
             "n_all": len(med), "n_shared_module": len(ctrl),
+            "n_libtorch_family": len(family),
             "spread_all": round(full_spread, 2),
             "spread_shared_module": round(ctrl_spread, 2),
             "spread_libtorch_family": round(family_spread, 2),
@@ -190,6 +195,44 @@ def energy_time(runs: pd.DataFrame) -> pd.DataFrame:
             "discordant_pct": round(100 * inversions / total, 1),
         })
     return pd.DataFrame(rows)
+
+
+def cell_energy_time(runs: pd.DataFrame) -> pd.DataFrame:
+    """The energy-time relationship inside a single cell, not pooled over cells.
+
+    energy_time() answers "does the ranking of configurations by energy agree
+    with the ranking by time", pooling every architecture and dataset into one
+    correlation per phase. That pooling is what makes it strong: a VGG-16 run on
+    Tiny ImageNet is slower and costlier than a ResNet-18 run on Fashion-MNIST
+    on any stack, so most of the agreement is the workload rather than the
+    ecosystem.
+
+    The question the manuscript actually needs is narrower: within one
+    architecture on one dataset in one phase, where the workload is fixed and
+    only the ecosystem varies, does time still order the stacks the way energy
+    does? Same statistic, same estimator, one cell at a time. A cell that comes
+    out below 1.0 is a cell where a practitioner timing their code would rank
+    two stacks the wrong way round.
+    """
+    rows = []
+    for (model, dataset, phase), g in runs.groupby(["model", "dataset", "phase"]):
+        med = g.groupby("ecosystem")[["energy_j", "duration_s"]].median()
+        if len(med) < 3:
+            continue
+        rho, p = stats.spearmanr(med.energy_j, med.duration_s)
+        inversions = sum(
+            1 for (i, a), (j, b) in itertools.combinations(med.reset_index().iterrows(), 2)
+            if (a.energy_j - b.energy_j) * (a.duration_s - b.duration_s) < 0
+        )
+        total = len(med) * (len(med) - 1) // 2
+        rows.append({
+            "model": model, "dataset": dataset, "phase": phase,
+            "n_ecosystems": len(med), "spearman_rho": round(float(rho), 3),
+            "p": p, "discordant_pairs": inversions, "total_pairs": total,
+        })
+    return pd.DataFrame(rows, columns=["model", "dataset", "phase",
+                                       "n_ecosystems", "spearman_rho", "p",
+                                       "discordant_pairs", "total_pairs"])
 
 
 def phase_consistency(runs: pd.DataFrame) -> pd.DataFrame:
@@ -252,6 +295,13 @@ def main() -> None:
     print(et.to_string(index=False))
     save_table(et, "v2_stats_energy_time",
                "Energy-time rank agreement on counter-bracketed durations")
+
+    cr = cell_energy_time(runs)
+    print("\n--- energy against time within each cell, ecosystems only ---")
+    print(cr.to_string(index=False))
+    save_table(cr, "v2_stats_cell_rho",
+               "Energy-time rank agreement inside each block, where the "
+               "workload is fixed and only the ecosystem varies")
 
     pc = phase_consistency(runs)
     print("\n--- do training and inference rank ecosystems alike? ---")

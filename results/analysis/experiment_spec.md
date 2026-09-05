@@ -59,15 +59,18 @@ S4.
 **Architecture parity is proved rather than asserted.**
 `scripts/verify_architecture_parity.py` builds each stack's model for every
 (architecture, dataset) and compares the sorted multiset of parameter tensor
-shapes, which is comparable across languages. Six stacks of seven agree shape for
+shapes, which is comparable across languages. All seven stacks agree shape for
 shape on all six blocks: ResNet-18 is 62 tensors (20 convolution, 1 dense, 41
 rank-1) and VGG-16 is 30 (13, 2, 15). Every stack also asserts its own parameter
 count at startup against `models/MANIFEST.json`, carried into the run as
 `DEEPGREEN_EXPECTED_PARAMS`, and refuses to train if it does not match.
 
-R is the exception, and only because it cannot be probed outside the campaign
-environment — its `torch` will not load Lantern elsewhere. Its count is asserted
-at startup like the others; its shapes are not independently verified.
+R was the exception until the probe was run in the campaign's own environment.
+It had nothing to do with the binding: R's `torch` loads `liblantern.so`, which
+links `libcudart.so.12` under a name the R bundle hashes, so without a CUDA 12
+runtime on `LD_LIBRARY_PATH` the package reports "Lantern is not loaded" and
+every probe fails. With `tools/stack_environments.json`'s own environment R
+fingerprints like the others.
 
 ## Cross-stack validation
 

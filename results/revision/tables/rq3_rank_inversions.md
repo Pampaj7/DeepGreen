@@ -1,4 +1,4 @@
-**Agreement between the energy ranking and the time ranking**
+**Agreement between the energy ranking and the time ranking, FIRST SUBMISSION campaign (results/data/). Not read by the manuscript**
 
 | phase     | energy_definition                                     |   spearman_rho |   kendall_tau |   discordant_pairs |   total_pairs | examples                                                                      |
 |:----------|:------------------------------------------------------|---------------:|--------------:|-------------------:|--------------:|:------------------------------------------------------------------------------|
