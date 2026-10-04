@@ -173,7 +173,7 @@ def fig_gpu_load(df: pd.DataFrame) -> None:
         sub = df[df["phase"] == phase]
         vals = [sub.loc[sub["ecosystem"] == e, "gpu_power_derived_w"].mean() for e in order]
         ax.bar(x + (k - 0.5) * width, vals, width, label=phase, color=PHASE_COLOR[phase])
-    ax.axhline(GPU_TDP_W, color="crimson", ls="--", lw=1.2, label=f"L40S board limit ({GPU_TDP_W:.0f} W)")
+    ax.axhline(GPU_TDP_W, color="crimson", ls="--", lw=1.2, label=f"board power limit ({GPU_TDP_W:.0f} W)")
     ax.set_xticks(x)
     ax.set_xticklabels(order, rotation=40, ha="right")
     ax.set_ylabel("Mean GPU power [W]")

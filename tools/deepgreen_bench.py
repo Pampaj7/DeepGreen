@@ -157,7 +157,7 @@ def set_precision_policy() -> None:
 
 #: dataset name in the campaign -> the name the exported modules use
 _MODULE_DATASET = {"fashionmnist": "fashionmnist", "cifar100": "cifar100",
-                   "tinyimagenet": "tinyimagenet200"}
+                   "tinyimagenet": "tinyimagenet200", "imagenette": "imagenette"}
 
 
 def expected_parameters(arch: str, dataset: str) -> int | None:
@@ -306,6 +306,21 @@ class Harness:
                     "OMP_NUM_THREADS",
                     "TF_ENABLE_ONEDNN_OPTS",
                     "XLA_FLAGS",
+                    # The shape and the pipeline parallelism this run actually
+                    # used. tools/deepgreen_tracker.py records every DEEPGREEN_*
+                    # variable, so the four non-Python stacks have carried these
+                    # all along and the three that go through this module have
+                    # not: the campaign's manifests read
+                    # DEEPGREEN_LOADER_THREADS: None for Python/PyTorch,
+                    # Python/TensorFlow and Python/JAX while the specification
+                    # says loader parallelism is recorded per run. The
+                    # accelerator-saturation cell makes the gap load-bearing --
+                    # it runs at a different batch size and a different
+                    # resolution from the rest of the campaign, and without
+                    # these keys 30 of its 70 runs would not record which.
+                    "DEEPGREEN_BATCH_SIZE",
+                    "DEEPGREEN_IMG_SIZE",
+                    "DEEPGREEN_LOADER_THREADS",
                 )
             },
             "nvidia_smi": _safe_cmd(

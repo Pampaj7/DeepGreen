@@ -23,74 +23,68 @@ harness writes the manifest as it opens the run and appends to counters.csv for
 the run's life -- and a run counts only if that whole window falls inside the
 record.
 
+Neither input survives a clone: git does not keep mtimes and the record is
+gitignored. Both are frozen in the campaign's replication package
+(``run_windows.csv.gz``, ``gpu_utilisation_excerpt.csv.gz``), and
+common.utilisation_windows / common.load_gpu_record fall back to them -- or,
+with the raw inputs present, check that they still agree with them.
+
 Writes results/revision/tables/v2_gpu_utilisation_{by_run,by_ecosystem}.{md,csv}.
 """
 
 from __future__ import annotations
 
-import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import (CAMPAIGN_DIR, REPO_ROOT, announce_scope,  # noqa: E402
-                    read_campaign_metrics, read_complete_counters, save_table)
+from common import (CAMPAIGN_DIR, GPU_RECORD, REPO_ROOT,  # noqa: E402
+                    announce_scope, load_gpu_record, save_table,
+                    utilisation_windows)
 
-RECORD = REPO_ROOT / "results" / "gpu_utilisation.csv"
+RECORD = GPU_RECORD
 
 BY_RUN_COLUMNS = ["run", "ecosystem", "model", "dataset", "repetition",
                   "n_samples", "util_mean_pct", "mem_mean_mib", "power_mean_w",
                   "power_min_w", "power_max_w"]
 
 
-def run_windows() -> pd.DataFrame:
-    """``(run, start, end)`` for every complete run, in UTC."""
-    rows = []
-    for run_dir in sorted(p for p in CAMPAIGN_DIR.glob("*") if p.is_dir()):
-        if read_complete_counters(run_dir)[0] is None:
-            continue
-        counters = run_dir / "counters.csv"
-        try:
-            utc = (json.loads((run_dir / "manifest.json").read_text())
-                   .get("machine_state") or {}).get("utc")
-        except (OSError, ValueError):
-            utc = None
-        if not utc or not counters.exists():
-            continue
-        rows.append({
-            "run": run_dir.name,
-            "start": pd.Timestamp(utc).tz_convert("UTC"),
-            # The harness appends to counters.csv until the run ends, so its
-            # mtime is when the run finished.
-            "end": pd.Timestamp(datetime.fromtimestamp(
-                counters.stat().st_mtime, tz=timezone.utc)),
-        })
-    return pd.DataFrame(rows)
+def run_windows() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """``(run windows, training windows)`` for every complete run, unix seconds.
+
+    common.derive_windows computes them from the raw tree; the campaign's
+    replication package supplies them where the raw tree's mtimes cannot be
+    trusted or the tree is absent. This script uses the run windows; the
+    training windows are returned because the packaged excerpt of the record
+    is checked against both.
+    """
+    run_w, train_w, rejected, _, source = utilisation_windows(CAMPAIGN_DIR)
+    print(f"run windows from the {source}")
+    if rejected:
+        print(f"  !! {len(rejected)} run(s) with no trustworthy window: "
+              f"{', '.join(rejected[:6])}" + (" ..." if len(rejected) > 6 else ""))
+    return run_w, train_w
 
 
 def per_run(record: pd.DataFrame, windows: pd.DataFrame) -> tuple[pd.DataFrame, list]:
     """One row per covered run, and the names of the runs the record misses."""
-    identity = (read_campaign_metrics()
-                .groupby("run")[["ecosystem", "model", "dataset", "repetition"]]
-                .first())
-    lo, hi = record.t.min(), record.t.max()
+    t = record.unix_s.to_numpy(dtype=float)
+    lo, hi = t.min(), t.max()
     rows, uncovered = [], []
     for _, w in windows.iterrows():
-        if w.start < lo or w.end > hi:
+        if w.start_unix < lo or w.end_unix > hi:
             uncovered.append(w.run)
             continue
-        s = record[(record.t >= w.start) & (record.t <= w.end)]
+        s = record[(t >= w.start_unix) & (t <= w.end_unix)]
         if s.empty:
             uncovered.append(w.run)
             continue
-        meta = identity.loc[w.run] if w.run in identity.index else {}
         rows.append({
             "run": w.run,
-            "ecosystem": meta.get("ecosystem"), "model": meta.get("model"),
-            "dataset": meta.get("dataset"), "repetition": meta.get("repetition"),
+            "ecosystem": w.ecosystem, "model": w.model,
+            "dataset": w.dataset, "repetition": w.repetition,
             "n_samples": len(s),
             "util_mean_pct": round(float(s.utilisation_pct.mean()), 1),
             "mem_mean_mib": round(float(s.memory_used_mib.mean()), 0),
@@ -123,14 +117,14 @@ def by_ecosystem(runs: pd.DataFrame) -> pd.DataFrame:
 
 def main() -> int:
     announce_scope("19_gpu_utilisation")
-    if not RECORD.exists():
-        print(f"no utilisation record at {RECORD.relative_to(REPO_ROOT)}")
+    windows, training = run_windows()
+    record, source = load_gpu_record(CAMPAIGN_DIR, windows, training)
+    if record is None:
+        print(f"no utilisation record at {RECORD} and no packaged excerpt")
         return 0
-    record = pd.read_csv(RECORD)
-    record["t"] = pd.to_datetime(record.unix_s, unit="s", utc=True)
-    print(f"record: {len(record):,} samples, {record.t.min()} -> {record.t.max()}")
+    t = pd.to_datetime(record.unix_s, unit="s", utc=True)
+    print(f"record ({source}): {len(record):,} samples, {t.min()} -> {t.max()}")
 
-    windows = run_windows()
     runs, uncovered = per_run(record, windows)
     print(f"covers {len(runs)} of {len(windows)} complete runs")
     if uncovered:

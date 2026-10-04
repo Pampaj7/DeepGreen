@@ -1,8 +1,9 @@
 # Raw measurement records
 
-Every number in the manuscript comes from these four tables. They are the
+Every number in the manuscript comes from these tables. The first five are the
 campaign's raw output, flattened: nothing here is aggregated, filtered, rounded
-or corrected.
+or corrected. The last three freeze the inputs of the utilisation analyses that
+a clone cannot otherwise recover (see below).
 
 Regenerate them from the campaign tree with
 
@@ -11,19 +12,59 @@ python3 scripts/consolidate_raw.py           # rewrite
 python3 scripts/consolidate_raw.py --check   # verify against results/campaign_v2/
 ```
 
+and rebuild the run tree from them, or check that they rebuild it exactly, with
+
+```bash
+python3 scripts/restore_from_replication.py --all              # into results/campaign_v2/
+python3 scripts/restore_from_replication.py --check-roundtrip  # 13,440 of 13,440 files identical
+```
+
 | File | Rows | One row is |
 |---|---|---|
 | `codecarbon.csv.gz` | 12,600 | one measured block, as the software estimator reported it |
 | `counters.csv.gz` | 12,600 | the same block, as NVML and the RAPL package counters reported it |
 | `metrics.csv.gz` | 6,300 | one epoch of one run: losses and test accuracy |
 | `manifests.csv.gz` | 210 | one run: seed, versions, environment, as recorded at launch |
+| `data_fingerprints.csv.gz` | 210 | one run's `data_fingerprint.csv`: summary statistics of the test split it read, for the data-parity check |
+| `run_windows.csv.gz` | 210 | one run's whole-run window, [manifest `machine_state.utc`, `counters.csv` mtime], in unix seconds |
+| `training_windows.csv.gz` | 6,300 | one training block's counter-bracketed interval, in unix seconds |
+| `gpu_utilisation_excerpt.csv.gz` | 133,584 | one 1 Hz `nvidia-smi` sample, from `results/gpu_utilisation.csv`, columns unchanged |
 
 210 runs = 7 ecosystems × 2 architectures × 3 datasets × 5 repetitions.
 12,600 blocks = 210 runs × 30 epochs × 2 phases (train, eval).
 
-`SHA256SUMS` covers the four files. They are written with a zeroed gzip
+`SHA256SUMS` covers every file. They are written with a zeroed gzip
 timestamp, so the same records produce the same bytes on any machine and the
-checksums are meaningful.
+checksums are meaningful. `data_fingerprints.csv.gz` and the three utilisation
+files were added after the first four, which did not change.
+
+## Utilisation inputs: windows and the sampler excerpt
+
+`results/analysis/19_gpu_utilisation.py` (whole-run utilisation) and
+`20_saturation.py` (utilisation over training blocks) join the 1 Hz
+`nvidia-smi` record to time windows derived from file **mtimes**: a run's
+window ends at `counters.csv`'s mtime, and a training block's interval is its
+`emissions_train_epoch<N>.csv` mtime minus CodeCarbon's `duration`, lasting the
+counters' `duration_s`. Git does not keep mtimes and neither does the restore
+script, and the full record (about 100 MB) is not distributed. So:
+
+* `run_windows.csv.gz` and `training_windows.csv.gz` hold those windows for
+  every complete run, exactly as `results/analysis/common.py`
+  (`derive_windows`) computes them on the measurement host, where each run's
+  mtimes are first checked against CodeCarbon's own `timestamp` column.
+* `gpu_utilisation_excerpt.csv.gz` holds the record's rows inside any of those
+  windows (±2 s), plus the record's first sample and the first sample after
+  the last window closes, so the coverage rule ("a run counts only if its
+  window lies inside the record") decides every run as it does on the full
+  record. 157 of the 210 runs are covered; the record began after the others
+  ran.
+
+The analysis scripts use the raw tree and the full record when they are
+present and trustworthy, and refuse if either disagrees with these files; with
+the tree absent or restored (mtimes lost), or the record absent, they read
+these files instead and produce identical tables and macros.
+`consolidate_raw.py --check` compares all three, text-exact, against the raw
+tree and the record.
 
 ## The two instruments
 

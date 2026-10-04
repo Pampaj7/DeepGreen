@@ -32,7 +32,8 @@ before uploading; nothing here should be edited by hand.
    *first* campaign and contains none of the specification, the conformance
    checker, the shared bridge, or the 210 runs reported here. A journal wants
    an archived DOI rather than a repository URL, so deposit the repository plus
-   `results/replication/` and swap the DOI into that footnote.
+   `results/replication/` and `results/replication_saturation/` and swap the DOI
+   into that footnote.
 4. **Add the author photographs**, if you want them. Drop the four `.jpg` files
    into `paper/bio/` and rebuild; the manuscript typesets the biographies
    without photographs when the files are absent, so this is optional and
@@ -41,7 +42,7 @@ before uploading; nothing here should be edited by hand.
 ## What the manuscript claims, and where each claim comes from
 
 Every quantity is a macro from `paper/generated/numbers.tex`, written by
-`results/analysis/12_paper_numbers.py`. There are 269 of them. No number in the
+`results/analysis/12_paper_numbers.py`. There are 328 of them. No number in the
 text is typed by an author — including the count of conformance checks and the
 size of the defect catalogue, both of which had already drifted (57 quoted against 63 run; five defects claimed as ours against four marked)
 before they were made generated. A three-reviewer pass found more of the same
@@ -73,9 +74,11 @@ python3 scripts/consolidate_raw.py --check      # package matches the raw tree
   for an unstructured one; JSS accepts structured abstracts, which run longer.
   Trim if the editor asks.
 
-## One reviewer comment stays open
+## The saturation comment is answered by measurement
 
-The workload does not saturate the accelerator, and at 32 × 32 inputs it will
-not. This is stated in the manuscript as a threat to external validity rather
-than worked around. Closing it means a different experiment, not a different
-analysis.
+The 32 × 32 workload does not saturate the accelerator, and re-running it could
+not change that, so it took a different experiment: the declared contrast cell
+of spec S7, 70 runs at 224 × 224 in `results/campaign_saturation/`, packaged in
+`results/replication_saturation/` and reported in Section 6.6. What it leaves
+open (other model families, a resolution sweep, server-class hardware) is in
+External Validity and Future Work.

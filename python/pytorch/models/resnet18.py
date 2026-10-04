@@ -23,8 +23,16 @@ def build_resnet18(dataset, num_classes: int = 100) -> nn.Module:
     return load_shared_module("resnet18", dataset)
 
 
-def get_loaders(dataset_path, batch_size=128, img_size=(32, 32), grayscale=False, test_split="test"):
-    transform_list = [transforms.Resize(img_size)]
+def get_loaders(dataset_path, batch_size=128, img_size=(32, 32), grayscale=False, test_split="test",
+                skip_resize=False):
+    # skip_resize is set for imagenette, whose PNGs are already img_size on
+    # disk (resized once, offline, by
+    # dataloader/download_convert_imagenette.py). transforms.Resize on an
+    # image already at the target size is a same-size resample at best and a
+    # spec S3 violation ("no stack resizes anything at run time") in spirit
+    # at worst -- the same reasoning the R and C++ imagenette paths use
+    # (skip_resize / resizeInLoader=false).
+    transform_list = [] if skip_resize else [transforms.Resize(img_size)]
     if grayscale:
         transform_list.append(transforms.Grayscale(num_output_channels=3))
     transform_list.append(transforms.ToTensor())
@@ -117,7 +125,8 @@ def run_experiment(dataset_path, output_file, checkpoint_path, img_size=(32, 32)
         device = torch.device(
             "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
         train_loader, test_loader, num_classes = get_loaders(
-            dataset_path, batch_size, img_size, grayscale, test_split)
+            dataset_path, batch_size, img_size, grayscale, test_split,
+            skip_resize=(ctx.dataset == "imagenette"))
 
         model = build_resnet18(ctx.dataset, num_classes=num_classes)
         model.to(device)

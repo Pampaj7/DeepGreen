@@ -62,6 +62,24 @@ def glob_read(*patterns: str, exclude: tuple[str, ...] = ()) -> dict[str, str]:
     return out
 
 
+#: Basename marker of a file belonging to the accelerator-saturation cell.
+SATURATION = "imagenette"
+
+
+def split_cells(files: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+    """``(the 32x32 campaign's files, the saturation cell's)``.
+
+    The two cells share every stack's source tree and disagree on exactly one
+    literal -- batch 128 against batch 32 -- so a universal check over a glob
+    that now contains both fails on the correct code. Splitting keeps both
+    checks universal over their own cell, which is the property that made these
+    checks worth having: an existential "some file says 128" cannot see the file
+    that says something else.
+    """
+    sat = {k: v for k, v in files.items() if SATURATION in Path(k).name.lower()}
+    return {k: v for k, v in files.items() if k not in sat}, sat
+
+
 def _dict_literal(text: str, name: str) -> str | None:
     """Return the body of the ``name = {...}`` assignment in `text`.
 
@@ -333,6 +351,261 @@ def _check_run_dir_contract() -> list[Result]:
     return out
 
 
+def _check_saturation_cell() -> list[Result]:
+    """The accelerator-saturation cell (spec S7), checked like any other cell.
+
+    The cell exists to answer one objection -- that a campaign whose GPU runs at
+    4.7% to 79.9% utilisation measures host-side overhead rather than
+    deep-learning energy -- and it answers it only if it is held to the same
+    contract as the campaign it is a contrast to. So the same literals are
+    grepped in the same grep-able form, with the cell's own batch size, and the
+    three things that are specific to it are checked against the disk rather
+    than against a comment: that the images really are 224x224, that they were
+    resized once offline, and that the number of them the C++ loader asserts is
+    the number that exist.
+    """
+    import os as _os
+    import subprocess
+
+    out: list[Result] = []
+
+    # -------- the one literal the two cells disagree on --------------------
+    for eco, files, pat in (
+        ("Rust/tch", split_cells(glob_read("rust/src/bin/*.rs"))[1],
+         r"let batch_size = 32"),
+        ("C++/LibTorch", split_cells(glob_read("cpp/src/train/**/train_*.cpp"))[1],
+         r"kTrainBatchSize = 32"),
+        ("R/torch", glob_read("R/train/**/train_imagenette.r"),
+         r"BATCH_SIZE\s*<-\s*32"),
+        ("Java/DL4J",
+         glob_read("Java/**/expt/resnet18/*Imagenette*.java",
+                   "Java/**/expt/vgg16/*Imagenette*.java"),
+         r"batchSize\s*=\s*32"),
+    ):
+        out.append(check_regex(eco, "S7 batch size = 32", files, pat))
+    out.append(check_regex("C++/LibTorch", "S7 eval batch = train batch",
+                           split_cells(glob_read("cpp/src/train/**/train_*.cpp"))[1],
+                           r"kTestBatchSize = 32"))
+
+    # -------- everything else is unchanged from the main cell --------------
+    out.append(check_regex("Rust/tch", "S7 lr=1e-4",
+                           split_cells(glob_read("rust/src/bin/*.rs"))[1],
+                           r"build\(&vs, 1e-4\)"))
+    out.append(check_regex("Java/DL4J", "S7 lr=1e-4",
+                           glob_read("Java/**/expt/resnet18/*Imagenette*.java",
+                                     "Java/**/expt/vgg16/*Imagenette*.java"),
+                           r"lrAdam\s*=\s*1e-4"))
+    # S3 forbids a run-time resize anywhere, and the cell is where it would be
+    # most tempting: 224x224 is the resolution every ImageNet recipe resizes to,
+    # so a copied transform would look right and would resample images that are
+    # already at the target size.
+    out.append(check_regex("Rust/tch", "S7 no resize in the cell's binaries",
+                           strip_comments(
+                               split_cells(glob_read("rust/src/bin/*.rs"))[1]),
+                           r"image::resize|vision::image::resize|fn preprocess",
+                           expect=False,
+                           detail_ok="the loader owns the pipeline here too"))
+
+    # -------- the driver contract ------------------------------------------
+    rc_src = read("scripts/run_campaign.py")
+    grid = _dict_literal(rc_src, "DATASETS")
+    sat = _dict_literal(rc_src, "SATURATION_DATASETS")
+    out.append(Result(
+        "all", "S7 cell is outside the default grid",
+        PASS if (grid is not None and sat is not None
+                 and "imagenette" not in grid and "imagenette" in sat) else FAIL,
+        "scripts/run_campaign.py: SATURATION_DATASETS, not DATASETS"
+        if sat is not None else
+        "scripts/run_campaign.py: SATURATION_DATASETS not declared -- a cell in "
+        "the default grid would add 70 runs to the frozen campaign"))
+    carries = all(s in rc_src for s in ('BATCH_SIZE = {"imagenette": 32}',
+                                        'IMG_SIZE = {"imagenette": 224}',
+                                        "DEEPGREEN_BATCH_SIZE",
+                                        "DEEPGREEN_IMG_SIZE"))
+    out.append(Result("all", "S7 driver carries batch size and resolution",
+                      PASS if carries else FAIL,
+                      "batch 32, 224x224, in the run environment of every stack"
+                      if carries else
+                      "scripts/run_campaign.py does not put both in the contract"))
+
+    # Executed, not grepped: the refusal is the only thing standing between this
+    # cell and the frozen 210-run campaign, and a refusal that is written but
+    # unreachable reads exactly like one that works.
+    #
+    # The exit code alone does not establish that. Run without
+    # scripts/campaign_env.sh sourced -- which is how this checker is normally
+    # invoked -- the driver exits 1 from stack_environment() failing on an
+    # unresolved JAVA_HOME, long before it decides anything about datasets. A
+    # version of this check that accepted any non-zero exit therefore passed
+    # with the guard call deleted, which is the one failure it exists to catch.
+    # So each case asserts the guard's own words, and the cases cover both
+    # refusals: no campaign directory at all, and one inside the frozen
+    # campaign. Relative paths are included deliberately -- resolving them
+    # against the caller's cwd rather than the repository root is how the guard
+    # was bypassed once.
+    base = {k: v for k, v in _os.environ.items() if k != "DEEPGREEN_CAMPAIGN_DIR"}
+    cases = [
+        (None, "needs DEEPGREEN_CAMPAIGN_DIR set"),
+        ("results/campaign_v2", "resolves inside"),
+        ("results/campaign_v2/sat", "resolves inside"),
+    ]
+    unrefused: list[str] = []
+    try:
+        for value, want in cases:
+            env = dict(base)
+            if value is not None:
+                env["DEEPGREEN_CAMPAIGN_DIR"] = value
+            done = subprocess.run(
+                [sys.executable, "scripts/run_campaign.py", "--dry-run",
+                 "--datasets", "imagenette"],
+                cwd=REPO, capture_output=True, text=True, timeout=120, env=env)
+            said = want in (done.stdout + done.stderr)
+            if not (done.returncode != 0 and said):
+                unrefused.append(
+                    f"{value or 'unset'} -> exit {done.returncode}"
+                    + ("" if said else f", never said {want!r}"))
+        out.append(Result(
+            "all", "S7 driver refuses the cell without a campaign dir",
+            PASS if not unrefused else FAIL,
+            f"{len(cases)} refusals, each in the guard's own words"
+            if not unrefused else "; ".join(unrefused)))
+    except Exception as exc:
+        out.append(Result("all", "S7 driver refuses the cell without a campaign dir",
+                          FAIL, f"{type(exc).__name__}: {exc}"))
+
+    out.append(check_regex("all", "S7 preflight expects eight modules",
+                           glob_read("scripts/preflight.py"),
+                           r'n_pt == 8, "shared TorchScript modules"',
+                           every=False, detail_ok="scripts/preflight.py"))
+
+    # -------- S3, against the disk rather than the source -------------------
+    conv = "dataloader/download_convert_imagenette.py"
+    conv_src = read(conv)
+    # Each clause is a separate way to get the recipe wrong, and each was a
+    # sabotage this check failed to notice before: deleting the crop and
+    # returning the resized image, and swapping the resampler for NEAREST, both
+    # passed a check that only looked for the helper's name and the scale
+    # factor. The crop *call* and the resampler are the recipe; the function
+    # name is not.
+    recipe = {
+        "224": bool(re.search(r"TRAIN_RESOLUTION\s*=\s*\(224,\s*224\)", conv_src)),
+        "helper": "def resize_centre_crop" in conv_src,
+        "shorter side": bool(re.search(r"scale\s*=\s*size\s*/\s*short", conv_src)),
+        "centre crop": bool(re.search(
+            r"\.crop\(\s*\(\s*left\s*,\s*top\s*,\s*left\s*\+\s*size\s*,"
+            r"\s*top\s*\+\s*size\s*\)\s*\)", conv_src)),
+        "bilinear": "Image.BILINEAR" in conv_src,
+    }
+    absent_recipe = [k for k, v in recipe.items() if not v]
+    out.append(Result("all", "S7 converter resizes once, shorter side + crop",
+                      PASS if not absent_recipe else FAIL,
+                      f"{conv}: 224, shorter side scaled bilinear, centre crop"
+                      if not absent_recipe else
+                      f"{conv} is missing: {', '.join(absent_recipe)}"))
+
+    data_root = Path(_os.environ.get("DEEPGREEN_DATA", REPO / "data")) / "imagenette_png"
+    counts: dict[str, int] = {}
+    bad: list[str] = []
+    sampled = 0
+    if not data_root.is_dir():
+        out.append(Result("all", "S7 images on disk are 224x224 RGB", FAIL,
+                          f"{data_root} missing; run {conv}"))
+        out.append(Result("C++/LibTorch", "S7 declared sample counts match the disk",
+                          FAIL, f"{data_root} missing"))
+    else:
+        try:
+            from PIL import Image
+
+            for split in ("train", "test"):
+                files = sorted((data_root / split).rglob("*.png"))
+                counts[split] = len(files)
+                # Head, middle and tail of each split: a converter that failed
+                # part-way leaves a correct-looking prefix.
+                for idx in {0, len(files) // 2, len(files) - 1} if files else ():
+                    with Image.open(files[idx]) as im:
+                        sampled += 1
+                        if im.size != (224, 224) or im.mode != "RGB":
+                            bad.append(f"{files[idx].name} {im.size} {im.mode}")
+            n_classes = len([p for p in (data_root / "train").iterdir() if p.is_dir()])
+            ok = not bad and n_classes == 10 and all(counts.values())
+            out.append(Result(
+                "all", "S7 images on disk are 224x224 RGB", PASS if ok else FAIL,
+                f"{sampled} sampled from {counts.get('train', 0):,} train / "
+                f"{counts.get('test', 0):,} test, {n_classes} classes"
+                if ok else "; ".join(bad[:3]) or f"{n_classes} classes"))
+        except Exception as exc:
+            out.append(Result("all", "S7 images on disk are 224x224 RGB", FAIL,
+                              f"{type(exc).__name__}: {exc}"))
+
+        # The label index a class gets is the position of its directory in
+        # whatever order the stack's loader enumerated the directory -- and the
+        # seven stacks sort in seven runtimes' idea of alphabetical. Two stacks
+        # that disagree are scored against different answers while every count,
+        # every pixel statistic and every parameter shape agrees, which is a
+        # defect this study has already had once.
+        #
+        # verify_data_parity.py proves the order for the two loaders it can
+        # probe. This proves something the other five cannot get wrong: that the
+        # dataset admits only ONE alphabetical order, so byte-wise, case-folded
+        # and separator-insensitive collations cannot disagree about it. The
+        # original class names ("English springer", "French horn") did not have
+        # that property -- upper case sorts before lower case byte-wise and
+        # beside it case-insensitively, which is two different label orders from
+        # one directory.
+        names = sorted(p.name for p in (data_root / "train").iterdir() if p.is_dir())
+        test_names = sorted(p.name for p in (data_root / "test").iterdir()
+                            if p.is_dir()) if (data_root / "test").is_dir() else []
+        orders = {
+            "byte-wise": sorted(names),
+            "case-folded": sorted(names, key=str.casefold),
+            # How a locale-aware collation treats them: case and separators are
+            # not significant at the primary level in most of them.
+            "locale-style": sorted(
+                names, key=lambda s: re.sub(r"[^a-z0-9]", "", s.casefold())),
+        }
+        distinct = {tuple(v) for v in orders.values()}
+        ascii_only = all(n.isascii() for n in names)
+        same_split = names == test_names
+        agree = len(distinct) == 1 and ascii_only and same_split and len(names) == 10
+        out.append(Result(
+            "all", "S7 one alphabetical order for the class names",
+            PASS if agree else FAIL,
+            "byte-wise, case-folded and locale-style collations agree: "
+            + " | ".join(names)
+            if agree else
+            ("train and test declare different classes" if not same_split else
+             "non-ASCII class name" if not ascii_only else
+             f"{len(names)} classes" if len(names) != 10 else
+             "collations disagree: "
+             + " || ".join(" | ".join(o) for o in orders.values()))))
+
+        # The C++ loader asserts exact sample counts, so a dataset that is
+        # regenerated with a different tally fails there at startup -- in the
+        # middle of a campaign, per job. The same two numbers, compared here.
+        header = read("cpp/src/dataset/Imagenette.h")
+        if not header:
+            out.append(Result(
+                "C++/LibTorch", "S7 declared sample counts match the disk", FAIL,
+                "cpp/src/dataset/Imagenette.h missing; the C++ stack cannot "
+                "build the cell"))
+        else:
+            declared = {}
+            for key, field in (("train", "num_train_samples"),
+                               ("test", "num_test_samples")):
+                m = re.search(r"%s\s*=\s*(\d+)" % field, header)
+                declared[key] = int(m.group(1)) if m else None
+            agree = all(declared[k] == counts.get(k) for k in ("train", "test"))
+            out.append(Result(
+                "C++/LibTorch", "S7 declared sample counts match the disk",
+                PASS if agree else FAIL,
+                f"{declared['train']} train / {declared['test']} test, as on disk"
+                if agree else
+                f"header says {declared['train']}/{declared['test']}, disk has "
+                f"{counts.get('train')}/{counts.get('test')}"))
+
+    return out
+
+
 def _campaign_metrics():
     """``(frame, "")`` of the campaign's quality rows, or ``(None, why not)``.
 
@@ -412,7 +685,8 @@ def run() -> list[Result]:
     # them from the *energy* tables too. Two of forty-two configurations went
     # missing from the results without anything failing.
     for _bin in ("resnet_cifar100", "resnet_fashion", "resnet_tiny",
-                 "vgg_cifar100", "vgg_fashion", "vgg_tiny"):
+                 "vgg_cifar100", "vgg_fashion", "vgg_tiny",
+                 "resnet_imagenette", "vgg_imagenette"):
         r.append(check_regex("Rust/tch", f"S5 {_bin} persists quality metrics",
                              glob_read(f"rust/src/bin/{_bin}.rs"),
                              r"log_metric\("))
@@ -479,9 +753,14 @@ def run() -> list[Result]:
         ("Java/DL4J", glob_read("Java/**/expt/resnet18/*.java", "Java/**/expt/vgg16/*.java"), r"batchSize\s*=\s*128"),
         ("C++/LibTorch", glob_read("cpp/src/train/**/train_*.cpp"), r"kTrainBatchSize = 128"),
     ]:
-        r.append(check_regex(eco, "S2 batch size = 128", files, pat))
+        # The saturation cell's files are in the same globs and carry 32, so the
+        # 128 check is asked of the 32x32 cell only. Both remain universal over
+        # the files they are about, which is the whole point of check_regex's
+        # every=True default.
+        r.append(check_regex(eco, "S2 batch size = 128", split_cells(files)[0], pat))
     r.append(check_regex("C++/LibTorch", "S2 eval batch = train batch",
-                         glob_read("cpp/src/train/**/train_*.cpp"), r"kTestBatchSize = 128"))
+                         split_cells(glob_read("cpp/src/train/**/train_*.cpp"))[0],
+                         r"kTestBatchSize = 128"))
 
     # ---------------- S4: Deeplearning4j's convolution backend -------------
     r.extend(_check_dl4j_cudnn())
@@ -743,10 +1022,19 @@ def run() -> list[Result]:
         import json as _json
         man = _json.loads(manifest_path.read_text())
         modules = man.get("modules", {})
+        # Eight since the accelerator-saturation cell: two architectures across
+        # four datasets. The two new ones are named rather than counted, because
+        # eight modules of which one is the wrong one counts the same as eight.
+        want_modules = {"resnet18_fashionmnist.pt", "resnet18_cifar100.pt",
+                        "resnet18_tinyimagenet200.pt", "resnet18_imagenette.pt",
+                        "vgg16_fashionmnist.pt", "vgg16_cifar100.pt",
+                        "vgg16_tinyimagenet200.pt", "vgg16_imagenette.pt"}
+        absent = sorted(want_modules - set(modules))
         r.append(Result("all", "S1 model manifest covers every block",
-                        PASS if len(modules) == 6 else FAIL,
-                        f"{len(modules)} of 6 modules, VGG-16 head "
-                        f"'{man.get('vgg16_head')}', seed {man.get('export_seed')}"))
+                        PASS if len(modules) == 8 and not absent else FAIL,
+                        f"{len(modules)} of 8 modules, VGG-16 head "
+                        f"'{man.get('vgg16_head')}', seed {man.get('export_seed')}"
+                        + (f" -- missing {', '.join(absent)}" if absent else "")))
     else:
         r.append(Result("all", "S1 model manifest covers every block", FAIL,
                         "models/MANIFEST.json missing; run "
@@ -811,6 +1099,9 @@ def run() -> list[Result]:
                          glob_read("python/jax/models/*.py"),
                          r"jax\.block_until_ready\("))
 
+    # ---------------- S7: the accelerator-saturation cell -------------------
+    r.extend(_check_saturation_cell())
+
     # ---------------- scope -------------------------------------------------
     # This check used to read rc.split("EXTERNAL_ECOSYSTEMS")[-1], which lands
     # after the *last* mention of the name -- an argparse default -- and so
@@ -837,7 +1128,7 @@ def run() -> list[Result]:
 #: check that silently stops running -- a glob that matches nothing, a guarded
 #: import that turns into a SKIP -- fails the gate instead of shrinking the
 #: total. Raise it deliberately when you add a check.
-EXPECTED_CHECKS = 92
+EXPECTED_CHECKS = 110
 
 
 def main() -> int:

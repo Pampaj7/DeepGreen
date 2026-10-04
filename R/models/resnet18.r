@@ -23,7 +23,8 @@ build_resnet18 <- function(num_classes = 100, pretrained = FALSE) {
 
 # ===== Data loaders =====
 get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
-                        grayscale = FALSE, test_split = "test") {
+                        grayscale = FALSE, test_split = "test",
+                        skip_resize = FALSE, num_workers = 2) {
   .log("Checking dataset path: %s", dataset_path)
   if (!dir.exists(file.path(dataset_path, "train"))) {
     stop("Train directory does not exist: ", file.path(dataset_path, "train"))
@@ -44,8 +45,18 @@ get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
     # accuracies -- and why nothing but reading the source would have found it.
     img <- torchvision::transform_to_tensor(img)
 
-    # Resize to target size
-    img <- torchvision::transform_resize(img, size = c(img_size[2], img_size[1]))
+    # Resize to target size. transform_resize's two-element `size` branch calls
+    # nnf_interpolate() unconditionally -- unlike its single-element branch,
+    # it has no early return when the image is already the target size. For
+    # imagenette the PNGs are already 224x224 (resized once, offline, by
+    # dataloader/download_convert_imagenette.py per spec S3), so calling it
+    # again here would be a same-size resample: a wasted interpolation pass at
+    # best, a rule-2 violation ("no stack resizes anything at run time") in
+    # spirit at worst. skip_resize=TRUE (set by the imagenette train scripts)
+    # skips the call entirely; every other dataset is untouched.
+    if (!skip_resize) {
+      img <- torchvision::transform_resize(img, size = c(img_size[2], img_size[1]))
+    }
 
     # If grayscale, replicate the single channel to 3 channels
     if (grayscale) {
@@ -53,7 +64,7 @@ get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
         img <- img$repeat_interleave(3, dim = 1) # Replicate to [3, height, width]
       }
     }
-    
+
     img
   }
 
@@ -73,8 +84,8 @@ get_loaders <- function(dataset_path, batch_size = 128, img_size = c(32, 32),
   })
   .log("Test dataset loaded. Classes: %s, Samples: %d", paste(test_set$classes, collapse = ", "), length(test_set))
 
-  train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE, num_workers = 2)  # was 0: single-threaded decoding made R ~11x slower than Rust
-  test_loader  <- dataloader(test_set, batch_size = batch_size, shuffle = FALSE, num_workers = 2)  # was 0: single-threaded decoding made R ~11x slower than Rust
+  train_loader <- dataloader(train_set, batch_size = batch_size, shuffle = TRUE, num_workers = num_workers)  # was 0: single-threaded decoding made R ~11x slower than Rust
+  test_loader  <- dataloader(test_set, batch_size = batch_size, shuffle = FALSE, num_workers = num_workers)  # was 0: single-threaded decoding made R ~11x slower than Rust
 
   list(
     train_loader = train_loader,
@@ -137,6 +148,7 @@ deepgreen_dataset_key <- function(dataset_path) {
          "cifar100"      = "cifar100",
          "fashion_mnist" = "fashionmnist",
          "tiny_imagenet" = "tinyimagenet200",
+         "imagenette"    = "imagenette",
          stop(sprintf("unknown dataset directory: %s", base)))
 }
 
@@ -156,6 +168,7 @@ load_shared_module <- function(arch, dataset_path, device) {
 run_experiment <- function(dataset_path, checkpoint_path,
                            img_size = c(32, 32), grayscale = FALSE, test_split = "test",
                            epochs = 30, batch_size = 128,
+                           skip_resize = FALSE, num_workers = 2,
                            run_id = NULL, python_bin = Sys.getenv("PYTHON_BIN", unset = "python")) {
 
   params <- dg_run_params()
@@ -171,7 +184,8 @@ run_experiment <- function(dataset_path, checkpoint_path,
   .log("device=%s | repetition=%s seed=%s epochs=%s",
        device$type, params$repetition, params$seed, epochs)
 
-  loaders <- get_loaders(dataset_path, batch_size, img_size, grayscale, test_split)
+  loaders <- get_loaders(dataset_path, batch_size, img_size, grayscale, test_split,
+                         skip_resize, num_workers)
   # R/torch is the one LibTorch binding that cannot use the shared TorchScript
   # module (spec S1). In torch 0.17.0 a script_module's $train() and $eval()
   # raise "unused argument", and the underlying handle is not reachable through

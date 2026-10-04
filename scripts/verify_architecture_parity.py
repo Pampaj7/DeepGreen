@@ -15,7 +15,8 @@ the *multiset of parameter tensor shapes*, sorted, which is comparable across
 languages because it depends on neither naming nor ordering conventions. Two
 stacks agree only if every shape appears the same number of times in both.
 
-    python3 scripts/verify_architecture_parity.py            # all 42
+    python3 scripts/verify_architecture_parity.py                  # every cell
+    python3 scripts/verify_architecture_parity.py --datasets imagenette
     python3 scripts/verify_architecture_parity.py --json out.json
 
 Each stack is fingerprinted in its own interpreter, because they cannot share
@@ -50,12 +51,28 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-DATASETS = {"fashionmnist": 10, "cifar100": 100, "tinyimagenet": 200}
+DATASETS = {"fashionmnist": 10, "cifar100": 100, "tinyimagenet": 200,
+            #: The accelerator-saturation cell (spec S7): ten ImageNet classes
+            #: at 224x224. Ten classes means the modules carry exactly the
+            #: parameter counts of the Fashion-MNIST pair, which is why this
+            #: probe is worth running: a stack that quietly kept a 32x32
+            #: assumption -- a flattened classifier sized for a 1x1 feature map,
+            #: say -- shows up here as a different tensor and nowhere in a
+            #: parameter total.
+            "imagenette": 10}
 MODELS = ("resnet18", "vgg16")
 
 #: dataset name in the campaign -> the name the exported modules use
 MODULE_DATASET = {"fashionmnist": "fashionmnist", "cifar100": "cifar100",
-                  "tinyimagenet": "tinyimagenet200"}
+                  "tinyimagenet": "tinyimagenet200", "imagenette": "imagenette"}
+
+#: Input resolution and batch size per dataset, matching scripts/run_campaign.py.
+#: Both matter to a probe: resolution decides the shape of anything downstream of
+#: the convolutions, and the batch is what the stack is initialised against.
+IMG_SIZE = {"imagenette": 224}
+BATCH_SIZE = {"imagenette": 32}
+DEFAULT_IMG_SIZE = 32
+DEFAULT_BATCH_SIZE = 128
 
 
 def fingerprint(shapes: list[tuple[int, ...]]) -> dict:
@@ -102,7 +119,7 @@ sys.path.insert(0, %(repo)r)
 import importlib
 mod = importlib.import_module("python.tensorflow.models." + %(model)r)
 build = getattr(mod, "build_resnet18_garden", None) or getattr(mod, "build_vgg16")
-model = build(input_shape=(32, 32, 3), num_classes=%(classes)d)
+model = build(input_shape=(%(img)d, %(img)d, 3), num_classes=%(classes)d)
 shapes = []
 # trainable_weights on the top-level model, which Keras de-duplicates. Walking
 # the layer tree double-counts: VGG-16 is a Sequential wrapping the backbone as
@@ -134,9 +151,10 @@ else:
                          pretrained=None, normalize=False)
 k = jax.random.PRNGKey(0)
 try:
-    v = net.init({"params": k, "dropout": k}, jnp.ones((1, 32, 32, 3)), train=True)
+    v = net.init({"params": k, "dropout": k},
+                 jnp.ones((%(batch)d, %(img)d, %(img)d, 3)), train=True)
 except Exception:
-    v = net.init(k, jnp.ones((1, 32, 32, 3)), train=True)
+    v = net.init(k, jnp.ones((%(batch)d, %(img)d, %(img)d, 3)), train=True)
 shapes = []
 for path, leaf in jax.tree_util.tree_flatten_with_path(v["params"])[0]:
     s = [int(x) for x in leaf.shape]
@@ -159,9 +177,13 @@ import java.util.*;
 public class DGFingerprint {
   public static void main(String[] a) {
     int n = Integer.parseInt(a[1]);
+    // Input resolution: 32 for the campaign's three datasets, 224 for the
+    // saturation cell. DL4J sizes its dense layers from it, so a probe that
+    // hardcoded 32 would report the wrong network for the cell.
+    int px = Integer.parseInt(a[2]);
     ComputationGraph g = a[0].equals("resnet18")
-        ? ResNet18GraphBuilder.buildResNet18(n, 1000, 3, 32, 32, 1e-4)
-        : Vgg16GraphBuilder.buildVGG16(n, 1000, 3, 32, 32, 1e-4);
+        ? ResNet18GraphBuilder.buildResNet18(n, 1000, 3, px, px, 1e-4)
+        : Vgg16GraphBuilder.buildVGG16(n, 1000, 3, px, px, 1e-4);
     StringBuilder sb = new StringBuilder("[");
     boolean first = true;
     for (org.deeplearning4j.nn.api.Layer l : g.getLayers()) {
@@ -246,7 +268,7 @@ def run_r_probe(model: str, classes: int, label: str) -> list | None:
     return None
 
 
-def run_java_probe(model: str, classes: int, label: str) -> list | None:
+def run_java_probe(model: str, classes: int, img: int, label: str) -> list | None:
     """Fingerprint a Deeplearning4j graph through the campaign's own classpath."""
     import shutil
     import tempfile
@@ -277,7 +299,7 @@ def run_java_probe(model: str, classes: int, label: str) -> list | None:
             print(f"  {label}: javac failed\n{r.stderr[-300:]}", file=sys.stderr)
             return None
         out = subprocess.run([str(java), "-cp", f"{tmp}:{cp}", "DGFingerprint",
-                              model, str(classes)],
+                              model, str(classes), str(img)],
                              cwd=REPO, capture_output=True, text=True, timeout=600)
     for line in out.stdout.splitlines():
         if line.startswith("@@"):
@@ -300,7 +322,7 @@ def run_probe(interpreter: str, code: str, label: str) -> list | None:
     return None
 
 
-def collect() -> dict:
+def collect(datasets: dict[str, int] | None = None) -> dict:
     """Fingerprint every stack that can be probed from Python."""
     venv = {
         "Python/PyTorch": REPO / ".venv-deepgreen" / "bin" / "python",
@@ -309,11 +331,13 @@ def collect() -> dict:
     }
     results: dict = {}
     for model in MODELS:
-        for dataset, classes in DATASETS.items():
+        for dataset, classes in (datasets or DATASETS).items():
             key = f"{model}/{dataset}"
             results[key] = {}
+            img = IMG_SIZE.get(dataset, DEFAULT_IMG_SIZE)
             subs = {"repo": str(REPO), "model": model, "dataset": dataset,
-                    "classes": classes}
+                    "classes": classes, "img": img,
+                    "batch": BATCH_SIZE.get(dataset, DEFAULT_BATCH_SIZE)}
 
             # The exported module is the reference: C++ and Rust load this file
             # and PyTorch now loads it too, so one probe covers all three.
@@ -332,7 +356,7 @@ def collect() -> dict:
             if shapes is not None:
                 results[key]["Python/JAX"] = fingerprint(shapes)
 
-            shapes = run_java_probe(model, classes, f"{key} Java/DL4J")
+            shapes = run_java_probe(model, classes, img, f"{key} Java/DL4J")
             if shapes is not None:
                 results[key]["Java/DL4J"] = fingerprint(shapes)
 
@@ -378,9 +402,16 @@ def report(results: dict) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", type=Path, help="write the fingerprints here")
+    # Each probe starts a JVM, an R session and three Python interpreters, so a
+    # full sweep is minutes per cell. Naming one dataset makes the
+    # accelerator-saturation cell checkable on its own.
+    ap.add_argument("--datasets", nargs="*", choices=sorted(DATASETS),
+                    help="fingerprint only these (default: all)")
     args = ap.parse_args()
 
-    results = collect()
+    selected = ({d: DATASETS[d] for d in args.datasets} if args.datasets
+                else DATASETS)
+    results = collect(selected)
     if args.json:
         args.json.write_text(json.dumps(results, indent=2) + "\n")
         print(f"fingerprints written to {args.json}")

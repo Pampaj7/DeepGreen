@@ -48,17 +48,29 @@ as starting from identical parameters started from different draws, and
 Python/PyTorch built torchvision fresh and loaded no module at all. One seed,
 one export, and the claim becomes true instead of needing to be withdrawn.
 
-    python3 scripts/export_torchscript_models.py            # -> models/*.pt
+    python3 scripts/export_torchscript_models.py            # -> the missing ones
+    python3 scripts/export_torchscript_models.py --all      # -> re-export all
     DEEPGREEN_MODELS=/somewhere python3 scripts/export_torchscript_models.py
 
 Writes models/MANIFEST.json, which carries the parameter count and SHA-256 of
 every module. Stacks that cannot load TorchScript -- TensorFlow, JAX,
 Deeplearning4j -- assert their own parameter count against it at startup, which
 is the check that would have caught all of the above.
+
+**The export is additive.** It used to rewrite every archive on every run, and
+adding one dataset to NUM_CLASSES therefore replaced the eight files the
+campaign had already measured against. The weights were identical -- the seed
+fixes them -- but TorchScript's archive is not byte-reproducible, so every
+`file_sha256` in the manifest changed and the artefact a reader checks the paper
+against no longer matched the one that was shipped. A module is now rebuilt in
+memory, its weights hashed, and the file left exactly as it is when that hash
+matches what the manifest records. `--all` takes the old behaviour, for the case
+where the definition itself has changed.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -73,7 +85,8 @@ REPO = Path(__file__).resolve().parents[1]
 OUT_DIR = Path(os.environ.get("DEEPGREEN_MODELS", REPO / "models"))
 
 #: dataset -> number of classes, matching cpp/CMakeLists.txt
-NUM_CLASSES = {"fashionmnist": 10, "cifar100": 100, "tinyimagenet200": 200}
+#: imagenette is the accelerator-saturation cell (224x224, ten ImageNet classes).
+NUM_CLASSES = {"fashionmnist": 10, "cifar100": 100, "tinyimagenet200": 200, "imagenette": 10}
 
 #: One draw for the whole export, so every stack that loads a module and every
 #: stack that rebuilds it from this definition starts from the same weights.
@@ -132,23 +145,78 @@ def _weights_sha256(model: nn.Module) -> str:
     return h.hexdigest()
 
 
+def _existing_manifest() -> dict:
+    path = OUT_DIR / "MANIFEST.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return {}
+
+
 def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--all", action="store_true",
+                    help="re-export every module, including ones already on "
+                         "disk whose weights match the manifest")
+    args = ap.parse_args()
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    previous = _existing_manifest()
+    known: dict = previous.get("modules", {})
     modules: dict[str, dict[str, object]] = {}
+    n_written = n_kept = 0
     for arch in ("resnet18", "vgg16"):
         for dataset, n in NUM_CLASSES.items():
             model = build(arch, n)
             model.train()
             out = OUT_DIR / f"{arch}_{dataset}.pt"
-            torch.jit.script(model).save(str(out))
             params = sum(p.numel() for p in model.parameters())
+            weights = _weights_sha256(model)
+
+            # Keep the artefact that was shipped when it holds the weights this
+            # definition produces. The file hash is the only thing a re-export
+            # would change, and changing it invalidates every record of the
+            # module without changing the module.
+            recorded = known.get(out.name, {})
+            unchanged = (
+                not args.all
+                and out.exists()
+                and recorded.get("weights_sha256") == weights
+                and recorded.get("parameters") == params
+                and recorded.get("num_classes") == n
+                and recorded.get("file_sha256") == _sha256(out)
+            )
+            if unchanged:
+                modules[out.name] = dict(recorded)
+                n_kept += 1
+                print(f"  {out.name:34} {n:>3} classes  {params:>12,} params  kept")
+                continue
+
+            torch.jit.script(model).save(str(out))
             modules[out.name] = {
                 "architecture": arch, "dataset": dataset, "num_classes": n,
                 "parameters": params,
-                "weights_sha256": _weights_sha256(model),
+                "weights_sha256": weights,
                 "file_sha256": _sha256(out),
             }
-            print(f"  {out.name:34} {n:>3} classes  {params:>12,} params")
+            n_written += 1
+            print(f"  {out.name:34} {n:>3} classes  {params:>12,} params  written")
+
+    # A manifest whose torch_version does not describe the kept archives is a
+    # false record: check_consistency compares it against the tch crate and the
+    # LibTorch the C++ build fetches, and a module written by a newer torch will
+    # not load into an older one.
+    kept_version = str(previous.get("torch_version", ""))
+    if n_kept and kept_version and kept_version != torch.__version__:
+        print(f"\nrefusing: {n_kept} module(s) on disk were exported by torch "
+              f"{kept_version} and this\ninterpreter is torch "
+              f"{torch.__version__}. The manifest can describe one version, not "
+              f"two.\nRe-export everything with --all, or run this under torch "
+              f"{kept_version}.", file=sys.stderr)
+        return 1
 
     manifest = {
         "torch_version": torch.__version__,
@@ -165,7 +233,8 @@ def main() -> int:
     }
     (OUT_DIR / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
-    print(f"\n{len(modules)} modules and MANIFEST.json written to {OUT_DIR}")
+    print(f"\n{len(modules)} modules in {OUT_DIR}: {n_written} written, "
+          f"{n_kept} kept unchanged; MANIFEST.json rewritten")
     print(f"torch {torch.__version__}, seed {EXPORT_SEED}, VGG-16 head '{HEAD}'")
     return 0
 

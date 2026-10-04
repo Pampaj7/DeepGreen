@@ -18,7 +18,7 @@ from flaxmodels import ResNet18 as FMResNet18
 
 
 # ===================== DATA =====================
-def get_data_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None):
+def get_data_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None, skip_resize=False):
     """Delegate to the shared tf.data pipeline (spec S3).
 
     The first campaign used ImageDataGenerator.flow_from_directory and pulled
@@ -27,9 +27,16 @@ def get_data_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None)
     Java nor knowable from the source, and the audit showed loader parallelism
     is the dominant confound in this workload. tools/deepgreen_loader.py makes
     the thread count explicit and identical, with the same preprocessing.
+
+    ``skip_resize`` is set for imagenette, whose PNGs are already img_size on
+    disk (resized once, offline): calling tf.image.resize on top of that would
+    be a same-size resample at best and a spec S3 violation ("no stack
+    resizes anything at run time") in spirit at worst, the same reasoning the
+    R and C++ imagenette paths use.
     """
     train, test, num_classes = train_test_loaders(
-        dataset_path, img_size=img_size, batch_size=batch_size, seed=seed, one_hot=True)
+        dataset_path, img_size=img_size, batch_size=batch_size, seed=seed,
+        one_hot=True, skip_resize=skip_resize)
     return train, test, num_classes
 
 
@@ -115,7 +122,8 @@ def run_experiment(
     # check reported "5 of 5 distinct seeds" from the campaign planner, which
     # never sees whether a stack uses the seed it is handed.
     train_gen, test_gen, num_classes = get_data_loaders(
-        dataset_path, img_size, batch_size, seed=int(ctx.seed))
+        dataset_path, img_size, batch_size, seed=int(ctx.seed),
+        skip_resize=(ctx.dataset == "imagenette"))
 
     # ======= MODELLO PIÙ NATIVO POSSIBILE =======
     # ResNet18 community, head stock (GAP+Dense), nessun wrapper

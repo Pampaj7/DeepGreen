@@ -24,11 +24,21 @@ the replication machine, and it cannot be pinned to the shared LibTorch build).
 | Python/JAX | flaxmodels ResNet-18 / VGG16 backbone with the shared head, no pretrained weights |
 | Java/DL4J | `ResNet18GraphBuilder` / `Vgg16GraphBuilder` |
 
+`scripts/export_torchscript_models.py` writes **eight** modules — two
+architectures across four datasets. Six are the 210-run campaign's;
+`resnet18_imagenette.pt` and `vgg16_imagenette.pt` are the
+accelerator-saturation cell's (S7), ten classes, and therefore the same
+parameter counts as the Fashion-MNIST pair: 11,181,642 and 14,982,474. They come
+from the same seeded export and the same VGG-16 head as the other six.
+
 Verified in both non-Python LibTorch bindings:
-`cargo run --example load_shared_module` loads all six modules into Rust/tch,
+`cargo run --example load_shared_module` loads all eight modules into Rust/tch,
 runs a forward pass and takes an optimizer step through the VarStore;
-`Rscript R/scripts/load_shared_module_test.r` loads and forwards all six in
-R/torch 0.17.0.
+`Rscript R/scripts/load_shared_module_test.r` loads and forwards all eight in
+R/torch 0.17.0. Both forward the six 32 x 32 modules at 2 x 3 x 32 x 32 and the
+two imagenette modules at **1 x 3 x 224 x 224**, the shape the saturation cell
+actually runs — a smoke test that only ever forwards 32 x 32 establishes nothing
+about the two modules that cell loads.
 The parameter counts match the Python export exactly (ResNet-18/CIFAR-100:
 11,227,812), so the graph is identical, not merely equivalent.
 
@@ -60,7 +70,8 @@ S4.
 `scripts/verify_architecture_parity.py` builds each stack's model for every
 (architecture, dataset) and compares the sorted multiset of parameter tensor
 shapes, which is comparable across languages. All seven stacks agree shape for
-shape on all six blocks: ResNet-18 is 62 tensors (20 convolution, 1 dense, 41
+shape on all six blocks of the campaign, and on both blocks of the saturation
+cell probed at 224 x 224: ResNet-18 is 62 tensors (20 convolution, 1 dense, 41
 rank-1) and VGG-16 is 30 (13, 2, 15). Every stack also asserts its own parameter
 count at startup against `models/MANIFEST.json`, carried into the run as
 `DEEPGREEN_EXPECTED_PARAMS`, and refuses to train if it does not match.
@@ -107,7 +118,7 @@ stack should be followed by re-running this comparison.
 |---|---|
 | optimiser | Adam |
 | learning rate | `1e-4` |
-| batch size | 128 |
+| batch size | 128 — for the 210-run campaign; S7 states the saturation cell's |
 | epochs | 30 |
 | loss | categorical cross-entropy over logits |
 | LR schedule | none |
@@ -119,7 +130,7 @@ First campaign: Python/TensorFlow and Rust/tch used `1e-3`. Fixed.
 
 | parameter | value |
 |---|---|
-| input resolution | 32 x 32, **resized once offline** so that no stack resizes anything |
+| input resolution | 32 x 32, **resized once offline** so that no stack resizes anything — for the 210-run campaign; S7 states the saturation cell's |
 | channels | 3 (grayscale replicated) |
 | scaling | `[0, 1]` — divide by 255, **no** mean/std normalisation |
 | train shuffling | on |
@@ -141,7 +152,9 @@ torchvision on PIL, `tf.image.resize`, `tch::vision::image::resize`, DataVec's
 `ImageRecordReader`, R's `transform_resize` -- and over Tiny ImageNet's whole
 test split their pixel standard deviations fell into three groups spanning 3.0%
 while the means agreed to 0.1%, which is a filter and not a content difference.
-`scripts/normalise_dataset_resolution.py` writes every image at 32x32, so each
+`scripts/normalise_dataset_resolution.py` writes every image of the campaign's
+three datasets at 32x32 (the saturation cell's images are written at 224x224 by
+`dataloader/download_convert_imagenette.py`, by the same principle), so each
 stack's resize is a no-op and all seven decode the same pixels: measured, mean
 0.443782 and standard deviation 0.256110 over 30,720,000 values, identical in
 all seven. Every run records its own (`data_fingerprint.csv`), so the campaign
@@ -272,6 +285,98 @@ sampling everywhere except JAX at 1 s, and no quality metric on disk. Fixed by
 * 5 independent repetitions per configuration, distinct seeds, fresh processes;
 * repetition-major interleaving with a fixed shuffle, 60 s cooldown;
 * the independent run is the unit of analysis.
+
+## S7 — Accelerator-saturation cell
+
+The campaign above trains at 32 x 32 with batch 128, and at that shape the
+accelerator is idle for most of the wall clock. Measured over the 210 runs, mean
+GPU utilisation runs from 4.7% (R/torch, ResNet-18) to 79.9% (Java/DL4J,
+VGG-16), with most stacks between 20% and 50%. The objection that follows is
+foundational rather than technical: a study in which the GPU is lightly loaded
+measures host-side overhead — decode, collation, dispatch, binding — and calls
+the result the energy cost of deep learning.
+
+S7 is one declared contrast cell that answers it with a measurement. The same
+two networks, the same seven ecosystems, the same harness and the same
+instruments, on ten ImageNet classes at ImageNet resolution, where the GPU is
+the bottleneck rather than the host. If the ecosystem spread compresses when the
+accelerator saturates, the study says so and delimits its conclusion to the
+regime it measured; if it does not, the objection does not survive its own test.
+Either answer is a result, which is why the cell is run rather than argued.
+
+**What is unchanged.** S1, S2, S4, S5 and S6 hold exactly as written. The same
+exported TorchScript modules (`models/resnet18_imagenette.pt`,
+`models/vgg16_imagenette.pt`, ten classes, the same seeded export and the same
+VGG-16 head — 11,181,642 and 14,982,474 parameters, identical to the
+Fashion-MNIST pair because the class count is the same); Adam at `1e-4` with no
+schedule and no weight decay; 30 epochs; TF32 as the campaign-wide precision
+policy; CodeCarbon in machine mode at 1 s beside the NVML and RAPL counters;
+five independent repetitions per configuration with distinct seeds, interleaved
+repetition-major with the same fixed shuffle. Every stack asserts its parameter
+count against `DEEPGREEN_EXPECTED_PARAMS` at startup as before.
+
+**What deviates, and only in S3.**
+
+| parameter | main campaign | saturation cell |
+|---|---|---|
+| input resolution | 32 x 32 | **224 x 224** |
+| how it is produced | resized once offline to 32 x 32 | shorter side to 224, then centre crop, **once offline** by `dataloader/download_convert_imagenette.py` |
+| batch size, train and eval | 128 | **32** |
+| classes | 10 / 100 / 200 | **10** |
+| split names | `train` / `test` (`val` for Tiny ImageNet) | `train` / `test` |
+| loader worker threads | 2 | 2 by default; `DEEPGREEN_LOADER_THREADS` may raise it, and the value is recorded per run |
+
+The resize is offline for the same reason it is offline everywhere else: seven
+stacks with four resamplers do not agree on pixels, and the study's claim is
+that they decode the same inputs. Batch 32 rather than 128 is a hardware limit,
+not a preference — VGG-16 at 224 x 224 does not fit an RTX 3090's 24 GB at batch
+128 — and it applies to both phases, so evaluation batching still matches
+training. Loader parallelism is the one factor the cell is allowed to raise: at
+224 x 224 the host decodes 49 times the pixels per image, and pinning the value
+that suits 32 x 32 would build the host bottleneck back into the cell it exists
+to remove. It is therefore recorded per run rather than assumed, and reported
+with the cell.
+
+Dataset: Imagenette (Howard, fast.ai), the ten easily separated ImageNet classes,
+9,469 training and 3,925 test images at 224 x 224 RGB over ten classes. The C++
+loader asserts those two counts at startup and `scripts/check_consistency.py`
+compares them against the files on disk.
+
+**The label order.** A class's label index is its directory's position in
+whatever order the stack's loader enumerated the directory, and seven runtimes
+do not have one idea of alphabetical: upper case sorts before lower case
+byte-wise and beside it case-insensitively, so `English springer` and `French
+horn` beside eight lower-case names gave two defensible orders from one
+directory. The class directories are therefore all lower case, which leaves one
+order — byte-wise, case-folded and locale-style collations agree on it, and
+`check_consistency.py` asserts that they do:
+
+```
+0 cassette player   1 chain saw    2 church        3 english springer
+4 french horn       5 garbage truck  6 gas pump    7 golf ball
+8 parachute         9 tench
+```
+
+`scripts/verify_data_parity.py` confirms that torchvision and the shared
+`tf.data` loader both produce exactly this order, along with the file count and
+the first 32 labels of the unshuffled test split.
+
+**Where it runs.** A campaign directory of its own,
+`results/campaign_saturation`, holding 7 ecosystems x 2 models x 5 repetitions =
+**70 runs**. `scripts/run_campaign.py` refuses to schedule the cell unless
+`DEEPGREEN_CAMPAIGN_DIR` is set to something outside `results/campaign_v2`, and
+refuses to mix it with the 32 x 32 datasets in one invocation.
+
+**What this cell is not.** It does not change the 210-run campaign, its tables,
+or any number derived from them: `results/campaign_v2` is frozen, and the
+analysis diverts its output whenever it is pointed anywhere else. It is not a
+second campaign and is not pooled with the first — the two differ in resolution,
+batch size and class count, so no aggregate spans them. It is not a claim about
+Imagenette as a benchmark; the dataset is a means of loading the accelerator
+with real images at real resolution. And it is not a sensitivity analysis over
+batch size or resolution: it is one point, chosen because it is where the
+accelerator is busy, reported as a contrast against the campaign rather than as
+a replacement for it.
 
 ## Environment requirements found the hard way
 

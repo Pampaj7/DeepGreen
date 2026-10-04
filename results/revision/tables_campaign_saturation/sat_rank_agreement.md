@@ -1,0 +1,16 @@
+**Spearman between the ecosystem ordering at 224 and at each 32x32 dataset, with an exact permutation p and the ecosystems whose rank moves by two places or more**
+
+| model    | phase     | reference_dataset   |   n_ecosystems |   spearman_rho |   p_permutation_exact |   p_asymptotic |   n_permutations |   n_moved_two_or_more | moved_two_or_more                              |
+|:---------|:----------|:--------------------|---------------:|---------------:|----------------------:|---------------:|-----------------:|----------------------:|:-----------------------------------------------|
+| resnet18 | Training  | cifar100            |              7 |          0.679 |              0.109524 |    0.0937503   |             5040 |                     2 | C++ 1->3; TensorFlow 5->2                      |
+| resnet18 | Training  | fashionmnist        |              7 |          0.643 |              0.138889 |    0.119392    |             5040 |                     3 | Rust 3->5; C++ 1->3; TensorFlow 5->2           |
+| resnet18 | Training  | tinyimagenet        |              7 |          0.786 |              0.048016 |    0.0362385   |             5040 |                     2 | C++ 1->3; TensorFlow 4->2                      |
+| resnet18 | Inference | cifar100            |              7 |          0.536 |              0.235714 |    0.215217    |             5040 |                     3 | Rust 2->5; C++ 1->3; JAX 4->1                  |
+| resnet18 | Inference | fashionmnist        |              7 |          0.571 |              0.2      |    0.180202    |             5040 |                     4 | Rust 2->5; C++ 1->3; JAX 3->1; TensorFlow 4->2 |
+| resnet18 | Inference | tinyimagenet        |              7 |          0.786 |              0.048016 |    0.0362385   |             5040 |                     2 | C++ 1->3; JAX 3->1                             |
+| vgg16    | Training  | cifar100            |              7 |          1     |              0.000397 |    0           |             5040 |                     0 | none                                           |
+| vgg16    | Training  | fashionmnist        |              7 |          1     |              0.000397 |    0           |             5040 |                     0 | none                                           |
+| vgg16    | Training  | tinyimagenet        |              7 |          0.964 |              0.002778 |    0.000454149 |             5040 |                     0 | none                                           |
+| vgg16    | Inference | cifar100            |              7 |          0.536 |              0.235714 |    0.215217    |             5040 |                     4 | Rust 2->5; C++ 1->3; JAX 5->2; TensorFlow 3->1 |
+| vgg16    | Inference | fashionmnist        |              7 |          0.536 |              0.235714 |    0.215217    |             5040 |                     4 | Rust 2->5; C++ 1->3; JAX 5->2; TensorFlow 3->1 |
+| vgg16    | Inference | tinyimagenet        |              7 |          0.75  |              0.06627  |    0.0521814   |             5040 |                     3 | Rust 3->5; C++ 1->3; JAX 4->2                  |

@@ -12,21 +12,44 @@
 #include "python/PythonTracker.h"
 
 
+// Loader parallelism, spec S3. Two threads for every cell of the campaign; the
+// argument exists so the accelerator-saturation cell can be given the value the
+// run contract carries in DEEPGREEN_LOADER_THREADS, which at 224x224 is a
+// legitimately different question -- the host decodes 49x the pixels per image.
+constexpr int32_t kDefaultLoaderThreads = 2;
+
 template <typename Dataset>
 void train_model(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
     const char* model_dataset_filename, const int32_t imgResize,
-    const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs)
+    const int32_t trainBatchSize, const int32_t testBatchSize, const int32_t numberOfEpochs,
+    const bool resizeInLoader = true, const int32_t loaderThreads = kDefaultLoaderThreads)
 {
     // device (CPU or GPU)
     torch::Device device = CNNSetup::get_device_available();
 
 
     // transformations
-    auto transform_list = std::vector<TorchTrasformPtr>
-    {
-        //std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd()),
-        std::make_shared<DatasetTransforms::ResizeTo>(imgResize, imgResize)
-    };
+    //
+    // resizeInLoader is false only where the images on disk are already at the
+    // training resolution, which spec S3 requires of the saturation cell: it is
+    // resized once, offline, so that no stack resamples anything at run time and
+    // the stacks decode identical pixels. Resizing 224 to 224 would still be a
+    // resample -- interpolate() does not shortcut the identity case -- so the
+    // transform is left out rather than made a no-op.
+    if (!resizeInLoader &&
+        (static_cast<uint32_t>(imgResize) != Dataset::getImageHeight() ||
+         static_cast<uint32_t>(imgResize) != Dataset::getImageWidth()))
+        throw std::invalid_argument(
+            "train_model: asked not to resize, but the requested input size (" +
+            std::to_string(imgResize) + ") is not the on-disk size of " +
+            Dataset::getDatasetName() + " (" +
+            std::to_string(Dataset::getImageHeight()) + "x" +
+            std::to_string(Dataset::getImageWidth()) + ")");
+
+    auto transform_list = std::vector<TorchTrasformPtr>{};
+    //transform_list.push_back(std::make_shared<torch::data::transforms::Normalize<>>(Dataset::getMean(), Dataset::getStd()));
+    if (resizeInLoader)
+        transform_list.push_back(std::make_shared<DatasetTransforms::ResizeTo>(imgResize, imgResize));
     if (Dataset::isGrayscale())
         transform_list.push_back(std::make_shared<DatasetTransforms::ReplicateChannels>());
 
@@ -57,20 +80,34 @@ void train_model(const std::string& outputFileName, const char* dataRootRelative
 
 
     // dataloader
-    auto train_loader =
-        torch::data::make_data_loader<torch::data::samplers::RandomSampler>( // same as torch.utils.data.DataLoader.shuffle(true)
-            std::move(train_set_transformed),
+    //
+    // Loader parallelism is spec S3's, two threads, for every cell of the
+    // campaign: that is the literal below and the default of loaderThreads. A
+    // caller that was given a different value by the run contract
+    // (DEEPGREEN_LOADER_THREADS) overrides it afterwards, so the campaign's
+    // setting stays visible here and only a cell that was deliberately told
+    // otherwise departs from it.
+    auto train_loader_options =
             torch::data::DataLoaderOptions()
                     .batch_size(trainBatchSize)
                     .workers(2)
-                    .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
-    auto test_loader =
-        torch::data::make_data_loader<torch::data::samplers::SequentialSampler>( // same as torch.utils.data.DataLoader.shuffle(false)
-            std::move(test_set_transformed),
+                    .enforce_ordering(true); // same as torch.utils.data.DataLoader.in_order(true)
+    auto test_loader_options =
             torch::data::DataLoaderOptions()
                     .batch_size(testBatchSize)
                     .workers(2)
-                    .enforce_ordering(true)); // same as torch.utils.data.DataLoader.in_order(true)
+                    .enforce_ordering(true); // same as torch.utils.data.DataLoader.in_order(true)
+    if (loaderThreads != kDefaultLoaderThreads) {
+        train_loader_options.workers(static_cast<size_t>(loaderThreads));
+        test_loader_options.workers(static_cast<size_t>(loaderThreads));
+    }
+
+    auto train_loader =
+        torch::data::make_data_loader<torch::data::samplers::RandomSampler>( // same as torch.utils.data.DataLoader.shuffle(true)
+            std::move(train_set_transformed), train_loader_options);
+    auto test_loader =
+        torch::data::make_data_loader<torch::data::samplers::SequentialSampler>( // same as torch.utils.data.DataLoader.shuffle(false)
+            std::move(test_set_transformed), test_loader_options);
 
 
     // loss

@@ -8,7 +8,8 @@ constexpr int32_t kVggMinImageSize = 32;
 template <typename Dataset>
 void train_vgg16(const std::string& outputFileName, const char* dataRootRelativePath, const char* classesJson,
     const char* vgg_dataset_filename, const int32_t imgResize, const int32_t trainBatchSize, const int32_t testBatchSize,
-    const int32_t numberOfEpochs)
+    const int32_t numberOfEpochs, const bool resizeInLoader = true,
+    const int32_t loaderThreads = kDefaultLoaderThreads)
 {
     if (imgResize < kVggMinImageSize)
         throw std::invalid_argument(
@@ -18,7 +19,7 @@ void train_vgg16(const std::string& outputFileName, const char* dataRootRelative
 
     train_model<Dataset>(outputFileName, dataRootRelativePath, classesJson,
         vgg_dataset_filename, imgResize,
-        trainBatchSize, testBatchSize, numberOfEpochs);
+        trainBatchSize, testBatchSize, numberOfEpochs, resizeInLoader, loaderThreads);
 }
 
 

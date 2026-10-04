@@ -1,4 +1,4 @@
-One specification, 92 automated checks: 7 stacks run the same experiment
+One specification, 110 automated checks: 7 stacks run the same experiment
 210 runs, 12600 blocks; training energy spans 7.4×–9.8× across stacks
 One exported module, 3 stacks: spread 1.1×–1.6× against 9.8× across all 7
 The estimator's duration field, not the stacks, produced “faster is not greener”

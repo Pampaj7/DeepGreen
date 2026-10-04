@@ -1200,6 +1200,106 @@ because that is the pair R shares neither of.
 
 ---
 
+## 28. The accelerator-saturation cell: the open threat, measured
+
+**Why.** The one item "Still open" could not close by re-running was that at
+32x32 the card is idle for most of each epoch -- training-block utilisation from
+5.5 % (R) to 93.8 % (C++) -- so a reviewer can say we measured host-side
+overhead and called it the energy cost of deep learning. Arguing which way
+saturation moves the spread was what I had stopped doing in both documents; the
+alternative was to measure it. Spec S7 (`results/analysis/experiment_spec.md`)
+declares one contrast cell, written before it ran.
+
+**Protocol.** Same seven stacks, same two networks exported as ten-class
+modules, same harness, instruments, Adam at 1e-4, 30 epochs, 5 interleaved
+repetitions. Only S3 changes: Imagenette (9,469 / 3,925 images, ten classes)
+resized once offline to 224x224, shorter side then centre crop, batch 32 in
+both phases because VGG-16 at 224 does not fit 24 GB at batch 128. 70 runs in
+`results/campaign_saturation/`, 6 September 02:21 to 8 September 13:17 CEST.
+The driver refuses to schedule the cell into `results/campaign_v2/` or beside
+the 32x32 datasets, the 210-run campaign is frozen, and `20_saturation.py`
+writes to `results/revision/tables_campaign_saturation/`. The two are never
+pooled.
+
+**Results.** Median training-block utilisation 89.2 %. Across all seven the
+training spread *widens*, 15.3x (ResNet-18) and 19.1x (VGG-16) against
+9.3-9.8x and 7.4x, and Java is the dearest stack in every block. Within the
+LibTorch family it compresses, 9.3-9.8x to 2.8x and 3.5x to 1.3x, and that is
+R closing on C++; the control trio does not move in training (1.3-1.6x to
+1.4x, 1.1-1.2x to 1.1x). Without Java the six compress too, to 3.6x and 2.0x.
+Inference is mixed: ResNet-18 narrows, VGG-16 widens. Rank agreement with
+32x32 is near-perfect for VGG-16 training (rho 0.96-1.00) and weak elsewhere
+(down to 0.54, exact p up to 0.24); the cheapest ResNet-18 stack changes from
+C++ to JAX. rho(time, energy) is 0.93 / 1.00. Lowest single-run accuracy
+64.3 %. So the objection is right about R and wrong about the headline: the
+spread is not an artefact of an idle card, but its size and its cheapest stack
+are regime-dependent. Java's distance is device work (utilisation 87.6 % and
+99.2 %), consistent with its missing cuDNN path; the 13.07x cuDNN-off bound was
+taken at 32x32 and not repeated at 224, and the manuscript says so.
+
+**Disclosures.**
+
+- *Six model archives changed bytes.* Re-exporting to add the two Imagenette
+  modules rewrote `file_sha256` for all six existing archives in
+  `models/MANIFEST.json`. `weights_sha256` is unchanged for every one, so the
+  parameters are identical and the 210 runs are unaffected; the archive bytes
+  differ because the export was re-serialised, and the manifest now records
+  the archives that are on disk.
+- *Two stacks do not assert their parameter count.* The manifest's count is in
+  every run's environment as `DEEPGREEN_EXPECTED_PARAMS` (the C++ and Rust
+  manifests record it), but nothing under `cpp/src` reads it, and no committed
+  Rust binary of the 32x32 campaign does either (`git log -S
+  EXPECTED_PARAMS -- rust/ cpp/` is empty); only the new Imagenette binaries
+  check it. So five stacks asserted the count in the campaign and six in the
+  cell. `check_consistency.py`'s S1 assertion check never looks at C++ or Rust,
+  which is why it passed. **Decision: narrow the text, not the code.** Adding
+  the check now would make the repository's harness differ from the one that
+  produced both campaigns' data. C++ and Rust load the same exported module
+  file as PyTorch, which asserts it, and `verify_architecture_parity.py`
+  verifies the shapes, so the gap is the startup assertion, not the
+  architecture. The manuscript now says so in S1 (including that this clause
+  is still not fully implemented), the framework-table caption, the execution
+  section, the control-group paragraph, the threats section, and one sentence
+  in the defect catalogue as a surviving instance of the unenforced-clause
+  class.
+- *Loader threads.* S7 allows `DEEPGREEN_LOADER_THREADS` to be raised at 224
+  and requires it recorded per run. It was never raised: all 70 manifests
+  record 2. That keeps the cell's pipeline equal to the campaign's and leaves R
+  short of saturation (18.1 % on ResNet-18), which the manuscript states.
+- *Imagenette class directories renamed to lowercase.* `English springer` and
+  `French horn` sorted differently byte-wise and case-insensitively, which gave
+  two label orders from one directory. All ten are lowercase now, and
+  `check_consistency.py` asserts that the collations agree.
+- *Four analysis fixes in `20_saturation.py`, all before any number was
+  quoted.* (1) The spread is taken on per-run means and the mean over runs, the
+  definition behind `tab_spread`, not on the medians the per-cell table shows.
+  (2) Utilisation is taken over training-block windows on both sides of the
+  contrast, the 32x32 side recomputed from `results/campaign_v2/`; the
+  whole-run figures of `19_gpu_utilisation.py` in the threats section stay on
+  their own definition, and the manuscript says the two are not comparable.
+  (3) The cheapest and dearest stack are named per architecture and phase, as
+  `tab_spread` names them, instead of a winner pooled across models by a
+  geometric mean that no other table uses. (4) A relative
+  `DEEPGREEN_SATURATION_DIR` resolves against the repository root, as
+  `run_all.sh` resolves it, rather than against the working directory.
+- *Packaging.* `scripts/consolidate_raw.py --campaign saturation` writes
+  `results/replication_saturation/`: the four tables, `data_fingerprints`, and
+  three frozen utilisation inputs a clone cannot recover -- run windows and
+  training-block windows (from file mtimes, which git does not keep) and the
+  excerpt of the gitignored 1 Hz GPU record covering them. `run_all.sh` runs
+  `20_saturation.py` from the package when there is no raw tree, and that clone
+  path was shown to reproduce the raw-tree outputs byte for byte.
+
+**Manuscript.** New subsection 6.6 with `tab_saturation` and a findings box;
+S7 in the specification list; a protocol paragraph in Experimental Execution;
+External Validity, the conclusion (now four findings), Future Work, the
+abstract, the introduction, the industrial-scenario caveat, Carbon Footprint
+(68.9 MJ, 19.1 kWh, reported separately) and Data Availability updated. Every
+number from `numbers_saturation.tex`. 36 pages to 39. The highlights are at
+Elsevier's five-bullet limit and were not changed.
+
+---
+
 ## Still open
 
 Everything above this line is done. What is left is either administrative or is
@@ -1208,17 +1308,15 @@ a limitation of the design that no amount of re-running fixes.
 - **CRediT roles, competing-interest declaration, Zenodo deposit, author
   photographs.** Unchanged from before, and all four are submission paperwork
   rather than work on the study.
-- **The accelerator-saturation threat.** At 32x32 the workload does not saturate
-  the card -- mean utilisation runs from 4.7 % (R/torch, ResNet-18) to 79.9 %
-  (Java/DL4J, VGG-16) -- so the campaign compares whole pipelines rather than
-  saturated kernels. This is the one open item that re-execution cannot close,
-  because the workload is the thing at issue. I had been writing that a
-  saturating workload would *compress* the ecosystem spread, on the grounds that
-  the spread is dominated by host-side work; that does not follow and it is out
-  of both documents now. Which way saturation moves the ranking depends on where
-  the spread comes from, and a black-box comparison of this shape cannot
-  establish that. It is Reviewer 1's comments 2 and 15 and it is declared rather
-  than answered.
+- **What the saturation cell does not reach.** Section 28 measured one point:
+  one dataset, one resolution, one batch size, two convolutional networks, one
+  desktop card, two loader workers. Other model families (transformers in
+  particular), a resolution and batch sweep, server-class accelerators and a
+  cuDNN-off bound at 224 remain open, and the manuscript says so.
+- **C++ and 32x32 Rust parameter assertion.** Decided in section 28: not added,
+  because the harness that produced the data did not have it; the manuscript
+  states the gap. A future campaign should add it and extend the S1 check to
+  C++ and Rust.
 - **53 runs with no utilisation coverage.** `scripts/sample_gpu_utilisation.sh`
   was started on 31 August at 13:43 UTC, after the campaign had begun, so the
   1 Hz record covers 157 of 210 runs. `19_gpu_utilisation.py` says which, and no

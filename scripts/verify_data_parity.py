@@ -51,9 +51,21 @@ DATASETS = {
     "fashionmnist": "data/fashion_mnist_png",
     "cifar100": "data/cifar100_png",
     "tinyimagenet": "data/tiny_imagenet_png",
+    #: The accelerator-saturation cell (spec S7): ten ImageNet classes, written
+    #: at 224x224 once by dataloader/download_convert_imagenette.py. It is here
+    #: for the same reason as the other three -- the stacks must be scored on
+    #: the same files, in the same order, with the same class indices -- and the
+    #: class names contain spaces, which is the sort of thing that separates two
+    #: loaders' directory enumeration.
+    "imagenette": "data/imagenette_png",
 }
-#: Tiny ImageNet ships train/ and val/; the other two ship train/ and test/.
+#: Tiny ImageNet ships train/ and val/; the others ship train/ and test/.
 TEST_SPLIT = {"tinyimagenet": "val"}
+#: Input resolution per dataset. Every image is already at this size on disk, so
+#: the probes' resize is a no-op and the number states what the file must be
+#: rather than what the loader should do to it.
+IMG_SIZE = {"imagenette": 224}
+DEFAULT_IMG_SIZE = 32
 SAMPLE = 256          # images summarised from the head of the test split
 
 
@@ -84,7 +96,7 @@ sys.path.insert(0, %(repo)r)
 import numpy as np, torch
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
-t = transforms.Compose([transforms.Resize((32, 32)), transforms.ToTensor()])
+t = transforms.Compose([transforms.Resize((%(img)d, %(img)d)), transforms.ToTensor()])
 ds = ImageFolder(%(path)r, transform=t)
 labels = [int(ds[i][1]) for i in range(min(32, len(ds)))]
 xs = torch.stack([ds[i][0] for i in range(min(%(sample)d, len(ds)))])
@@ -106,7 +118,8 @@ sys.path.insert(0, %(repo)r)
 import numpy as np
 from tools.deepgreen_loader import train_test_loaders
 train, test, n_classes = train_test_loaders(
-    %(root)r, img_size=(32, 32), batch_size=%(sample)d, seed=1000, one_hot=True)
+    %(root)r, img_size=(%(img)d, %(img)d), batch_size=%(sample)d, seed=1000,
+    one_hot=True)
 it = test.as_numpy()
 x, y = next(it)
 labels = [int(v) for v in np.argmax(y[:32], axis=1)]
@@ -153,7 +166,8 @@ def main() -> int:
         entry = {"on disk": disk}
 
         subs = {"repo": str(REPO), "path": str(root / split), "root": str(root),
-                "sample": SAMPLE}
+                "sample": SAMPLE,
+                "img": IMG_SIZE.get(dataset, DEFAULT_IMG_SIZE)}
         got = run_probe(REPO / ".venv-deepgreen" / "bin" / "python",
                         PROBE_TORCH % subs, f"{dataset} torchvision")
         if got:
@@ -164,7 +178,9 @@ def main() -> int:
             entry["shared tf.data loader (TensorFlow, JAX)"] = got
         results[dataset] = entry
 
-        print(f"\n{dataset}  ({split} split)")
+        print(f"\n{dataset}  ({split} split, "
+              f"{IMG_SIZE.get(dataset, DEFAULT_IMG_SIZE)}x"
+              f"{IMG_SIZE.get(dataset, DEFAULT_IMG_SIZE)})")
         print(f"  on disk: {disk['n_files']:,} files, {disk['n_classes']} classes, "
               f"order {disk['file_order_sha256']}")
         for name, fp in entry.items():

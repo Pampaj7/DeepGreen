@@ -33,6 +33,10 @@ data/tiny-imagenet-200*
 # identical records as four gzipped tables under results/replication/, which
 # are committed.
 results/campaign_v2/
+# The accelerator-saturation cell (spec S7), likewise: its records are under
+# results/replication_saturation/ (scripts/consolidate_raw.py --campaign
+# saturation), which is committed.
+results/campaign_saturation/
 # Model checkpoints
 checkpoints/
 **/checkpoints/

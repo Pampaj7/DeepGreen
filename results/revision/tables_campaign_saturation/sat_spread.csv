@@ -1,0 +1,49 @@
+subset,model,phase,reference_dataset,n_ecosystems_224,n_ecosystems_32,spread_224,best_224,worst_224,spread_32,best_32,worst_32,compression_factor,spread_gpu_224,spread_gpu_32,compression_factor_gpu,spread_time_224,spread_time_32,compression_factor_time
+all seven,resnet18,Training,cifar100,7,7,15.2958,Python/JAX,Java/DL4J,9.7088,C++/LibTorch,R/torch,0.6347,15.1032,8.4404,0.5588,18.4155,16.5932,0.901
+all seven,resnet18,Training,fashionmnist,7,7,15.2958,Python/JAX,Java/DL4J,9.7829,C++/LibTorch,R/torch,0.6396,15.1032,9.3809,0.6211,18.4155,16.7739,0.9109
+all seven,resnet18,Training,tinyimagenet,7,7,15.2958,Python/JAX,Java/DL4J,9.2975,C++/LibTorch,R/torch,0.6078,15.1032,8.8875,0.5885,18.4155,16.1893,0.8791
+all seven,resnet18,Inference,cifar100,7,7,24.5492,Python/JAX,Java/DL4J,30.6104,C++/LibTorch,R/torch,1.2469,26.2527,29.8673,1.1377,22.8623,34.7968,1.522
+all seven,resnet18,Inference,fashionmnist,7,7,24.5492,Python/JAX,Java/DL4J,38.7305,C++/LibTorch,R/torch,1.5777,26.2527,37.7335,1.4373,22.8623,44.3344,1.9392
+all seven,resnet18,Inference,tinyimagenet,7,7,24.5492,Python/JAX,Java/DL4J,31.7417,C++/LibTorch,R/torch,1.293,26.2527,30.7877,1.1727,22.8623,36.9376,1.6157
+all seven,vgg16,Training,cifar100,7,7,19.1115,Python/TensorFlow,Java/DL4J,7.3917,Python/TensorFlow,Java/DL4J,0.3868,18.9589,7.6572,0.4039,19.6377,8.2331,0.4193
+all seven,vgg16,Training,fashionmnist,7,7,19.1115,Python/TensorFlow,Java/DL4J,7.3618,Python/TensorFlow,Java/DL4J,0.3852,18.9589,7.6178,0.4018,19.6377,8.296,0.4225
+all seven,vgg16,Training,tinyimagenet,7,7,19.1115,Python/TensorFlow,Java/DL4J,7.3821,Python/JAX,Java/DL4J,0.3863,18.9589,7.6693,0.4045,19.6377,8.4994,0.4328
+all seven,vgg16,Inference,cifar100,7,7,48.8351,Python/TensorFlow,Java/DL4J,23.0935,C++/LibTorch,Java/DL4J,0.4729,46.9529,24.3661,0.5189,60.7123,32.547,0.5361
+all seven,vgg16,Inference,fashionmnist,7,7,48.8351,Python/TensorFlow,Java/DL4J,23.3745,C++/LibTorch,Java/DL4J,0.4786,46.9529,24.4466,0.5207,60.7123,33.4763,0.5514
+all seven,vgg16,Inference,tinyimagenet,7,7,48.8351,Python/TensorFlow,Java/DL4J,23.6716,C++/LibTorch,Java/DL4J,0.4847,46.9529,24.8052,0.5283,60.7123,35.0406,0.5772
+LibTorch family,resnet18,Training,cifar100,4,4,2.811,C++/LibTorch,R/torch,9.7088,C++/LibTorch,R/torch,3.4538,2.432,8.2802,3.4048,5.5251,16.5932,3.0033
+LibTorch family,resnet18,Training,fashionmnist,4,4,2.811,C++/LibTorch,R/torch,9.7829,C++/LibTorch,R/torch,3.4802,2.432,8.3019,3.4137,5.5251,16.7739,3.036
+LibTorch family,resnet18,Training,tinyimagenet,4,4,2.811,C++/LibTorch,R/torch,9.2975,C++/LibTorch,R/torch,3.3075,2.432,7.9157,3.2549,5.5251,16.1893,2.9302
+LibTorch family,resnet18,Inference,cifar100,4,4,4.8572,C++/LibTorch,R/torch,30.6104,C++/LibTorch,R/torch,6.3021,4.3798,29.8673,6.8193,7.4479,34.7968,4.672
+LibTorch family,resnet18,Inference,fashionmnist,4,4,4.8572,C++/LibTorch,R/torch,38.7305,C++/LibTorch,R/torch,7.9738,4.3798,37.7335,8.6153,7.4479,44.3344,5.9526
+LibTorch family,resnet18,Inference,tinyimagenet,4,4,4.8572,C++/LibTorch,R/torch,31.7417,C++/LibTorch,R/torch,6.535,4.3798,30.7877,7.0295,7.4479,36.9376,4.9595
+LibTorch family,vgg16,Training,cifar100,4,4,1.315,C++/LibTorch,R/torch,3.4935,C++/LibTorch,R/torch,2.6567,1.2682,2.9127,2.2967,1.6063,7.0095,4.3638
+LibTorch family,vgg16,Training,fashionmnist,4,4,1.315,C++/LibTorch,R/torch,3.478,C++/LibTorch,R/torch,2.645,1.2682,2.8892,2.2782,1.6063,7.0177,4.369
+LibTorch family,vgg16,Training,tinyimagenet,4,4,1.315,C++/LibTorch,R/torch,3.4913,C++/LibTorch,R/torch,2.655,1.2682,2.9062,2.2916,1.6063,7.1102,4.4266
+LibTorch family,vgg16,Inference,cifar100,4,4,2.565,C++/LibTorch,R/torch,18.8525,C++/LibTorch,R/torch,7.35,2.3448,16.346,6.9712,4.1036,32.547,7.9313
+LibTorch family,vgg16,Inference,fashionmnist,4,4,2.565,C++/LibTorch,R/torch,19.3314,C++/LibTorch,R/torch,7.5367,2.3448,16.6058,7.082,4.1036,33.4763,8.1578
+LibTorch family,vgg16,Inference,tinyimagenet,4,4,2.565,C++/LibTorch,R/torch,19.8829,C++/LibTorch,R/torch,7.7517,2.3448,17.1877,7.3302,4.1036,35.0406,8.539
+shared module,resnet18,Training,cifar100,3,3,1.3616,C++/LibTorch,Rust/tch,1.3176,C++/LibTorch,Rust/tch,0.9677,1.3322,1.3041,0.9789,1.6816,1.5572,0.9261
+shared module,resnet18,Training,fashionmnist,3,3,1.3616,C++/LibTorch,Rust/tch,1.2573,C++/LibTorch,Python/PyTorch,0.9234,1.3322,1.2103,0.9085,1.6816,1.3886,0.8258
+shared module,resnet18,Training,tinyimagenet,3,3,1.3616,C++/LibTorch,Rust/tch,1.604,C++/LibTorch,Rust/tch,1.1781,1.3322,1.5665,1.1759,1.6816,2.0125,1.1968
+shared module,resnet18,Inference,cifar100,3,3,1.2212,C++/LibTorch,Rust/tch,2.5177,C++/LibTorch,Python/PyTorch,2.0617,1.2013,2.4871,2.0704,1.3732,2.6713,1.9453
+shared module,resnet18,Inference,fashionmnist,3,3,1.2212,C++/LibTorch,Rust/tch,2.9808,C++/LibTorch,Python/PyTorch,2.441,1.2013,2.944,2.4508,1.3732,3.1624,2.3029
+shared module,resnet18,Inference,tinyimagenet,3,3,1.2212,C++/LibTorch,Rust/tch,2.4915,C++/LibTorch,Python/PyTorch,2.0403,1.2013,2.4975,2.079,1.3732,2.6783,1.9504
+shared module,vgg16,Training,cifar100,3,3,1.0782,C++/LibTorch,Rust/tch,1.1293,C++/LibTorch,Rust/tch,1.0474,1.0732,1.1187,1.0425,1.1432,1.2746,1.115
+shared module,vgg16,Training,fashionmnist,3,3,1.0782,C++/LibTorch,Rust/tch,1.0665,C++/LibTorch,Rust/tch,0.9892,1.0732,1.0615,0.9891,1.1432,1.1351,0.993
+shared module,vgg16,Training,tinyimagenet,3,3,1.0782,C++/LibTorch,Rust/tch,1.2412,C++/LibTorch,Rust/tch,1.1512,1.0732,1.2185,1.1354,1.1432,1.4886,1.3022
+shared module,vgg16,Inference,cifar100,3,3,1.2585,C++/LibTorch,Rust/tch,2.115,C++/LibTorch,Python/PyTorch,1.6806,1.246,2.0155,1.6176,1.4248,2.6567,1.8646
+shared module,vgg16,Inference,fashionmnist,3,3,1.2585,C++/LibTorch,Rust/tch,2.1544,C++/LibTorch,Python/PyTorch,1.7118,1.246,2.0594,1.6528,1.4248,2.5753,1.8075
+shared module,vgg16,Inference,tinyimagenet,3,3,1.2585,C++/LibTorch,Rust/tch,2.4075,C++/LibTorch,Python/PyTorch,1.9129,1.246,2.3727,1.9043,1.4248,2.6485,1.8589
+all but Java,resnet18,Training,cifar100,6,6,3.5509,Python/JAX,R/torch,9.7088,C++/LibTorch,R/torch,2.7342,3.0664,8.2811,2.7006,6.9077,16.5932,2.4021
+all but Java,resnet18,Training,fashionmnist,6,6,3.5509,Python/JAX,R/torch,9.7829,C++/LibTorch,R/torch,2.755,3.0664,9.2213,3.0072,6.9077,16.7739,2.4283
+all but Java,resnet18,Training,tinyimagenet,6,6,3.5509,Python/JAX,R/torch,9.2975,C++/LibTorch,R/torch,2.6183,3.0664,8.4601,2.759,6.9077,16.1893,2.3437
+all but Java,resnet18,Inference,cifar100,6,6,5.9414,Python/JAX,R/torch,30.6104,C++/LibTorch,R/torch,5.152,5.3327,29.8673,5.6008,10.0146,34.7968,3.4746
+all but Java,resnet18,Inference,fashionmnist,6,6,5.9414,Python/JAX,R/torch,38.7305,C++/LibTorch,R/torch,6.5187,5.3327,37.7335,7.0759,10.0146,44.3344,4.427
+all but Java,resnet18,Inference,tinyimagenet,6,6,5.9414,Python/JAX,R/torch,31.7417,C++/LibTorch,R/torch,5.3424,5.3327,30.7877,5.7734,10.0146,36.9376,3.6884
+all but Java,vgg16,Training,cifar100,6,6,1.9964,Python/TensorFlow,R/torch,4.0468,Python/TensorFlow,R/torch,2.0271,1.9229,3.5012,1.8208,2.3778,8.2331,3.4624
+all but Java,vgg16,Training,fashionmnist,6,6,1.9964,Python/TensorFlow,R/torch,4.0497,Python/TensorFlow,R/torch,2.0285,1.9229,3.4981,1.8192,2.3778,8.296,3.4889
+all but Java,vgg16,Training,tinyimagenet,6,6,1.9964,Python/TensorFlow,R/torch,4.1159,Python/JAX,R/torch,2.0617,1.9229,3.5727,1.858,2.3778,8.4994,3.5744
+all but Java,vgg16,Inference,cifar100,6,6,3.4308,Python/TensorFlow,R/torch,18.8525,C++/LibTorch,R/torch,5.4951,3.0905,16.346,5.2891,5.4357,32.547,5.9876
+all but Java,vgg16,Inference,fashionmnist,6,6,3.4308,Python/TensorFlow,R/torch,19.3314,C++/LibTorch,R/torch,5.6346,3.0905,16.6058,5.3731,5.4357,33.4763,6.1586
+all but Java,vgg16,Inference,tinyimagenet,6,6,3.4308,Python/TensorFlow,R/torch,19.8829,C++/LibTorch,R/torch,5.7954,3.0905,17.1877,5.5614,5.4357,35.0406,6.4464

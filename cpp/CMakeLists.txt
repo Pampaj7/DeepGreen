@@ -376,6 +376,42 @@ add_executable(vgg16_tiny_imported
         src/python/PythonTracker.h
 )
 
+# The accelerator-saturation cell (spec S7): ten ImageNet classes at 224x224,
+# batch 32. Outside the 210-run grid and driven only by
+# `run_campaign.py --datasets imagenette`, which resolves these two names.
+add_executable(resnet18_imagenette_imported
+        src/train/imported/resnet18/train_imagenette.cpp
+        src/train/imported/resnet18/train_resnet18.h
+        src/train/imported/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/Imagenette.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
+)
+add_executable(vgg16_imagenette_imported
+        src/train/imported/vgg16/train_imagenette.cpp
+        src/train/imported/vgg16/train_vgg16.h
+        src/train/imported/train_model.h
+        src/dataset/ImageFolder.h
+        src/dataset/Imagenette.h
+        src/cnn_function.h
+        src/cnn_setup.cpp
+        src/cnn_setup.h
+        src/dataset_transforms.cpp
+        src/dataset_transforms.h
+        src/utils.cpp
+        src/utils.h
+        src/python/PythonTracker.cpp
+        src/python/PythonTracker.h
+)
+
 add_executable(training_rest src/time_to_sleep.cpp)
 
 set(TARGETS
@@ -391,6 +427,8 @@ set(TARGETS
         vgg16_fashion_imported
         vgg16_cifar100_imported
         vgg16_tiny_imported
+        resnet18_imagenette_imported
+        vgg16_imagenette_imported
 )
 
 foreach (target ${TARGETS})
@@ -500,18 +538,26 @@ set(CIFAR100_NUM_CLASSES 100)
 add_compile_definitions(CIFAR100_NUM_CLASSES="${CIFAR100_NUM_CLASSES}")
 set(TINY_IMAGENET200_NUM_CLASSES 200)
 add_compile_definitions(TINY_IMAGENET200_NUM_CLASSES="${TINY_IMAGENET200_NUM_CLASSES}")
+# The saturation cell: ten ImageNet classes, so the modules are the same size as
+# the Fashion-MNIST ones (11,181,642 and 14,982,474 parameters).
+set(IMAGENETTE_NUM_CLASSES 10)
+add_compile_definitions(IMAGENETTE_NUM_CLASSES="${IMAGENETTE_NUM_CLASSES}")
+
+set(IMAGENETTE_NAME "Imagenette")
 
 # ResNet-18
 set(RESNET18_NAME "ResNet-18")
 export_model_for_dataset(${RESNET18_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
 export_model_for_dataset(${RESNET18_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
 export_model_for_dataset(${RESNET18_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+export_model_for_dataset(${RESNET18_NAME} ${IMAGENETTE_NAME} ${IMAGENETTE_NUM_CLASSES})
 
 # VGG-16
 set(VGG16_NAME "VGG-16")
 export_model_for_dataset(${VGG16_NAME} ${FASHION_MNIST_NAME} ${FASHION_MNIST_NUM_CLASSES})
 export_model_for_dataset(${VGG16_NAME} ${CIFAR100_NAME} ${CIFAR100_NUM_CLASSES})
 export_model_for_dataset(${VGG16_NAME} ${TINY_IMAGENET200_NAME} ${TINY_IMAGENET200_NUM_CLASSES})
+export_model_for_dataset(${VGG16_NAME} ${IMAGENETTE_NAME} ${IMAGENETTE_NUM_CLASSES})
 
 
 add_custom_target(run_all

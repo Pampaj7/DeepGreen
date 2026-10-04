@@ -9,7 +9,7 @@
       "num_classes": 10,
       "parameters": 11181642,
       "weights_sha256": "dd9c10f34ac7e7d10a2c2afdc505d707e652b55e9f975534363a88574f956fcf",
-      "file_sha256": "5e6a311636f0bb1c6709b47cb92dbfc6667a59aeb7e5aa16e64cf821b01dde4c"
+      "file_sha256": "5f4d2bf2ba2cbb1b03d4320addd681a13ce99ceda9a371d2177077a92bef6a17"
     },
     "resnet18_cifar100.pt": {
       "architecture": "resnet18",
@@ -17,7 +17,7 @@
       "num_classes": 100,
       "parameters": 11227812,
       "weights_sha256": "516c682da6eef5a7ce305ef683d118d9ade29e9989f5e4f9cb0e2354fb2fbf70",
-      "file_sha256": "72614aaaeb909438c41234da4c0db7df0c527c8e849d33377969e7b86990ed21"
+      "file_sha256": "80816f28adc223824ef4c2c55010911ae9fb913439e5be25e47987cec5f2f6c0"
     },
     "resnet18_tinyimagenet200.pt": {
       "architecture": "resnet18",
@@ -25,7 +25,15 @@
       "num_classes": 200,
       "parameters": 11279112,
       "weights_sha256": "b09e9a87d980eb7db015b8e512ce21cf87075b721d00b2fd109cc36ccf0a94e8",
-      "file_sha256": "34caeebef34e39603fa5c8973fe27195808348daa9229f18b700f57f3b9f576b"
+      "file_sha256": "abcebb04af2e3f3dd95b444bc1eaa0b5ca98ae0c3e8c0dbc78ebf89db039f0a7"
+    },
+    "resnet18_imagenette.pt": {
+      "architecture": "resnet18",
+      "dataset": "imagenette",
+      "num_classes": 10,
+      "parameters": 11181642,
+      "weights_sha256": "dd9c10f34ac7e7d10a2c2afdc505d707e652b55e9f975534363a88574f956fcf",
+      "file_sha256": "e40a56546750169367314610751c2006cf4027c0858f5b07634d67271cdb6605"
     },
     "vgg16_fashionmnist.pt": {
       "architecture": "vgg16",
@@ -33,7 +41,7 @@
       "num_classes": 10,
       "parameters": 14982474,
       "weights_sha256": "d43ed6ba03d3321242ea67757b678003ec4a739f33261d9fd6dcdf11baa5da71",
-      "file_sha256": "3321661f5f0695b2272778bcb665c0a92e1d5bd84c74347bfc321749ab16b3aa"
+      "file_sha256": "74b8cea2c23b288190d7ccca6c6ff7a0d4b4d14c2550c50f71346c297454e2a1"
     },
     "vgg16_cifar100.pt": {
       "architecture": "vgg16",
@@ -41,7 +49,7 @@
       "num_classes": 100,
       "parameters": 15028644,
       "weights_sha256": "93211c5395978097347f80a254e8e3a481edf69b6ff228d0f1e4f9b17c1665c9",
-      "file_sha256": "e75481107ff5e0fd159ac030d1364942da400b561ad5f31ea231929882f96c6e"
+      "file_sha256": "a3cebb8596358a36ed4de13643641575021e5cef04a860e156778468dcaa0afe"
     },
     "vgg16_tinyimagenet200.pt": {
       "architecture": "vgg16",
@@ -49,7 +57,15 @@
       "num_classes": 200,
       "parameters": 15079944,
       "weights_sha256": "99d3aa77556de7b3f01919d6952dc7cdd47a67d07c4128facb8a0b0313548330",
-      "file_sha256": "efe309cf1c8d2b8993842660137eb6a86df50878dd149480436e67d612f4ac50"
+      "file_sha256": "e44fe0cb56739841b1b71322c405ff1424dc36dc0aa55d2ddebbbc70da520b29"
+    },
+    "vgg16_imagenette.pt": {
+      "architecture": "vgg16",
+      "dataset": "imagenette",
+      "num_classes": 10,
+      "parameters": 14982474,
+      "weights_sha256": "d43ed6ba03d3321242ea67757b678003ec4a739f33261d9fd6dcdf11baa5da71",
+      "file_sha256": "562752aced19a4d0d36ae5e6d45fb281921593eca17699fab9251978cb1c3dd8"
     }
   },
   "note": "Parameter counts are the contract every stack asserts against at startup, including the four that cannot load TorchScript. A module written by a newer torch will not load into an older LibTorch; scripts/check_consistency.py compares torch_version against the tch crate and the LibTorch the C++ build fetches (spec S4)."

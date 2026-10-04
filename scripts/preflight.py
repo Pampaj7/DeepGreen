@@ -10,6 +10,13 @@ machine state from the rest.
 
     source scripts/campaign_env.sh
     python3 scripts/preflight.py --repetitions 5
+
+The accelerator-saturation cell (spec S7) is a separate campaign and is
+preflighted the same way the driver runs it -- by naming it, with a campaign
+directory of its own:
+
+    DEEPGREEN_CAMPAIGN_DIR=results/campaign_saturation \
+        python3 scripts/preflight.py --datasets imagenette
 """
 
 from __future__ import annotations
@@ -39,6 +46,9 @@ def check(ok: bool, label: str, detail: str = "", warn_only: bool = False) -> No
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repetitions", type=int, default=5)
+    ap.add_argument("--datasets", nargs="*",
+                    help="preflight this grid instead of the default three; "
+                         "pass 'imagenette' for the accelerator-saturation cell")
     args = ap.parse_args()
 
     print("=" * 78)
@@ -48,13 +58,21 @@ def main() -> int:
     # --- the shared artefacts every stack depends on ---------------------
     print("\nshared artefacts")
     data = Path(os.environ.get("DEEPGREEN_DATA", REPO / "data"))
-    for ds in ("cifar100_png", "fashion_mnist_png", "tiny_imagenet_png"):
+    # imagenette_png is the saturation cell: ten ImageNet classes at 224x224,
+    # written once by dataloader/download_convert_imagenette.py. It is listed
+    # here whichever grid is being preflighted, because a missing conversion is
+    # worth knowing about before the cell is scheduled rather than at job 1.
+    for ds, want in (("cifar100_png", 32), ("fashion_mnist_png", 32),
+                     ("tiny_imagenet_png", 32), ("imagenette_png", 224)):
         d = data / ds
         n = sum(1 for _ in d.rglob("*.png")) if d.is_dir() else 0
-        check(n > 0, f"dataset {ds}", f"{n} images")
+        check(n > 0, f"dataset {ds}", f"{n} images at {want}x{want}")
     models = Path(os.environ.get("DEEPGREEN_MODELS", REPO / "models"))
     n_pt = len(list(models.glob("*.pt"))) if models.is_dir() else 0
-    check(n_pt == 6, "shared TorchScript modules", f"{n_pt}/6")
+    # Eight: two architectures x four datasets. The saturation cell's two --
+    # resnet18_imagenette.pt and vgg16_imagenette.pt -- are ten-class modules
+    # like the Fashion-MNIST pair and carry the same parameter counts.
+    check(n_pt == 8, "shared TorchScript modules", f"{n_pt}/8")
     py = Path(os.environ.get("DEEPGREEN_PYTHON", ""))
     check(py.exists(), "measurement interpreter", str(py))
 
@@ -76,8 +94,22 @@ def main() -> int:
     print("\njobs")
     plan_cmd = [sys.executable, "scripts/run_campaign.py",
                 "--repetitions", str(args.repetitions), "--print-plan"]
-    subprocess.run(plan_cmd, cwd=REPO, capture_output=True)
-    plan = json.loads((REPO / "results" / "campaign_v2" / "plan.json").read_text())
+    if args.datasets:
+        plan_cmd += ["--datasets", *args.datasets]
+    done = subprocess.run(plan_cmd, cwd=REPO, capture_output=True, text=True)
+    # The plan lands wherever the driver writes runs, so preflighting the
+    # saturation cell reads that cell's plan and not campaign_v2's.
+    campaign = Path(os.environ.get("DEEPGREEN_CAMPAIGN_DIR",
+                                   REPO / "results" / "campaign_v2"))
+    plan_path = campaign / "plan.json"
+    if done.returncode or not plan_path.exists():
+        check(False, "campaign plan", (done.stderr.strip().splitlines() or
+                                       [f"{plan_path} not written"])[0])
+        print("\n" + "-" * 78)
+        print(f"  no plan to preflight, {len(FAIL)} blocking")
+        print("-" * 78)
+        return 1
+    plan = json.loads(plan_path.read_text())
 
     seen: set[str] = set()
     for job in plan:

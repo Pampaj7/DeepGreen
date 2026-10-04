@@ -80,6 +80,7 @@ def folder_loader(
     num_workers: int = DEFAULT_NUM_WORKERS,
     class_names: list[str] | None = None,
     one_hot: bool = True,
+    skip_resize: bool = False,
 ) -> FolderLoader:
     import tensorflow as tf
 
@@ -116,15 +117,28 @@ def folder_loader(
     def _load(path, label):
         raw = tf.io.read_file(path)
         img = tf.io.decode_image(raw, channels=3, expand_animations=False)
-        # antialias=True, because tf.image.resize defaults to False and
-        # torchvision's Resize is antialiased unconditionally -- PIL applies it
-        # whatever the argument says. Invisible on Fashion-MNIST and CIFAR-100,
-        # which are not downsampled, and a 3.8% difference in the standard
-        # deviation of the pixels on Tiny ImageNet, which is 64x64 halved to
-        # 32x32. With it, this loader matches torchvision to five decimals:
-        # sd 0.218092 against 0.218089, from 0.226404.
-        img = tf.image.resize(img, [height, width], antialias=True)
-        img = tf.cast(img, tf.float32) / 255.0        # [0,1], no mean/std
+        if skip_resize:
+            # imagenette's PNGs are already img_size on disk (resized once,
+            # offline, by dataloader/download_convert_imagenette.py), so
+            # calling tf.image.resize here would be a same-size resample at
+            # best and a spec S3 violation ("no stack resizes anything at run
+            # time") in spirit at worst -- the same reasoning the R and C++
+            # imagenette paths use (skip_resize / resizeInLoader=false).
+            # set_shape below still declares the contract: if a file were not
+            # actually img_size, batching across images of different actual
+            # shapes raises at run time rather than silently resampling.
+            img = tf.cast(img, tf.float32)
+        else:
+            # antialias=True, because tf.image.resize defaults to False and
+            # torchvision's Resize is antialiased unconditionally -- PIL applies it
+            # whatever the argument says. Invisible on Fashion-MNIST and CIFAR-100,
+            # which are not downsampled, and a 3.8% difference in the standard
+            # deviation of the pixels on Tiny ImageNet, which is 64x64 halved to
+            # 32x32. With it, this loader matches torchvision to five decimals:
+            # sd 0.218092 against 0.218089, from 0.226404.
+            img = tf.image.resize(img, [height, width], antialias=True)
+            img = tf.cast(img, tf.float32)
+        img = img / 255.0        # [0,1], no mean/std
         img.set_shape([height, width, 3])
         y = tf.one_hot(label, n_classes) if one_hot else label
         return img, y
@@ -169,6 +183,7 @@ def train_test_loaders(
     seed: int | None = None,
     num_workers: int = DEFAULT_NUM_WORKERS,
     one_hot: bool = True,
+    skip_resize: bool = False,
 ) -> tuple[FolderLoader, FolderLoader, int]:
     """Train and test loaders sharing one class order."""
     dataset_path = Path(dataset_path)
@@ -178,9 +193,9 @@ def train_test_loaders(
     names = _class_names(train_dir)
     train = folder_loader(train_dir, img_size, batch_size, shuffle=True,
                           seed=seed, num_workers=num_workers,
-                          class_names=names, one_hot=one_hot)
+                          class_names=names, one_hot=one_hot, skip_resize=skip_resize)
     test = folder_loader(test_dir, img_size, batch_size, shuffle=False,
-                         seed=seed, num_workers=num_workers,
+                         seed=seed, num_workers=num_workers, skip_resize=skip_resize,
                          class_names=names, one_hot=one_hot)
     return train, test, len(names)
 

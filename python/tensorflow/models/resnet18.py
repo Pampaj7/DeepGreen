@@ -16,7 +16,7 @@ import tensorflow as tf
 import numpy as np
 
 # ---------------- DATA ----------------
-def get_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None):
+def get_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None, skip_resize=False):
     """Delegate to the shared tf.data pipeline (spec S3).
 
     The first campaign used ImageDataGenerator.flow_from_directory, which decodes
@@ -26,9 +26,16 @@ def get_loaders(dataset_path, img_size=(32, 32), batch_size=128, seed=None):
     (Spearman -0.73 against epoch duration, with the GPU at 24-56% of its power
     limit). tools/deepgreen_loader.py makes the thread count an explicit,
     identical number and applies the same preprocessing as every other stack.
+
+    ``skip_resize`` is set for imagenette, whose PNGs are already img_size on
+    disk (resized once, offline): calling tf.image.resize on top of that would
+    be a same-size resample at best and a spec S3 violation ("no stack
+    resizes anything at run time") in spirit at worst, the same reasoning the
+    R and C++ imagenette paths use.
     """
     train, test, num_classes = train_test_loaders(
-        dataset_path, img_size=img_size, batch_size=batch_size, seed=seed, one_hot=True)
+        dataset_path, img_size=img_size, batch_size=batch_size, seed=seed,
+        one_hot=True, skip_resize=skip_resize)
     return train, test, num_classes
 
 
@@ -167,7 +174,9 @@ def run_experiment(dataset_path, output_file_train, output_file_eval, checkpoint
     with Harness(ctx) as bench:
         bench.set_seeds()
 
-        train_loader, test_loader, num_classes = get_loaders(dataset_path, img_size, batch_size, ctx.seed)
+        train_loader, test_loader, num_classes = get_loaders(
+            dataset_path, img_size, batch_size, ctx.seed,
+            skip_resize=(ctx.dataset == "imagenette"))
         model = build_resnet18_garden(input_shape=img_size + (3,), num_classes=num_classes)
         # Keras defaults to glorot_uniform; the other six stacks use
         # torchvision's kaiming_normal_(fan_out) for convolutions. One epoch

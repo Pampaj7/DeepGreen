@@ -16,6 +16,13 @@ what the campaign was restored from.
 
   python3 scripts/restore_from_replication.py --runs <slug> [<slug> ...]
   python3 scripts/restore_from_replication.py --all --dry-run
+  python3 scripts/restore_from_replication.py --campaign saturation --check-roundtrip
+
+``--campaign saturation`` reads ``results/replication_saturation/`` and restores
+into ``results/campaign_saturation/``; the default, ``v2``, is unchanged. File
+mtimes are not restored -- they are not in the package -- which is why the
+utilisation windows derived from them are frozen there separately (see
+consolidate_raw.py).
 
 Existing directories are refused unless --force is given, so restoring cannot
 itself become the thing it repairs.
@@ -32,8 +39,18 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = REPO_ROOT / "results" / "replication"
-CAMPAIGN = REPO_ROOT / "results" / "campaign_v2"
+#: name -> (package, raw tree), as in consolidate_raw.CAMPAIGNS.
+CAMPAIGNS = {
+    "v2": (REPO_ROOT / "results" / "replication",
+           REPO_ROOT / "results" / "campaign_v2"),
+    "saturation": (REPO_ROOT / "results" / "replication_saturation",
+                   REPO_ROOT / "results" / "campaign_saturation"),
+}
+PACKAGE, CAMPAIGN = CAMPAIGNS["v2"]
+
+#: Every per-run table a package may hold. The last was added to both
+#: packages after the first four; an older package without it still restores.
+TABLES = ("counters", "codecarbon", "metrics", "manifests", "data_fingerprints")
 
 # Columns consolidate_raw.py added; everything else is the original file.
 IDENTITY = ["run", "ecosystem", "model", "dataset", "repetition"]
@@ -77,6 +94,16 @@ def restore(run: str, tables: dict[str, pd.DataFrame], force: bool,
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
+
+    if "data_fingerprints" in tables:
+        fp = tables["data_fingerprints"]
+        fp = fp[fp.run == run]
+        if not fp.empty:
+            cols = str(fp.iloc[0].get("file_columns") or "").split(",")
+            frame = _restore_order(fp.drop(columns=["run", "file_columns"],
+                                           errors="ignore"))
+            frame[[c for c in cols if c in frame.columns] or list(frame.columns)
+                  ].to_csv(out / "data_fingerprint.csv", index=False)
 
     _restore_order(counters.drop(columns=IDENTITY, errors="ignore")).to_csv(
         out / "counters.csv", index=False)
@@ -172,6 +199,18 @@ def check_roundtrip(tables: dict[str, pd.DataFrame]) -> int:
     return 0 if differ == 0 and missing == 0 else 1
 
 
+def load_tables(package: Path) -> dict[str, pd.DataFrame]:
+    """The package's per-run tables, as text.
+
+    Text throughout, as the package stores it. Parsing to float and writing
+    back is not the identity: it moves a reading by one unit in the last place
+    and turns "0" into "0.0".
+    """
+    return {name: pd.read_csv(package / f"{name}.csv.gz", dtype=str,
+                              keep_default_na=False)
+            for name in TABLES if (package / f"{name}.csv.gz").exists()}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", nargs="*", default=[])
@@ -183,17 +222,16 @@ def main() -> int:
                     help="restore here instead of results/campaign_v2, so a "
                          "round trip can be checked without overwriting the "
                          "campaign -- the failure this script exists to repair")
+    ap.add_argument("--campaign", choices=sorted(CAMPAIGNS), default="v2",
+                    help="which package to restore (default: v2)")
     ap.add_argument("--check-roundtrip", action="store_true",
                     help="restore to a temporary directory and diff against "
                          "the raw tree, file by file")
     args = ap.parse_args()
 
-    # Text throughout, as the package stores it. Parsing to float and writing
-    # back is not the identity: it moves a reading by one unit in the last place
-    # and turns "0" into "0.0".
-    tables = {name: pd.read_csv(PACKAGE / f"{name}.csv.gz", dtype=str,
-                                keep_default_na=False)
-              for name in ("counters", "codecarbon", "metrics", "manifests")}
+    global PACKAGE, CAMPAIGN
+    PACKAGE, CAMPAIGN = CAMPAIGNS[args.campaign]
+    tables = load_tables(PACKAGE)
     if args.check_roundtrip:
         return check_roundtrip(tables)
 

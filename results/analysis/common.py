@@ -27,6 +27,7 @@ Nothing downstream may use ``energy_consumed`` directly.
 from __future__ import annotations
 
 import functools
+import json
 import os
 import warnings
 from pathlib import Path
@@ -73,7 +74,35 @@ PHASES = ("train", "eval")
 
 #: Runs a complete campaign produces: 7 ecosystems x 2 models x 3 datasets x 5.
 EXPECTED_RUNS = int(os.environ.get("DEEPGREEN_EXPECTED_RUNS", "210"))
-CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
+
+#: The campaign the manuscript is about. Every default in this module is this one.
+DEFAULT_CAMPAIGN_DIR = REPO_ROOT / "results" / "campaign_v2"
+
+#: The campaign this process is reading.
+#
+# The same variable the driver writes to, so an analysis of a campaign that is
+# not campaign_v2 -- the accelerator-saturation cell of spec S7, 70 runs at
+# 224x224 in results/campaign_saturation -- is addressed the same way the runs
+# themselves were:
+#
+#     DEEPGREEN_CAMPAIGN_DIR=results/campaign_saturation \
+#     DEEPGREEN_EXPECTED_RUNS=70 python3 results/analysis/<script>.py
+#
+# or, without touching the environment, by passing ``root=`` to
+# :func:`read_campaign_metrics`, which is what a script reading both campaigns
+# in one process must do.
+#
+# The pairing is the dangerous part and is handled in :func:`tables_dir`: the
+# write diversion keys on completeness, so DEEPGREEN_EXPECTED_RUNS=70 against a
+# 210-run campaign_v2 reads "complete" and sends output to the directory the
+# manuscript compiles from. Pointing this variable elsewhere therefore diverts
+# unconditionally, whatever the counts say.
+CAMPAIGN_DIR = Path(os.environ.get("DEEPGREEN_CAMPAIGN_DIR", DEFAULT_CAMPAIGN_DIR))
+
+
+def reading_default_campaign() -> bool:
+    """True when this process is reading the campaign the manuscript is about."""
+    return CAMPAIGN_DIR.resolve() == DEFAULT_CAMPAIGN_DIR.resolve()
 
 
 @functools.lru_cache(maxsize=1)
@@ -100,10 +129,24 @@ class _TableDir:
     from the first campaign, which does not change -- resolves to the committed
     directory as before. One partial pipeline therefore reads its own fresh
     output and the stable inputs, and writes over neither.
+
+    **The fallback does not apply to another campaign.** It exists so a partial
+    run of *this* campaign can read the parts of this campaign that do not
+    change. A run pointed at the accelerator-saturation cell is measuring a
+    different experiment -- 70 runs, another resolution, another batch size --
+    and a table name it has not produced must not silently resolve to the
+    210-run campaign's committed answer for that name. Diverting the writes and
+    not the reads produced exactly that: a saturation script asking for
+    ``v2_between_run_statistics.csv`` was handed the frozen campaign's file,
+    and nothing in its output said so. Off the default campaign the resolution
+    is unconditional, so a missing input is a missing file rather than the
+    wrong campaign's number.
     """
 
     def __truediv__(self, name) -> Path:
         candidate = tables_dir() / name
+        if not reading_default_campaign():
+            return candidate
         return candidate if candidate.exists() else TABLE_DIR / name
 
     def __fspath__(self) -> str:
@@ -130,6 +173,8 @@ def tables_dir() -> Path:
     and the committed directory is untouched.
     """
     real = TABLE_DIR
+    if not reading_default_campaign():
+        return real.with_name(f"{real.name}_{CAMPAIGN_DIR.name}")
     return real if not campaign_is_partial() else real.with_name(real.name + "_partial")
 
 
@@ -143,6 +188,8 @@ def figures_dir() -> Path:
     committed figures with whatever was on disk at the time.
     """
     real = FIG_DIR
+    if not reading_default_campaign():
+        return real.with_name(f"{real.name}_{CAMPAIGN_DIR.name}")
     return real if not campaign_is_partial() else real.with_name(real.name + "_partial")
 
 
@@ -220,6 +267,12 @@ TABLES_RESOLVER = _TableDir()
 def announce_scope(script: str) -> None:
     """Print, once, what this run is reading and where it may write."""
     done, want = campaign_status()
+    if not reading_default_campaign():
+        print(f"[{script}] reading {CAMPAIGN_DIR} -- NOT the campaign the "
+              f"manuscript is about.")
+        print(f"[{script}] {done} of {want} runs complete; writing to "
+              f"{tables_dir().name}/ and {figures_dir().name}/.")
+        return
     if done < want:
         print(f"[{script}] campaign is PARTIAL: {done} of {want} runs complete.")
         print(f"[{script}] writing to {tables_dir().relative_to(REPO_ROOT)}/ "
@@ -305,9 +358,310 @@ def read_campaign_metrics(complete_only: bool = True,
     return pd.concat(frames, ignore_index=True)
 
 
+def campaign_energy(block_energy_j) -> tuple[str, str]:
+    """``(MJ, kWh)`` for a campaign's total measured energy, as macro text.
+
+    The definition behind ``\\vCampaignEnergyMJ``/``\\vCampaignEnergyKWh``
+    (12_paper_numbers.design_facts) and ``\\vSatCampaignEnergy*``
+    (20_saturation): the counter energy -- NVML GPU plus RAPL CPU package,
+    ``counters.csv`` ``hw_total_j`` -- summed over every measured block of
+    every complete run, both phases. One copy, so the two campaigns' totals
+    cannot drift apart in definition.
+    """
+    total_j = float(np.sum(np.asarray(block_energy_j, dtype=float)))
+    return num(total_j / 1e6, 1), num(total_j / 3.6e6, 1)
+
+
+# --------------------------------------------------------------------------
+# Measurement windows and the 1 Hz utilisation record, frozen for a clone
+# --------------------------------------------------------------------------
+# Two inputs to the utilisation analysis cannot be recovered from a clone:
+#
+#   * the run and block windows, which come from file mtimes (manifest-to-
+#     counters.csv for a whole run; each emissions_*.csv for a block), and git
+#     does not preserve mtimes -- nor does restore_from_replication.py;
+#   * results/gpu_utilisation.csv, the 1 Hz nvidia-smi record, which is
+#     gitignored (about 100 MB).
+#
+# So scripts/consolidate_raw.py freezes both into each campaign's replication
+# package -- the windows exactly as derive_windows() computes them, and the
+# record restricted to the samples inside those windows -- and the readers
+# below use the raw inputs when they are trustworthy, the package when they
+# are not, and refuse when the two disagree.
+
+#: The full 1 Hz record. ``DEEPGREEN_GPU_RECORD`` points elsewhere (a missing
+#: path forces the packaged excerpt; that is how the fallback is tested).
+GPU_RECORD = Path(os.environ.get("DEEPGREEN_GPU_RECORD")
+                  or REPO_ROOT / "results" / "gpu_utilisation.csv")
+
+#: Campaign directory name -> its replication package.
+REPLICATION_PACKAGES = {
+    "campaign_v2": REPO_ROOT / "results" / "replication",
+    "campaign_saturation": REPO_ROOT / "results" / "replication_saturation",
+}
+RUN_WINDOWS_FILE = "run_windows.csv.gz"
+TRAINING_WINDOWS_FILE = "training_windows.csv.gz"
+GPU_EXCERPT_FILE = "gpu_utilisation_excerpt.csv.gz"
+
+WINDOW_IDENTITY = ["run", "ecosystem", "model", "dataset", "repetition"]
+RUN_WINDOW_COLUMNS = WINDOW_IDENTITY + ["start_unix", "end_unix"]
+TRAINING_WINDOW_COLUMNS = WINDOW_IDENTITY + ["epoch", "start_unix", "end_unix"]
+
+#: Samples kept either side of every window in the excerpt. The analyses
+#: select inside the windows themselves; the margin only makes the excerpt
+#: robust to the boundary comparison.
+EXCERPT_MARGIN_S = 2.0
+
+
+def replication_package(campaign_dir: Path) -> Path | None:
+    """The package a campaign directory is flattened into, by its name."""
+    return REPLICATION_PACKAGES.get(Path(campaign_dir).name)
+
+
+def _block_intervals(run_dir: Path, hw: pd.DataFrame) -> pd.DataFrame | None:
+    """Every block's counter-bracketed interval, or None if mtimes are unreliable.
+
+    The harness (tools/deepgreen_bench.py, tools/deepgreen_tracker.py) calls
+    ``EmissionsTracker.start()``, snapshots the counters, runs the phase,
+    snapshots the counters, then calls ``stop()``, which computes CodeCarbon's
+    ``duration`` (from its own start) after its network look-ups and then
+    writes ``emissions_<phase>_epoch<N>.csv`` (scripts/probe_reported_window.py,
+    11_instrument_comparison). So the tracker start is that file's mtime minus
+    its ``duration``, and the counter window opens there (start()'s own work
+    after it sets its clock is a final power reading, milliseconds) and lasts
+    ``counters.csv`` ``duration_s``.
+
+    Checked before use: CodeCarbon's ``timestamp`` column (local wall time,
+    truncated to the second) must agree with the mtime to within that
+    truncation once the run's UTC offset is removed -- which fails for files
+    copied or restored without their mtimes -- and no block may open before
+    the previous one's file was written.
+    """
+    blocks = []
+    for _, c in hw.iterrows():
+        path = run_dir / f"emissions_{c.phase}_epoch{int(c.epoch)}.csv"
+        try:
+            e = pd.read_csv(path)
+        except (OSError, pd.errors.EmptyDataError):
+            return None
+        if e.empty:
+            return None
+        last = e.iloc[-1]
+        written = path.stat().st_mtime
+        start = written - float(last["duration"])
+        blocks.append({
+            "phase": c.phase, "epoch": int(c.epoch),
+            "start": start, "end": start + float(c.duration_s),
+            "written": written,
+            # naive local time, read as if UTC: the offset is removed below
+            "stamp": pd.Timestamp(str(last["timestamp"])).timestamp(),
+        })
+    if not blocks:
+        return None
+    b = pd.DataFrame(blocks).sort_values("start").reset_index(drop=True)
+    offset = round(float((b.stamp - b.written).median()) / 900.0) * 900.0
+    residual = b.stamp - offset - b.written
+    ordered = (b.start.to_numpy()[1:] >= b.written.to_numpy()[:-1] - 0.05).all()
+    if not (residual.between(-1.5, 0.05).all() and ordered):
+        return None
+    return b
+
+
+def derive_windows(campaign_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame,
+                                                list[str], int]:
+    """``(run windows, training windows, rejected runs, complete runs)`` from raw.
+
+    Run window: [manifest ``machine_state.utc``, ``counters.csv`` mtime] --
+    the harness writes the manifest as it opens the run and appends to
+    counters.csv for the run's life (19_gpu_utilisation's definition).
+    Training windows: the counter-bracketed interval of every training block
+    (:func:`_block_intervals`). Both in unix seconds. A complete run whose
+    mtimes fail the checks in :func:`_block_intervals`, or whose counters.csv
+    mtime is not the moment its last block closed, is *rejected*: named, and
+    given no window at all rather than a wrong one.
+    """
+    campaign_dir = Path(campaign_dir)
+    identity = (read_campaign_metrics(root=campaign_dir)
+                .groupby("run")[WINDOW_IDENTITY[1:]].first())
+    runs, train, rejected, complete = [], [], [], 0
+    for run_dir in sorted(p for p in campaign_dir.glob("*") if p.is_dir()):
+        hw = read_complete_counters(run_dir)[0]
+        if hw is None:
+            continue
+        complete += 1
+        counters = run_dir / "counters.csv"
+        try:
+            utc = (json.loads((run_dir / "manifest.json").read_text())
+                   .get("machine_state") or {}).get("utc")
+        except (OSError, ValueError):
+            utc = None
+        b = _block_intervals(run_dir, hw)
+        end = counters.stat().st_mtime
+        if (not utc or b is None
+                or not -0.05 <= end - float(b.written.max()) <= 2.0):
+            rejected.append(run_dir.name)
+            continue
+        meta = identity.loc[run_dir.name] if run_dir.name in identity.index else {}
+        ident = {"run": run_dir.name, **{k: meta.get(k) for k in WINDOW_IDENTITY[1:]}}
+        runs.append({**ident,
+                     "start_unix": pd.Timestamp(utc).tz_convert("UTC").timestamp(),
+                     "end_unix": end})
+        train += [{**ident, "epoch": int(r.epoch),
+                   "start_unix": float(r.start), "end_unix": float(r.end)}
+                  for r in b[b.phase == "train"].itertuples()]
+    return (pd.DataFrame(runs, columns=RUN_WINDOW_COLUMNS),
+            pd.DataFrame(train, columns=TRAINING_WINDOW_COLUMNS),
+            rejected, complete)
+
+
+def _read_frozen(path: Path, columns: list[str]) -> pd.DataFrame | None:
+    if not path.exists():
+        return None
+    # round_trip: the frozen floats are the derived ones, to the last bit.
+    return pd.read_csv(path, float_precision="round_trip")[columns]
+
+
+def _agree(derived: pd.DataFrame, frozen: pd.DataFrame, keys: list[str],
+           what: str) -> None:
+    """Every window derived from raw must be the packaged one, exactly."""
+    missing = sorted(set(derived.run) - set(frozen.run))
+    if missing:
+        raise SystemExit(
+            f"the packaged {what} lack run(s) the raw tree derives: "
+            f"{', '.join(missing[:5])}; the package is stale -- rerun "
+            "scripts/consolidate_raw.py on the measurement host.")
+    m = derived.merge(frozen, on=keys, how="left", suffixes=("", "_frozen"),
+                      indicator=True)
+    bad = m[(m._merge != "both")
+            | ((m.start_unix - m.start_unix_frozen).abs() > 1e-6)
+            | ((m.end_unix - m.end_unix_frozen).abs() > 1e-6)]
+    if len(bad) or len(m) != len(frozen[frozen.run.isin(derived.run)]):
+        raise SystemExit(
+            f"the raw tree and the packaged {what} disagree "
+            f"({len(bad)} row(s), e.g. {', '.join(bad.run.astype(str).unique()[:3])}); "
+            "the package is stale or the raw tree has been altered.")
+
+
+def utilisation_windows(campaign_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame,
+                                                     list[str], int, str]:
+    """``(run windows, training windows, rejected, complete, source)``.
+
+    From the raw tree where its mtimes are trustworthy, checked against the
+    campaign's packaged windows when the package carries them; from the
+    package for every run the raw tree cannot vouch for -- a tree restored
+    from the package, or no tree at all. ``source`` says which.
+    """
+    package = replication_package(campaign_dir)
+    frozen_run = (_read_frozen(package / RUN_WINDOWS_FILE, RUN_WINDOW_COLUMNS)
+                  if package else None)
+    frozen_train = (_read_frozen(package / TRAINING_WINDOWS_FILE,
+                                 TRAINING_WINDOW_COLUMNS) if package else None)
+    raw = Path(campaign_dir).is_dir()
+    if raw:
+        run_w, train_w, rejected, complete = derive_windows(campaign_dir)
+    else:
+        run_w = pd.DataFrame(columns=RUN_WINDOW_COLUMNS)
+        train_w = pd.DataFrame(columns=TRAINING_WINDOW_COLUMNS)
+        rejected, complete = [], 0
+    source = "raw tree"
+    if frozen_run is not None and frozen_train is not None:
+        if not run_w.empty:
+            _agree(run_w, frozen_run, ["run"], "run windows")
+            _agree(train_w, frozen_train, ["run", "epoch"], "training windows")
+        take = set(frozen_run.run) - set(run_w.run)
+        if not raw:
+            complete = len(frozen_run)
+        else:
+            # Only runs this tree actually holds complete; the package does not
+            # add runs to a campaign, it supplies the windows of the ones there.
+            take &= set(rejected)
+        if take:
+            source = ("package" if run_w.empty
+                      else f"raw tree, package for {len(take)} run(s)")
+            run_w = pd.concat([run_w, frozen_run[frozen_run.run.isin(take)]],
+                              ignore_index=True)
+            train_w = pd.concat([train_w, frozen_train[frozen_train.run.isin(take)]],
+                                ignore_index=True)
+            rejected = [r for r in rejected if r not in take]
+    run_w = run_w.sort_values("run", kind="stable").reset_index(drop=True)
+    train_w = (train_w.sort_values(["run", "epoch"], kind="stable")
+               .reset_index(drop=True))
+    return run_w, train_w, rejected, complete, source
+
+
+def excerpt_mask(unix_s: np.ndarray, *windows: pd.DataFrame) -> np.ndarray:
+    """Rows of the record inside any window (with margin), plus its two ends.
+
+    The two ends are kept because the coverage rule asks whether a run's
+    window lies inside the record's span; an excerpt without them would have
+    a narrower span and would drop runs the full record covers.
+    """
+    t = np.asarray(unix_s, dtype=float)
+    order = np.argsort(t, kind="stable")
+    st = t[order]
+    marks = np.zeros(len(t) + 1, dtype=np.int64)
+    for w in windows:
+        if w is None or w.empty:
+            continue
+        lo = np.searchsorted(st, w.start_unix.to_numpy(float) - EXCERPT_MARGIN_S, "left")
+        hi = np.searchsorted(st, w.end_unix.to_numpy(float) + EXCERPT_MARGIN_S, "right")
+        np.add.at(marks, lo, 1)
+        np.add.at(marks, hi, -1)
+    inside_sorted = np.cumsum(marks[:-1]) > 0
+    mask = np.zeros(len(t), dtype=bool)
+    mask[order] = inside_sorted
+    if len(t):
+        # The record's first sample, and -- rather than its last, which moves
+        # for as long as the sampler keeps appending -- the first sample after
+        # the last window closes. Either way every window ends at or before the
+        # excerpt's last sample exactly when it does before the record's, so
+        # the coverage rule decides every run identically on both. If the
+        # record stops before the last window closes, its true end is kept.
+        mask |= t == t.min()
+        ends = [w.end_unix.to_numpy(float) for w in windows
+                if w is not None and not w.empty]
+        if ends:
+            last = max(float(e.max()) for e in ends) + EXCERPT_MARGIN_S
+            after = t[t > last]
+            mask |= t == (after.min() if after.size else t.max())
+    return mask
+
+
+def build_excerpt(record_text: pd.DataFrame, *windows: pd.DataFrame) -> pd.DataFrame:
+    """The record, as text, restricted by :func:`excerpt_mask`. Columns unchanged."""
+    mask = excerpt_mask(record_text.unix_s.astype(float).to_numpy(), *windows)
+    return record_text[mask].reset_index(drop=True)
+
+
+def load_gpu_record(campaign_dir: Path, *windows: pd.DataFrame
+                    ) -> tuple[pd.DataFrame | None, str]:
+    """``(record, source)``: the full 1 Hz record, or the campaign's excerpt.
+
+    With both present, the excerpt must be exactly what the full record and
+    these windows produce, or this refuses. Parsed the same way in either
+    case, so a sample is the same float whichever file it came from.
+    """
+    package = replication_package(campaign_dir)
+    excerpt = package / GPU_EXCERPT_FILE if package else None
+    if GPU_RECORD.exists():
+        record = pd.read_csv(GPU_RECORD)
+        if excerpt is not None and excerpt.exists():
+            stored = pd.read_csv(excerpt, dtype=str, keep_default_na=False)
+            text = pd.read_csv(GPU_RECORD, dtype=str, keep_default_na=False)
+            if not build_excerpt(text, *windows).equals(stored):
+                raise SystemExit(
+                    f"{excerpt.relative_to(REPO_ROOT)} is not the excerpt of "
+                    f"{GPU_RECORD} over this campaign's windows; it is stale. "
+                    "Rerun scripts/consolidate_raw.py on the measurement host.")
+        return record, "full record"
+    if excerpt is not None and excerpt.exists():
+        return pd.read_csv(excerpt), f"excerpt {excerpt.relative_to(REPO_ROOT)}"
+    return None, "absent"
+
+
 # Hardware reference values for the measurement platform (used only for
 # plausibility checks and utilisation reporting, never to derive energy).
-GPU_TDP_W = 350.0  # NVIDIA L40S board power limit
+GPU_TDP_W = 350.0  # board power limit: 350 W on the RTX 3090 of this campaign and on the L40S of the first
 CPU_TDP_W = 185.0  # Intel Xeon Gold 5418Y
 
 # --------------------------------------------------------------------------
@@ -611,6 +965,73 @@ def save_table(df: pd.DataFrame, name: str, caption: str = "") -> None:
         fh.write(df.to_markdown(index=False))
         fh.write("\n")
     print(f"  wrote {md.relative_to(REPO_ROOT)}")
+
+
+# --------------------------------------------------------------------------
+# LaTeX macros
+# --------------------------------------------------------------------------
+#: What a float that is not a number formats to, in every spelling pandas,
+#: numpy and Python produce.
+NOT_A_NUMBER = {"nan", "-nan", "inf", "-inf", "infinity", "-infinity", "none",
+                "<na>", "nat"}
+
+
+def num(x, digits: int = 0) -> str:
+    """A number formatted for siunitx, without thousands separators.
+
+    Non-finite input is left to format as "nan"/"inf" and rejected by
+    :meth:`MacroSet.add`, which is the one place that knows which macro is at
+    fault.
+    """
+    return f"{x:.{digits}f}"
+
+
+class MacroSet(dict):
+    """The ``\\newcommand`` set one script emits, and the refusal that guards it.
+
+    This lived in 12_paper_numbers as a module-level dict and a function over
+    it. It is here because a second script now emits macros -- 20_saturation,
+    for the accelerator-saturation cell of spec S7 -- and a second copy of the
+    refusal below is a second copy that can be forgotten. One definition.
+
+    ``sorted(self)``, ``self[name]`` and ``len(self)`` behave as they did when
+    this was a plain dict, so nothing downstream of it changed.
+    """
+
+    def add(self, name: str, value) -> None:
+        """Register one ``\\newcommand``. Names must be letters only (TeX).
+
+        A macro is refused rather than typeset if it would carry a value that
+        is not a number. ``num()`` is ``f"{x:.4f}"``, and ``f"{nan:.4f}"`` is
+        the string ``"nan"``: with zero collapses in the campaign
+        chi2_contingency raises on a zero expected frequency, 15_convergence
+        records NaN, and paper.tex typeset "a chi^2 test on that table returns
+        p = nan, which would license a claim that ecosystems differ in
+        robustness". A paper cannot print nan, and a build that silently prints
+        it is worse than one that fails: the caller must decide what the
+        quantity is when it is undefined, or leave the macro out and let LaTeX
+        fail on the undefined command.
+        """
+        assert name.isalpha(), f"macro name {name!r} must be letters only"
+        s = str(value)
+        if s.strip().lower() in NOT_A_NUMBER:
+            raise ValueError(f"macro {name} would emit {s!r} into the manuscript; "
+                             "give the quantity a defined value or do not emit it")
+        self[name] = s
+
+    def write(self, path: "Path", *header: str) -> int:
+        """Write the set as ``\\newcommand`` lines, sorted by name.
+
+        Sorted rather than in insertion order so that reordering the functions
+        that emit them cannot change the file, which is what makes a diff of
+        this output a diff of the numbers.
+        """
+        body = [f"% {line}" for line in header]
+        for name in sorted(self):
+            body.append(f"\\newcommand{{\\{name}}}{{{self[name]}}}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(body) + "\n")
+        return len(self)
 
 
 def order_ecosystems(index) -> list[str]:

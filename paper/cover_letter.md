@@ -40,8 +40,8 @@ persuasive R². The manuscript now reports the consequence without any model.
 
 We rebuilt accordingly. A written specification now states what "the same
 experiment" means across stacks — model, optimisation, data pipeline, backend,
-measurement, replication — and 92 automated checks enforce it against the source
-code, all 92 passing, so a divergence fails a check instead of quietly changing a
+measurement, replication — and 110 automated checks enforce it against the source
+code, all 110 passing, so a divergence fails a check instead of quietly changing a
 number. Energy is read from hardware counters (NVML's accumulated-energy
 register and the RAPL package counters) with CodeCarbon running over the
 identical window as a second reading, so every block carries two readings that
@@ -95,10 +95,16 @@ authors', and because one of the twelve was produced by two changes that are eac
 correct in isolation and destructive together — which is the failure mode a
 specification catches and review does not.
 
-**What remains open.** One reviewer comment we cannot close: the workload does
-not saturate the accelerator, and at 32 × 32 inputs it will not. The manuscript
-states this as a limitation on external validity rather than working around it.
-A wall-meter reference, which would relate our chip-level boundary to
+**What we measured rather than argued.** One reviewer comment could not be
+closed by re-running: at 32 × 32 the workload does not saturate the accelerator.
+We added a declared contrast cell instead — 70 runs on Imagenette at 224 × 224,
+where median training-block utilisation is 89 % (Section 6.6). Within the
+LibTorch family the spread compresses; across all seven stacks it widens,
+because the one stack without a cuDNN path moves further away. The ecosystem
+effect is not an artefact of an idle accelerator, and its size depends on the
+regime; the manuscript says both, and what the single point leaves open.
+
+**What remains open.** A wall-meter reference, which would relate our chip-level boundary to
 whole-system energy, needed hardware we do not have; we report the chip boundary
 consistently and decline to extrapolate.
 

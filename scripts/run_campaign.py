@@ -64,6 +64,47 @@ DATASETS = {
     "tinyimagenet": "data/tiny_imagenet_png",
 }
 
+#: The accelerator-saturation cell (spec S7), deliberately outside the grid above.
+#
+# The campaign's three datasets are 32x32 at batch 128, and at that shape the
+# accelerator is idle for most of the wall clock -- mean GPU utilisation runs
+# from 4.7% (R/torch, ResNet-18) to 79.9% (Java/DL4J, VGG-16), with most stacks
+# between 20% and 50%. The reasonable objection is that such a campaign measures
+# host-side overhead rather than deep-learning energy. This cell answers it with
+# a measurement instead of an argument: the same two networks on ten ImageNet
+# classes at 224x224, where the GPU is the bottleneck, run through this same
+# driver under the same contract.
+#
+# It is NOT in the default grid and never joins it. `results/campaign_v2` holds
+# 210 runs and every table in the manuscript counts them; a 71st run in that
+# directory would change the paper's numbers without changing its text. So
+# imagenette is selectable only by naming it, it may not be mixed with the 32x32
+# datasets in one invocation, and it refuses to run unless the operator has
+# pointed DEEPGREEN_CAMPAIGN_DIR somewhere that is not campaign_v2.
+SATURATION_DATASETS = {"imagenette": "data/imagenette_png"}
+
+#: Every dataset this driver can address, whichever grid it belongs to.
+ALL_DATASETS = DATASETS | SATURATION_DATASETS
+
+#: Per-dataset shape. One place, because seven stacks read it out of the
+#: environment and a second copy is how the batch size drifts.
+DEFAULT_BATCH_SIZE = 128
+DEFAULT_IMG_SIZE = 32
+#: VGG-16 at 224x224 does not fit 24 GB at batch 128, so the saturation cell
+#: trains and evaluates at 32. Stated here, carried to every stack as
+#: DEEPGREEN_BATCH_SIZE, and grepped for in each stack's sources by
+#: scripts/check_consistency.py.
+BATCH_SIZE = {"imagenette": 32}
+IMG_SIZE = {"imagenette": 224}
+
+
+def batch_size_for(dataset: str) -> int:
+    return BATCH_SIZE.get(dataset, DEFAULT_BATCH_SIZE)
+
+
+def img_size_for(dataset: str) -> int:
+    return IMG_SIZE.get(dataset, DEFAULT_IMG_SIZE)
+
 #: Python-hosted ecosystems this driver can launch itself.
 PYTHON_ECOSYSTEMS = {
     "Python/PyTorch": "python.pytorch.models.{model}",
@@ -130,16 +171,23 @@ EXTERNAL_ECOSYSTEMS = {
 #: a multi-day run rather than at job 40.
 SHORT_MODEL = {"resnet18": "resnet", "vgg16": "vgg"}
 RUST_BIN = SHORT_MODEL
-CPP_DATASET = {"fashionmnist": "fashion", "cifar100": "cifar100", "tinyimagenet": "tiny"}
+CPP_DATASET = {"fashionmnist": "fashion", "cifar100": "cifar100", "tinyimagenet": "tiny",
+               #: The saturation cell keeps its full name in every language:
+               #: rust/target/release/{resnet,vgg}_imagenette,
+               #: cpp/build-cuda/{resnet18,vgg16}_imagenette_imported,
+               #: R/train/{resnet18,vgg}/train_imagenette.r.
+               "imagenette": "imagenette"}
 #: R uses the same short dataset names as the C++ targets.
 R_DATASET = CPP_DATASET
 JAVA_CLASS = {
     ("resnet18", "fashionmnist"): "ResNet18TrainFashionExpt",
     ("resnet18", "cifar100"): "ResNet18TrainCifar100Expt",
     ("resnet18", "tinyimagenet"): "ResNet18TrainTinyExpt",
+    ("resnet18", "imagenette"): "ResNet18TrainImagenetteExpt",
     ("vgg16", "fashionmnist"): "Vgg16TrainFashionExpt",
     ("vgg16", "cifar100"): "Vgg16TrainCifar100Expt",
     ("vgg16", "tinyimagenet"): "Vgg16TrainTinyExpt",
+    ("vgg16", "imagenette"): "Vgg16TrainImagenetteExpt",
 }
 
 
@@ -149,9 +197,21 @@ def campaign_dir() -> Path:
     Configurable so that a calibration re-execution -- re-running an already
     completed configuration to measure drift between two time windows -- cannot
     overwrite the campaign it is calibrating against. The default is unchanged.
+
+    Resolved against the repository root, once, and absolute from here on.
+    A relative value used to be resolved twice against two different working
+    directories: the saturation guard resolved it against the caller's cwd
+    while the children were launched with cwd=REPO_ROOT and given the raw
+    string, so `DEEPGREEN_CAMPAIGN_DIR=results/campaign_v2` from any directory
+    but the repository root passed the guard that exists to refuse it and then
+    wrote into the frozen campaign. The children now receive an absolute
+    DEEPGREEN_RUN_DIR, and the guard and the run-directory backstop ask about
+    the same path the runs are written to.
     """
-    return Path(os.environ.get("DEEPGREEN_CAMPAIGN_DIR",
-                               str(REPO_ROOT / "results" / "campaign_v2")))
+    configured = os.environ.get("DEEPGREEN_CAMPAIGN_DIR")
+    if not configured:
+        return REPO_ROOT / "results" / "campaign_v2"
+    return (REPO_ROOT / configured).resolve()
 
 
 def run_environment(job: "Job") -> dict[str, str]:
@@ -166,6 +226,12 @@ def run_environment(job: "Job") -> dict[str, str]:
         "DEEPGREEN_REP": str(job.repetition),
         "DEEPGREEN_SEED": str(job.seed),
         "DEEPGREEN_EPOCHS": os.environ.get("DEEPGREEN_EPOCHS", "30"),
+        # Shape of the workload, per dataset. The three 32x32 datasets keep the
+        # values every stack already hardcodes (128 and 32), so setting these
+        # changes nothing for them; the saturation cell is the reason they are
+        # in the contract at all rather than in seven source trees.
+        "DEEPGREEN_BATCH_SIZE": str(batch_size_for(job.dataset)),
+        "DEEPGREEN_IMG_SIZE": str(img_size_for(job.dataset)),
         "DEEPGREEN_DATA": os.environ.get("DEEPGREEN_DATA", str(REPO_ROOT / "data")),
         "DEEPGREEN_MODELS": os.environ.get("DEEPGREEN_MODELS", str(REPO_ROOT / "models")),
         "DEEPGREEN_PYTHON": os.environ.get(
@@ -221,12 +287,13 @@ def build_plan(ecosystems: list[str], models: list[str], datasets: list[str],
 
 def python_command(job: Job) -> list[str]:
     module = PYTHON_ECOSYSTEMS[job.ecosystem].format(model=job.model)
+    n = img_size_for(job.dataset)
     return [
         interpreter_for(job.ecosystem),
         "-c",
         (
             f"import {module} as M; "
-            f"M.run_experiment(dataset_path={DATASETS[job.dataset]!r}, "
+            f"M.run_experiment(dataset_path={ALL_DATASETS[job.dataset]!r}, "
             + (
                 f"output_file_train='{job.model}_{job.dataset}_train', "
                 f"output_file_eval='{job.model}_{job.dataset}_eval', "
@@ -244,6 +311,12 @@ def python_command(job: Job) -> list[str]:
             # that four of seven honoured.
             + f"repetition={job.repetition}, seed={job.seed}, "
               f"epochs={int(os.environ.get('DEEPGREEN_EPOCHS', 30))}, "
+            # The shape travels as arguments rather than as a signature default,
+            # for the reason above the epochs line: a default is a value four of
+            # seven stacks honour. Explicit for every dataset, so the 32x32 cells
+            # pass the numbers they were already using.
+            + f"batch_size={batch_size_for(job.dataset)}, "
+              f"img_size=({n}, {n}), "
               f"dataset_name={job.dataset!r})"
         ),
     ]
@@ -366,6 +439,69 @@ def _assert_accelerator_idle() -> None:
         raise SystemExit(3)
 
 
+def _validate_datasets(datasets: list[str]) -> None:
+    """Gate the saturation cell. Refuses loudly rather than writing somewhere wrong.
+
+    Three refusals, each for a way this cell could quietly contaminate the
+    campaign it is a contrast to:
+
+      * an unknown dataset name -- a typo silently produced a plan with a job
+        the driver could not launch;
+      * imagenette without a campaign directory of its own, or with one that
+        resolves inside results/campaign_v2. The 210-run campaign is frozen and
+        every table in the manuscript counts it; the saturation cell is 70
+        further runs at a different resolution and batch size, and one of them
+        landing in that directory would change published numbers with nothing
+        in the output to show for it;
+      * imagenette mixed with the 32x32 datasets in one invocation. They differ
+        in resolution and batch size, so a mixed plan is two experiments sharing
+        one cooldown schedule and one run directory, and the analysis would have
+        to separate them afterwards from the dataset column alone.
+    """
+    unknown = [d for d in datasets if d not in ALL_DATASETS]
+    if unknown:
+        raise SystemExit(
+            f"error: unknown dataset(s) {', '.join(sorted(unknown))}. "
+            f"Known: {', '.join(sorted(ALL_DATASETS))}.")
+
+    saturation = [d for d in datasets if d in SATURATION_DATASETS]
+    if not saturation:
+        return
+
+    standard = [d for d in datasets if d in DATASETS]
+    if standard:
+        raise SystemExit(
+            "error: the saturation cell cannot share an invocation with the "
+            f"32x32 datasets ({', '.join(sorted(standard))}).\n"
+            "They differ in input resolution (224 vs 32) and batch size (32 vs "
+            "128), so one plan\nover both is two experiments in one run "
+            "directory. Run them separately.")
+
+    configured = os.environ.get("DEEPGREEN_CAMPAIGN_DIR", "").strip()
+    if not configured:
+        raise SystemExit(
+            "error: --datasets imagenette needs DEEPGREEN_CAMPAIGN_DIR set.\n"
+            "The saturation cell is a separate campaign: results/campaign_v2 "
+            "holds the frozen\n210 runs the manuscript's tables count, and this "
+            "cell adds 70 runs at a different\nresolution and batch size. "
+            "Point it somewhere of its own, e.g.\n\n"
+            "    DEEPGREEN_CAMPAIGN_DIR=results/campaign_saturation \\\n"
+            "        python3 scripts/run_campaign.py --datasets imagenette "
+            "--repetitions 5\n")
+    frozen = (REPO_ROOT / "results" / "campaign_v2").resolve()
+    # campaign_dir(), not a second resolution of the same string: this must be
+    # the directory the runs are actually written to, resolved the same way and
+    # against the same root, or the guard answers a question about a path
+    # nothing uses.
+    target = campaign_dir().resolve()
+    if target == frozen or frozen in target.parents:
+        raise SystemExit(
+            f"error: DEEPGREEN_CAMPAIGN_DIR={configured} resolves inside "
+            f"{frozen}.\nThat directory holds the frozen 210-run campaign and "
+            "must not gain a run.\nUse results/campaign_saturation, or another "
+            "directory outside it.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -374,7 +510,12 @@ def main() -> int:
     ap.add_argument("--ecosystems", nargs="*",
                     default=list(PYTHON_ECOSYSTEMS) + list(EXTERNAL_ECOSYSTEMS))
     ap.add_argument("--models", nargs="*", default=MODELS)
-    ap.add_argument("--datasets", nargs="*", default=list(DATASETS))
+    ap.add_argument("--datasets", nargs="*", default=list(DATASETS),
+                    help="default: the three 32x32 datasets. "
+                         f"{', '.join(SATURATION_DATASETS)} is the "
+                         "accelerator-saturation cell: it is not in the default "
+                         "grid, cannot be mixed with them, and needs "
+                         "DEEPGREEN_CAMPAIGN_DIR set outside results/campaign_v2")
     ap.add_argument("--print-plan", action="store_true",
                     help="write the schedule and exit without executing anything")
     ap.add_argument("--cooldown", type=int, default=COOLDOWN_S)
@@ -382,6 +523,10 @@ def main() -> int:
     ap.add_argument("--force", action="store_true",
                     help="replace a run directory that already holds data")
     args = ap.parse_args()
+
+    # Before the lock and before the accelerator check: a plan that must not be
+    # built should not first take a lock on the directory it must not write to.
+    _validate_datasets(args.datasets)
 
     if not (args.print_plan or args.dry_run):
         _acquire_exclusive_lock()
@@ -416,7 +561,14 @@ def main() -> int:
             for i, j in enumerate(plan)
         ]
         out.write_text(json.dumps(payload, indent=2))
-        print(f"{len(plan)} jobs written to {out.relative_to(REPO_ROOT)}")
+        # relative_to raises for a campaign directory outside the repository,
+        # which is exactly where a smoke test points DEEPGREEN_CAMPAIGN_DIR, so
+        # --print-plan died after writing the plan it was asked for.
+        try:
+            shown_out: Path | str = out.relative_to(REPO_ROOT)
+        except ValueError:
+            shown_out = out
+        print(f"{len(plan)} jobs written to {shown_out}")
         for row in payload[:5]:
             print(f"  [{row['index']}] {row['ecosystem']} {row['model']}/{row['dataset']} "
                   f"rep{row['repetition']} seed{row['seed']}")
@@ -444,6 +596,11 @@ def main() -> int:
         # sixty, with the duplicates interleaved and no marker distinguishing
         # them. Found by re-running one smoke test into the same directory and
         # noticing Java had four blocks where every other stack had two.
+        # Absolute, from campaign_dir(): the same resolved path the child is
+        # given and the same one the saturation guard was asked about. It used
+        # to be whatever string the environment held, evaluated in the parent's
+        # cwd, so a relative campaign directory made this backstop look at a
+        # different place from the one the run was written to.
         run_dir = Path(env["DEEPGREEN_RUN_DIR"])
         existing = run_dir / "counters.csv"
         if existing.exists() and existing.stat().st_size > 0:

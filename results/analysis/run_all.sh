@@ -38,6 +38,23 @@ run 16_coverage_sensitivity.py    # whose energy is the time between phases?
 # did not, so the pair is a TF32 ablation with a control group.
 run 18_precision_ablation.py      # TF32, from the two campaigns
 run 19_gpu_utilisation.py         # was the accelerator busy? over the runs the record covers
+# The accelerator-saturation cell of spec S7, in a campaign directory of its own
+# (results/campaign_saturation): 70 runs at 224x224, contrasted against the
+# tables above. The campaign is complete and the manuscript \inputs what this
+# writes, so a failure here stops the build. It runs from the raw tree when
+# there is one and otherwise from the committed package
+# (results/replication_saturation/), which is what a clone has; only with
+# neither on disk is it skipped.
+# A relative DEEPGREEN_SATURATION_DIR is resolved against the repository root,
+# as 20_saturation.py resolves it -- not against this directory, the cwd here.
+SAT_DIR="${DEEPGREEN_SATURATION_DIR:-results/campaign_saturation}"
+case "$SAT_DIR" in /*) ;; *) SAT_DIR="$(cd ../.. && pwd)/$SAT_DIR" ;; esac
+SAT_PKG="$(cd ../.. && pwd)/results/replication_saturation"
+if [ -d "$SAT_DIR" ] || [ -f "$SAT_PKG/counters.csv.gz" ]; then
+  run 20_saturation.py
+else
+  echo "=== no saturation campaign or package on disk; 20_saturation.py not run ==="
+fi
 # The collapse finding belongs to the superseded campaign -- this one has none
 # -- so its tables are derived under their own v1_ names and never overwrite
 # the v2 ones. 12 reads both and reports the contrast.
@@ -96,5 +113,14 @@ echo
 # failure: monitoring runs are meant to reach this line and stop.
 echo "=== replication package (results/replication/) ==="
 "$PY" ../../scripts/consolidate_raw.py || echo "  (not consolidated; see above)"
+# The saturation cell's package, the same way, from its own raw tree. A clone
+# has no raw tree and keeps the committed package as it is.
+echo "=== replication package (results/replication_saturation/) ==="
+if [ -d ../campaign_saturation ]; then
+  "$PY" ../../scripts/consolidate_raw.py --campaign saturation \
+    || echo "  (not consolidated; see above)"
+else
+  echo "  (no results/campaign_saturation/; the committed package stands)"
+fi
 
 echo "Done. Tables in results/revision/, manuscript inputs in paper/."

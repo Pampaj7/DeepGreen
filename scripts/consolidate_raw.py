@@ -30,10 +30,41 @@ Nothing is aggregated, filtered or rounded here. The analysis pipeline reads
 ``results/campaign_v2/`` directly; this package is what it reads, flattened, so
 that a reader can reproduce the pipeline's input without the pipeline.
 
-  python3 scripts/consolidate_raw.py [--check]
+  python3 scripts/consolidate_raw.py [--campaign v2|saturation] [--check]
 
 ``--check`` verifies an existing package against the raw tree instead of
 rewriting it, which is what CI wants.
+
+``--campaign saturation`` packages the accelerator-saturation cell (spec S7,
+``results/campaign_saturation/``, 70 runs) into
+``results/replication_saturation/`` the same way. The default, ``v2``, writes
+the four tables byte for byte as it always did.
+
+Both packages also carry ``data_fingerprints.csv.gz`` -- each run's
+``data_fingerprint.csv``, the one per-run file the four tables did not hold --
+so that restore_from_replication.py --check-roundtrip rebuilds every file of
+every run. It was added beside the four, which did not change.
+
+Utilisation inputs a clone cannot recover
+-----------------------------------------
+Two inputs of the utilisation analyses (19_gpu_utilisation, 20_saturation) are
+not in the four tables: the run and training-block windows, derived from file
+*mtimes*, which git and restore_from_replication.py do not preserve; and
+``results/gpu_utilisation.csv``, the 1 Hz record, which is gitignored. On the
+measurement host -- raw tree with original mtimes, full record -- this script
+freezes them into the package beside the tables:
+
+  run_windows.csv.gz               one row per complete run: [manifest utc,
+                                   counters.csv mtime], unix seconds
+  training_windows.csv.gz          one row per training block: its
+                                   counter-bracketed interval, unix seconds
+  gpu_utilisation_excerpt.csv.gz   the record's rows inside any of those
+                                   windows (+/- 2 s) and its first and last
+                                   rows, text-exact, columns unchanged
+
+all computed by results/analysis/common.py (derive_windows, build_excerpt), the
+code the analyses themselves call. Without the record they are left as they
+are and still listed in SHA256SUMS.
 """
 
 from __future__ import annotations
@@ -42,14 +73,28 @@ import argparse
 import gzip
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RAW = REPO_ROOT / "results" / "campaign_v2"
-OUT = REPO_ROOT / "results" / "replication"
+
+#: name -> (raw tree, package, runs a complete campaign has, per-run files
+#: packaged beyond the four tables). ``v2`` is the default; its four tables are
+#: byte-for-byte what this script wrote before the saturation cell existed.
+CAMPAIGNS = {
+    "v2": (REPO_ROOT / "results" / "campaign_v2",
+           REPO_ROOT / "results" / "replication", 210, ("data_fingerprints",)),
+    "saturation": (REPO_ROOT / "results" / "campaign_saturation",
+                   REPO_ROOT / "results" / "replication_saturation", 70,
+                   ("data_fingerprints",)),
+}
+RAW, OUT, EXPECTED, EXTRA_TABLES = CAMPAIGNS["v2"]
+
+#: Frozen utilisation inputs, in the order SHA256SUMS lists them.
+FROZEN = ("run_windows", "training_windows", "gpu_utilisation_excerpt")
 
 # A run directory is named <ecosystem>_<model>_<dataset>_rep<n>, with the
 # ecosystem's slash written as a dash. metrics.csv carries the canonical
@@ -115,8 +160,32 @@ def refuse_if_partial() -> None:
     present must be complete. A stray directory is how the first test alone can
     read 210 of 210 with a real configuration missing.
     """
+    # The analysis' completeness gate reads its campaign and run count from the
+    # environment. For a campaign other than the default, point it at the one
+    # being packaged -- unless the caller already pointed it somewhere, which
+    # the check below then refuses.
+    if RAW != CAMPAIGNS["v2"][0]:
+        os.environ.setdefault("DEEPGREEN_CAMPAIGN_DIR", str(RAW))
+        os.environ.setdefault("DEEPGREEN_EXPECTED_RUNS", str(EXPECTED))
     sys.path.insert(0, str(REPO_ROOT / "results" / "analysis"))
+    import common  # noqa: E402
     from common import campaign_status, read_complete_counters  # noqa: E402
+
+    # This script packages ``RAW`` and nothing else, but the completeness gate it
+    # asks for the count comes from the analysis, which follows
+    # DEEPGREEN_CAMPAIGN_DIR. With that variable pointing at the
+    # accelerator-saturation cell -- 70 runs, a different resolution and a
+    # different batch size -- the gate would be answering a question about a
+    # campaign this package does not contain, and 70 of 70 complete reads as
+    # permission to package campaign_v2 whatever state it is in. One campaign per
+    # package, and the two must be the same one.
+    if common.CAMPAIGN_DIR.resolve() != RAW.resolve():
+        raise SystemExit(
+            f"DEEPGREEN_CAMPAIGN_DIR points at {common.CAMPAIGN_DIR}, and this "
+            f"script packages\n{RAW}. The completeness gate would describe a "
+            f"different campaign from the one\nbeing packaged. Unset the "
+            f"variable and run again; each campaign has its own package\n"
+            f"(--campaign v2|saturation).")
 
     done, want = campaign_status()
     incomplete = [d.name for d in sorted(RAW.glob("*"))
@@ -139,7 +208,7 @@ def collect() -> dict[str, pd.DataFrame]:
     if not runs:
         raise SystemExit(f"no run directories under {RAW}")
 
-    codecarbon, counters, metrics, manifests = [], [], [], []
+    codecarbon, counters, metrics, manifests, fingerprints = [], [], [], [], []
     metrics_columns: dict[str, str] = {}
     for run_dir in runs:
         ident = identity(run_dir)
@@ -184,6 +253,20 @@ def collect() -> dict[str, pd.DataFrame]:
                 c for c in frame.columns if c not in ("run", "row_index"))
             metrics.append(frame)
 
+        path = run_dir / "data_fingerprint.csv"
+        if "data_fingerprints" in EXTRA_TABLES and path.exists():
+            # Like metrics.csv, it carries its own identity columns; only the
+            # directory name and the row order are added.
+            frame = pd.read_csv(path, dtype=str, keep_default_na=False)
+            # The stacks do not all write the same columns (some add
+            # n_values), and the concatenated table takes the union -- so each
+            # row says which columns its file had, as manifests do for metrics.
+            columns = ",".join(frame.columns)
+            frame.insert(0, "row_index", range(len(frame)))
+            frame.insert(0, "file_columns", columns)
+            frame.insert(0, "run", ident["run"])
+            fingerprints.append(frame)
+
         path = run_dir / "manifest.json"
         if path.exists():
             raw = path.read_text()
@@ -194,7 +277,7 @@ def collect() -> dict[str, pd.DataFrame]:
                               "metrics_columns": metrics_columns.get(ident["run"], "")})
 
     sort_by = ["ecosystem", "model", "dataset", "repetition"]
-    return {
+    tables = {
         "codecarbon": pd.concat(codecarbon, ignore_index=True)
         .sort_values(sort_by + ["phase", "epoch"], kind="stable")
         .reset_index(drop=True),
@@ -207,6 +290,39 @@ def collect() -> dict[str, pd.DataFrame]:
         "manifests": pd.DataFrame(manifests).sort_values(sort_by, kind="stable")
         .reset_index(drop=True),
     }
+    if "data_fingerprints" in EXTRA_TABLES:
+        tables["data_fingerprints"] = (
+            pd.concat(fingerprints, ignore_index=True)
+            .sort_values(sort_by, kind="stable").reset_index(drop=True))
+    return tables
+
+
+def freeze_utilisation() -> dict[str, pd.DataFrame]:
+    """The windows and the record excerpt; empty without the full record.
+
+    Called after refuse_if_partial, so ``common`` already reads this campaign.
+    A run whose mtimes fail derive_windows' checks makes this refuse: frozen
+    windows are only worth committing if every run has one.
+    """
+    import common  # noqa: E402
+    if not common.GPU_RECORD.exists():
+        print(f"  no {common.GPU_RECORD.name}: frozen utilisation inputs left as "
+              "they are")
+        return {}
+    run_w, train_w, rejected, _ = common.derive_windows(RAW)
+    if rejected:
+        raise SystemExit(
+            f"{len(rejected)} run(s) have no trustworthy window (mtimes not "
+            f"original?): {', '.join(rejected[:5])}. The windows can only be "
+            "frozen from the tree the campaign wrote.")
+    record = pd.read_csv(common.GPU_RECORD, dtype=str, keep_default_na=False)
+    return {"run_windows": run_w, "training_windows": train_w,
+            "gpu_utilisation_excerpt": common.build_excerpt(record, run_w, train_w)}
+
+
+def _gz_write(frame: pd.DataFrame, path: Path) -> None:
+    with gzip.GzipFile(path, "wb", mtime=0) as fh:
+        frame.to_csv(fh, index=False, lineterminator="\n")
 
 
 def write(tables: dict[str, pd.DataFrame]) -> None:
@@ -232,6 +348,16 @@ def write(tables: dict[str, pd.DataFrame]) -> None:
         lines.append(f"{digest}  {path.name}")
         print(f"  {path.name:<20} {len(frame):>7,} rows  "
               f"{path.stat().st_size / 1e6:>5.1f} MB")
+    frozen = freeze_utilisation()
+    for name in FROZEN:
+        path = OUT / f"{name}.csv.gz"
+        if name in frozen:
+            _gz_write(frozen[name], path)
+            print(f"  {path.name:<20} {len(frozen[name]):>7,} rows  "
+                  f"{path.stat().st_size / 1e6:>5.1f} MB")
+        if path.exists():
+            lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  "
+                         f"{path.name}")
     (OUT / "SHA256SUMS").write_text("\n".join(lines) + "\n")
 
 
@@ -254,6 +380,19 @@ def check(tables: dict[str, pd.DataFrame]) -> int:
             failures += 1
         else:
             print(f"  ok       {path.name} ({len(frame):,} rows)")
+    # The frozen inputs are derived, not copied, so they are compared as the
+    # exact text they would be written as.
+    for name, frame in freeze_utilisation().items():
+        path = OUT / f"{name}.csv.gz"
+        if not path.exists():
+            print(f"  MISSING  {path.name}")
+            failures += 1
+        elif (gzip.decompress(path.read_bytes()).decode()
+              != frame.to_csv(index=False, lineterminator="\n")):
+            print(f"  STALE    {path.name}: differs from the raw tree and record")
+            failures += 1
+        else:
+            print(f"  ok       {path.name} ({len(frame):,} rows, text-exact)")
     return failures
 
 
@@ -261,7 +400,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
                     help="verify the package against the raw tree, do not write")
+    ap.add_argument("--campaign", choices=sorted(CAMPAIGNS), default="v2",
+                    help="which campaign to package (default: v2, the 210-run "
+                         "campaign, into results/replication/)")
     args = ap.parse_args()
+    global RAW, OUT, EXPECTED, EXTRA_TABLES
+    RAW, OUT, EXPECTED, EXTRA_TABLES = CAMPAIGNS[args.campaign]
 
     print(f"reading {RAW.relative_to(REPO_ROOT)} ...")
     tables = collect()

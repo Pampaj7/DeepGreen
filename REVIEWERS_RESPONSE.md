@@ -27,7 +27,7 @@ itself, not by the ecosystems it compares:
 
 Reporting numbers from that campaign would have meant reporting those confounds.
 So the stacks were aligned — one exported set of weights, one initialiser, one
-precision policy, one data pipeline, all of it enforced by 92 conformance
+precision policy, one data pipeline, all of it enforced by 110 conformance
 checks and proved by architecture and data parity fingerprints — and the
 campaign was re-executed, from 23:09 on 30 August 2026 to 07:47 on 2 September.
 Four JAX/VGG-16 runs that predate a Flax dropout-PRNG fix were replayed on
@@ -47,19 +47,19 @@ partial campaign.
 from `paper/generated/numbers.tex` — 327 generated macros — and from the tables
 under `results/revision/tables/`, and nothing here is a number an author typed
 that the pipeline could have produced. `scripts/check_consistency.py` reports
-**92 pass, 0 fail**:
+**110 pass, 0 fail**:
 
 ```
 $ .venv-deepgreen/bin/python scripts/check_consistency.py | tail -3
-  92 pass, 0 fail, 0 warn, 0 skip
+  110 pass, 0 fail, 0 warn, 0 skip
 ```
 
 Where a figure belongs to the superseded campaign, or to the source audit of the
 submitted one, it is labelled as such at the point it appears. Every item
-previously marked **REQUIRES RE-EXECUTION** is now closed by measurement, with
-one exception, which is declared rather than answered: the workload does not
-saturate the accelerator (Reviewer 1, comments 2 and 15). Re-execution is not
-what would close that one.
+previously marked **REQUIRES RE-EXECUTION** is now closed by measurement. The
+one that re-execution could not close -- the workload does not saturate the
+accelerator (Reviewer 1, comments 2 and 15) -- is closed by a separate,
+declared contrast cell at 224×224 (70 runs, Section 6.6 of the manuscript (spec S7)).
 
 Everything below is reproducible with `results/analysis/run_all.sh`.
 
@@ -104,7 +104,7 @@ answers have changed.
    came from the first campaign, where that column is NaN in all 900 rows, while
    the campaign reported here has no NaN in it at all. The checks read the
    campaign now, through the same completeness gate the tables are built behind:
-   **92 pass, 0 fail**.
+   **110 pass, 0 fail**.
 4. **The between-window calibration figures are withdrawn and the measurement
    redone.** The calibration on disk had been produced on 29 August by the
    harness that pinned TF32 off for Python/PyTorch, and it was carried forward
@@ -150,8 +150,10 @@ answers have changed.
    name.** The claim was that because the measured spread is dominated by
    host-side work, saturating the accelerator must shrink it. That does not
    follow: it depends on where the spread comes from, which a black-box
-   comparison of this shape cannot establish. The manuscript now states the
-   limitation without naming a direction, and so does this document.
+   comparison of this shape cannot establish. We then measured it instead of
+   naming a direction: in the 224×224 contrast cell (Section 6.6 of the manuscript (spec S7)) the
+   spread compresses within the LibTorch family and widens across all seven
+   stacks (Reviewer 1, comment 15).
 
 ### What the re-execution changed in the conclusions
 
@@ -404,8 +406,9 @@ supported once the instrument is held constant.
 this design, and the audit gives a concrete reason: in the submitted campaign the
 workload ran the GPU at 24–56% of its board limit, and the re-executed campaign,
 sampled at 1 Hz, puts mean accelerator utilisation between 4.7% (R/torch on
-ResNet-18) and 79.9% (Java/DL4J on VGG-16). What is measured is therefore
-substantially host-side overhead (comment 15). The revised framing is that
+ResNet-18) and 79.9% (Java/DL4J on VGG-16). Part of what is measured at 32×32
+is therefore host-side overhead; the 224×224 contrast cell of Section 6.6 shows
+which part (comment 15). The revised framing is that
 ecosystem choice matters at the
 *binding and runtime* layer, evidenced within a shared backend, and is not
 positioned as a first-order lever at the scales where the field's energy problem
@@ -425,8 +428,11 @@ demanding, is stated explicitly in `dataset_factors.md`.
 
 The reporting half is done: `19_gpu_utilisation.py` reads the 1 Hz record and
 puts utilisation beside energy for the 157 of 210 runs the record covers, and the
-manuscript quotes it. The workload half is not, and cannot be by re-running the
-same configurations. See comment 15.
+manuscript quotes it. The workload half could not be closed by re-running the
+same configurations, so we ran one that loads the accelerator: a declared
+contrast cell on Imagenette at native ImageNet resolution, 224×224, batch 32,
+70 runs over the same seven stacks and two networks (Section 6.6 of the manuscript (spec S7)). See
+comment 15 for what it shows.
 
 ### Comment 3 — Ecosystem framing and shared backends
 
@@ -824,15 +830,25 @@ bottom, Java/DL4J on VGG-16 at the top — and mean accelerator power spans
 so it covers 157 of the 210 runs, and the table says so rather than averaging
 over whatever happened to be there.
 
-**Still open, and stated as such in the manuscript.** The re-executed campaign
-runs the same 32×32 workload, so it inherits the limitation: it measures whole
-pipelines more than saturated kernels. We previously wrote that this bounds the
-consequence in a known direction — that a saturating workload would *compress*
-the spread, because the spread we measure is dominated by host-side work. That
-does not follow, and we withdraw it: which way saturation moves the ranking
-depends on where the spread comes from, and a black-box comparison of this shape
-cannot establish that. Adding a saturating configuration is the single most
-useful follow-up and is listed first in Future Work.
+**Measured, in a separate contrast cell.** The re-executed campaign runs the
+same 32×32 workload, so it inherits the limitation: it measures whole pipelines
+more than saturated kernels. We previously wrote that a saturating workload
+would *compress* the spread; that did not follow, and we withdrew it. We have
+now measured it (Section 6.6 of the manuscript (spec S7), `tab_saturation`). On Imagenette at 224×224,
+batch 32, 70 runs, median utilisation over the training blocks is 89.2 % (a
+training-block window on both sides of the contrast, not the whole-run window
+of the figures above, and not comparable with them). The answer has two parts.
+Within the LibTorch family the training spread compresses, 9.3–9.8× to 2.8× on
+ResNet-18 and 3.5× to 1.3× on VGG-16, because R, whose pipeline is host-bound,
+closes on C++; the three stacks sharing one module barely move. Across all seven
+it widens, to 15.3× and 19.1×, because Java/DL4J — the one stack without a
+cuDNN path, and busy on the accelerator at 224 — moves further away; without
+Java the other six compress to 3.6× and 2.0×. So the objection is right about
+R and does not hold for the headline: the spread is not an artefact of an idle
+accelerator, but its size and its cheapest stack depend on the regime.
+Faster-is-greener holds there too (ρ = 0.93 training, 1.00 inference). What
+remains open — other model families, transformers, a resolution and batch
+sweep, server-class hardware, and a cuDNN-off bound at 224 — is in Future Work.
 
 ---
 
@@ -1061,7 +1077,7 @@ the unit error did. The manuscript quoted 57 conformance checks while the
 checker ran 63, and claimed five catalogue entries were the authors' own while
 four carried the mark. Both are now counted by
 `results/analysis/12_paper_numbers.py` from the checker and from the table
-itself, so neither can drift again: the checker runs **92 checks, 92 passing,
+itself, so neither can drift again: the checker runs **110 checks, 110 passing,
 0 failing**, and the defect catalogue holds **34 entries, 12 of them ours**. The
 highlights uploaded to the submission form are expanded from the manuscript's own
 `highlights` environment by `scripts/emit_highlights.py` for the same reason.
@@ -1069,7 +1085,7 @@ highlights uploaded to the submission form are expanded from the manuscript's ow
 Counting them was not enough on its own, and this is the second correction of
 this kind we owe. `12_paper_numbers.py` counted a *skipped* check as a passing
 one, so a run in which three checks could not read their input would have
-published 92 of 92 passing; it now refuses to emit the conformance macros at all
+published 110 of 110 passing; it now refuses to emit the conformance macros at all
 unless every check actually ran. It also refuses to emit any macro whose value
 formats as `nan`, after a chi-square that is undefined on a table of zeros
 reached the manuscript as "p = nan".
@@ -1086,14 +1102,12 @@ read as an input, which is the defect corrected above.
 
 ## What is still outstanding
 
-1. **A GPU-saturating workload.** At 32×32 the accelerator runs between 4.7% and
-   79.9% utilisation depending on stack and network, so the campaign measures
-   whole pipelines more than saturated kernels (Reviewer 1 comments 2 and 15).
-   This is the one item the re-execution did not close, and it is the one item we
-   cannot bound in a known direction: whether saturation compresses the ecosystem
-   spread depends on where that spread comes from, which this design cannot
-   establish. The manuscript states it as a limitation on external validity
-   without naming a direction.
+1. **Beyond one saturating point.** The saturation question of Reviewer 1
+   comments 2 and 15 is measured in a 224×224 contrast cell (Section 6.6 of the manuscript (spec S7);
+   see comment 15). It is one point: one dataset, one batch size, two
+   convolutional networks, one desktop card, and two loader workers that leave
+   R short of saturation. Transformers and other model families, a resolution
+   sweep, server-class hardware and a cuDNN-off bound at 224 remain open.
 2. **A wall-meter reference.** We report a chip-level boundary (NVML + RAPL) and
    decline to extrapolate to whole-system energy. Relating the two needs
    hardware we do not have. The counters are un-baselined — they include the
@@ -1137,7 +1151,7 @@ than announcing one.
 | Loader configuration table | "0 (R/torch), 1 (JAX, TensorFlow, MATLAB), 2 (PyTorch, C++, Java), 96 (Rust)" | Kept as a description of the state that was *found* in the submitted package. All seven stacks now run two loader workers, verified by the checker; MATLAB is out of the study. |
 | Homogeneity of collapse | the permutation p-value, p = 0.07, contrasted with chi-square p = 0.0065 | Replaced by the exact Freeman–Halton test: on the first campaign's table **p = 0.0040**, with no approximation and no seed. On this campaign's table there is nothing to test — every cell is zero — and the chi-square macro is not emitted at all rather than typeset as `nan`. |
 | Between-window calibration | "training energy 0.21 % apart at 0.61 σ", from a calibration run on 29 August against the first campaign | Withdrawn. Run against the re-executed campaign the same calibration reads 201 % apart at 293 σ, because the two windows differ in precision policy and not only in time. Re-measured under the current harness on 4 September: **−1.25 % at 1.62 σ** on training, −3.23 % at 3.95 σ on inference. |
-| Conformance | "one failing check" | The check was reading a superseded replication package. Reading the campaign: **92 pass, 0 fail, 0 skip**. |
+| Conformance | "one failing check" | The check was reading a superseded replication package. Reading the campaign: **110 pass, 0 fail, 0 skip**. |
 | Precision ablation | the 4.81× four-cell table in `REVISION_LOG.md` §1 and the 13.3×/16.7× cuDNN bound in §19 | Both had no script behind them and quoted 50-step totals as per-step figures. Both are re-derived and scripted: campaign contrast **3.14×**, kernel probe **3.62×** for TF32 and **13.08× / 16.30×** for cuDNN disabled. |
 
 The instrument comparison, the padding and window-floor results, the boundary

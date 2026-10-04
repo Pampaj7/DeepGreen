@@ -39,6 +39,23 @@ fi
 # R library tree holding the torch package and its bundled LibTorch
 export DEEPGREEN_R_LIBS="${DEEPGREEN_R_LIBS:-$HOME/R/deepgreen}"
 
+# --- loader parallelism, campaign-wide ---------------------------------------
+#
+# Spec S3. It was the single largest confound in the first campaign -- 0 workers
+# in R against 96 in Rust, rayon over every core -- and it is a controlled factor
+# now, not a framework default. scripts/run_campaign.py reads this variable and
+# puts it in every job's environment as DEEPGREEN_LOADER_THREADS, so setting it
+# here reaches all seven stacks; it defaulted to 2 in the driver and was exported
+# by nothing, which meant the campaign's own value lived in a Python default
+# rather than in the file that documents the campaign's environment.
+#
+# 2 is the campaign value and changing it invalidates comparison with the 210
+# runs already measured. The accelerator-saturation cell may legitimately want
+# more -- at 224x224 the host has 49x the pixels to decode per image -- and if it
+# is raised there, the value is recorded per run in each run's manifest.json and
+# must be reported alongside the cell.
+export DEEPGREEN_LOADER_THREADS="${DEEPGREEN_LOADER_THREADS:-2}"
+
 export PATH="$DEEPGREEN_CONDA/bin:$PATH"
 
 # --- precision policy, campaign-wide -----------------------------------------
