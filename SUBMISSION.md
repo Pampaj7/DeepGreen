@@ -11,13 +11,14 @@ before uploading, and edit nothing by hand.
 
 | EMSE item | File | State |
 |---|---|---|
-| Manuscript PDF | `paper/emse/main.pdf` | ready, Springer `sn-jnl`, 41 pages including references and Declarations |
+| Manuscript PDF | `paper/emse/main.pdf` | ready, Springer `sn-jnl`, 37 pages including references and Declarations |
 | LaTeX source (zip) | `paper/emse/submission.zip` | ready; compiles standalone from an empty directory (`paper/emse/make_submission.sh`) |
-| Electronic Supplementary Material: **Online Resource 1** | `paper/emse/Online_Resource_1.pdf` (a copy of `paper/emse/esm.pdf`) | ready, 39 pages; upload as a separate supplementary file named "Online Resource 1" |
+| Electronic Supplementary Material: **Online Resource 1** | `paper/emse/Online_Resource_1.pdf` (a copy of `paper/emse/esm.pdf`) | ready, 40 pages; upload as a separate supplementary file named "Online Resource 1" |
 | Cover letter | `paper/cover_letter.md` | ready |
 
-The article was cut from 71 to 41 pages for EMSE. What left the main text went
-to Online Resource 1 (`paper/appendix.tex`): the related-work table, the full
+The article was cut from 71 to 37 pages for EMSE. What left the main text went
+to Online Resource 1 (`paper/appendix.tex`): the related-work, training-energy,
+configuration and power-distortion tables, the full
 specification and execution detail, the collapsed-run and precision-policy
 analyses, the reported-window mechanism, the instrument detail and coverage, the
 saturation cell in full, the industrial scenario, the complete defect catalogue
@@ -71,10 +72,10 @@ pipeline. No author types a number.
 
 ## Known state of the build
 
-* EMSE: `main.pdf` 41 pages, `esm.pdf` (Online Resource 1) 39 pages; 0
+* EMSE: `main.pdf` 37 pages, `esm.pdf` (Online Resource 1) 40 pages; 0
   undefined references, citations or macros in either, and no "??" in the
   typeset text (`make_submission.sh` checks the standalone compile for both).
-* Elsevier fallback: `paper.pdf` 44 pages in `cas-dc`, with the supplementary
+* Elsevier fallback: `paper.pdf` 42 pages in `cas-dc`, with the supplementary
   material as an inline appendix; 0 undefined references, citations or macros.
 * The structured abstract (Context / Objective / Method / Results /
   Conclusions) is 246 words as typeset, within EMSE's 150–250.

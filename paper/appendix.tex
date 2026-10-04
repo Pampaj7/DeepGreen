@@ -504,10 +504,11 @@ directory until the expected number of runs is complete. Neither changes a numbe
 reported here, and both are the kind of thing a reproducibility claim has to be
 able to survive being asked about.
 
-\subsection{What the configuration table verifies}
+\subsection{The configuration, and what verifies it}
 \label{app:config}
 
-Of the rows of Table~\ref{tab:hyperparams}, the learning rate and the batch
+
+The configuration is in Table~\ref{tab:hyperparams} of the article. Of its rows, the learning rate and the batch
 size are verified against the source of every file the campaign executes,
 universally rather than by one file that happens to match; the precision policy
 is verified as a campaign-wide export and by a negative check that no stack pins
@@ -523,10 +524,25 @@ survives when the backend is held fixed.
 \section{RQ1: supplementary analyses}
 \label{app:rq1}
 
-Section~\ref{subsec:rq1} answers RQ1 and summarises the three analyses given in
-full here: what an earlier version of this study read into the control group,
+Section~\ref{subsec:rq1} answers RQ1 and summarises the analyses given in full
+here: the training energy behind Figure~\ref{fig:energy_ci}, what an earlier
+version of this study read into the control group,
 the runs that collapsed in the first execution of this design, and the precision
 policy that separated the two executions.
+
+\subsection{Training energy per epoch, tabulated}
+\label{app:train-energy}
+
+Table~\ref{tab:train_energy} gives the means that Figure~\ref{fig:energy_ci}
+plots, per ecosystem and cell; Table~\ref{tab:spread} in the article picks out
+the cheapest and the dearest stack of each cell.
+
+\begin{table*}[t]
+\centering
+\caption{Mean training energy per epoch (J), accelerator plus CPU package.}
+\label{tab:train_energy}
+\input{\gendir tab_train_energy.tex}
+\end{table*}
 
 \subsection{What an earlier version read into the control group}
 \label{app:control}
@@ -952,6 +968,25 @@ whole artefact is a configuration away from disappearing --- an offline
 configuration, or an \code{api\_call\_interval} of $-1$, removes the lookups.
 A study that measures short phases with this tool and does not set that
 parameter will record inflated durations, and nothing in the output says so.
+
+\subsection{Power from each instrument's own fields}
+\label{app:power}
+
+Table~\ref{tab:power_distortion} gives, by phase length, the medians that
+Figure~\ref{fig:window_floor}b plots: power derived from the estimator's own
+energy and duration fields against power from the counters. Both sides are the
+terms the two instruments both measure.
+
+\begin{table}[t]
+\centering
+\caption{Power derived from the estimator's own energy and duration fields
+against power from the counters, by phase length. No model is fitted: each
+instrument is divided by itself, on the terms both of them measure. The last
+column is the median of the per-block ratios, not the quotient of the two
+medians beside it.}
+\label{tab:power_distortion}
+{\footnotesize\setlength{\tabcolsep}{3pt}\input{\gendir tab_power_distortion.tex}}
+\end{table}
 
 \subsection{How we arrived at the explanation}
 \label{app:route}
