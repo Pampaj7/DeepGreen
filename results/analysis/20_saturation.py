@@ -806,6 +806,51 @@ def spread_table(cells_224: pd.DataFrame, cells_32: pd.DataFrame) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
+def relative_energy(cells_224: pd.DataFrame, cells_32: pd.DataFrame) -> pd.DataFrame:
+    """Each stack's per-epoch energy as a multiple of the cheapest of the seven.
+
+    The quantity ``fig_saturation`` draws. Same inputs and same definition as
+    :func:`spread_table` -- both arguments from :func:`spread_means`, so the
+    between-run *mean* of the per-run per-epoch energy -- and the cheapest stack
+    is the one ``spread_table`` names ``best_*``. Normalised per regime and,
+    at 32x32, per dataset, so the largest value of a column is the seven-stack
+    spread that ``sat_spread`` reports, and the ratio of any two stacks' values
+    is the spread between them: R over C++ is the LibTorch lineage's spread.
+
+    One row per (model, phase, ecosystem): ``rel_224`` and, at 32x32, one
+    column per dataset, with their mean and range across the three.
+    """
+    col = "energy_total_J_mean"
+    rows = []
+    for model in sorted(cells_224.model.unique()):
+        for phase in ("Training", "Inference"):
+            here = cells_224[(cells_224.model == model)
+                             & (cells_224.phase == phase)].set_index("ecosystem")[col]
+            if here.empty:
+                continue
+            rel = {"224": here / here.min()}
+            for dataset in sorted(cells_32.dataset.unique()):
+                there = cells_32[(cells_32.model == model)
+                                 & (cells_32.phase == phase)
+                                 & (cells_32.dataset == dataset)
+                                 ].set_index("ecosystem")[col]
+                if not there.empty:
+                    rel[dataset] = there / there.min()
+            datasets = [k for k in rel if k != "224"]
+            for eco in order_ecosystems(here.index):
+                r32 = [float(rel[d].get(eco, np.nan)) for d in datasets]
+                rows.append({
+                    "model": model, "phase": phase, "ecosystem": eco,
+                    "energy_224_J": float(here[eco]),
+                    "rel_224": float(rel["224"][eco]),
+                    **{f"rel_32_{d}": v for d, v in zip(datasets, r32)},
+                    "rel_32_mean": float(np.nanmean(r32)) if datasets else np.nan,
+                    "rel_32_min": float(np.nanmin(r32)) if datasets else np.nan,
+                    "rel_32_max": float(np.nanmax(r32)) if datasets else np.nan,
+                })
+    return pd.DataFrame(rows)
+
+
 # --------------------------------------------------------------------------
 # Output 3 -- does the ordering survive?
 # --------------------------------------------------------------------------
@@ -1460,7 +1505,8 @@ def main() -> int:
                "counter energy (GPU + CPU package) and time, median and IQR "
                "over the runs, final accuracy, and accelerator utilisation")
 
-    spread = spread_table(spread_means(blocks), v2_spread_means())
+    means_224, means_32 = spread_means(blocks), v2_spread_means()
+    spread = spread_table(means_224, means_32)
     check_control_against_tab_control(spread)
     print("\n--- ecosystem spread at 224 against 32x32 ---")
     print(spread[spread.subset == "all seven"][
@@ -1473,6 +1519,12 @@ def main() -> int:
                "two; all seven ecosystems and the LibTorch family alone. Both "
                "sides on tab_spread's definition: per-run mean over epochs, "
                "then the mean over the runs of a cell")
+    save_table(relative_energy(means_224, means_32).round(4),
+               f"sat_relative_energy{suffix}",
+               "Per-epoch energy of each ecosystem as a multiple of the "
+               "cheapest of the seven, at 224 and on each 32x32 dataset, on "
+               "sat_spread's definition; the largest value of a column is the "
+               "seven-stack spread. Drawn as fig_saturation")
 
     ranks = rank_agreement(cells_224, cells_32)
     print("\n--- does 224 order the ecosystems the way 32x32 does? ---")

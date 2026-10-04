@@ -102,14 +102,20 @@ value disappears the build fails rather than printing a stale figure.
 
 ## Figures
 
+Vector PDF, drawn at the printed width (sn-jnl's 372 pt text width; the
+repeatability figure at cas-dc's 238 pt column) by
+`results/analysis/13_paper_figures.py`, in the one stack colour-and-marker scheme
+of `results/analysis/figstyle.py`.
+
 | Figure | What it shows |
 |---|---|
-| `fig_window_floor.png` | The estimator’s reported duration carries seconds of tracker lifetime, in three discrete modes, and what that does to derived power |
-| `fig_energy_ci.png` | Training energy per ecosystem and block, with between-run intervals |
-| `fig_energy_accuracy.png` | Energy spent against accuracy reached; collapsed runs marked |
-| `fig_instrument.png` | Where the two instruments agree, and the part no counter can confirm |
-| `fig_repeatability.png` | Between-run coefficient of variation, by ecosystem and phase |
-| `fig_convergence.png` | What the collapsed VGG-16 runs were hiding |
+| `fig_window_floor.pdf` | The estimator’s reported duration carries seconds of tracker lifetime, in three discrete modes, and what that does to derived power |
+| `fig_energy_ci.pdf` | Training energy per ecosystem and block, with between-run intervals |
+| `fig_energy_accuracy.pdf` | Energy spent against accuracy reached; collapsed runs marked |
+| `fig_instrument.pdf` | Where the two instruments agree, and the part no counter can confirm |
+| `fig_repeatability.pdf` | Between-run coefficient of variation, by ecosystem and phase |
+| `fig_convergence_first_campaign.pdf` | What the collapsed VGG-16 runs of the first campaign were hiding |
+| `fig_saturation.pdf` | The saturation cell: the LibTorch lineage's training-energy spread narrows at 224×224, the seven-stack spread widens |
 
 ## History
 

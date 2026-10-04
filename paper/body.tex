@@ -873,10 +873,11 @@ ecosystem.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_repeatability.png}
-    \caption{Between-run coefficient of variation of energy, median over the six
-    (model, dataset) cells, from \vRepetitions{} independent runs per
-    configuration.}
+    \includegraphics{figures/fig_repeatability.pdf}
+    \caption{Between-run coefficient of variation of energy, from
+    \vRepetitions{} independent runs per configuration: the median over the six
+    (model, dataset) cells (marker; filled for training, hollow for inference)
+    and the range over them (line).}
     \label{fig:repeatability}
 \end{figure}
 
@@ -896,11 +897,11 @@ energy per epoch for every ecosystem and cell, at a common board-and-package bou
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_energy_ci.png}
-    \caption{Training energy per epoch, accelerator plus CPU package, with 95\%
-    Student-$t$ intervals over \vRepetitions{} independent runs. Note the
-    logarithmic axis: the intervals are narrow enough to be hard to see at this
-    scale.}
+    \includegraphics[width=\linewidth]{figures/fig_energy_ci.pdf}
+    \caption{Training energy per epoch, accelerator plus CPU package: the mean
+    over \vRepetitions{} independent runs (marker) and its 95\% Student-$t$
+    interval (black line, drawn over the marker). Every interval is narrower
+    than its marker. The axis is logarithmic and the same in all six panels.}
     \label{fig:energy_ci}
 \end{figure*}
 
@@ -1028,10 +1029,12 @@ none collapsed to chance (Section~\ref{subsubsec:collapse}).}
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_energy_accuracy.png}
-    \caption{Energy spent against accuracy reached, one point per run. The
-    dashed line is the empirical frontier: no configuration to its left reaches
-    the same accuracy for less energy.}
+    \includegraphics[width=\linewidth]{figures/fig_energy_accuracy.pdf}
+    \caption{Energy spent against accuracy reached, one point per run; filled
+    markers are ResNet-18 runs and hollow markers VGG-16 runs. The energy axis
+    is logarithmic and the same in all three panels. The dashed line is the
+    empirical frontier: no configuration to its left reaches the same accuracy
+    for less energy.}
     \label{fig:energy_accuracy}
 \end{figure*}
 
@@ -1099,11 +1102,12 @@ reported here --- and neither architecture does it on Fashion-MNIST.
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_convergence_first_campaign.png}
+    \includegraphics[width=\linewidth]{figures/fig_convergence_first_campaign.pdf}
     \caption{The superseded first campaign, from that campaign's own records.
-    (a) Cross-ecosystem accuracy spread per cell, over all runs and over only
-    the runs that trained; the gap on VGG-16 is the collapsed runs. (b) VGG-16
-    runs that collapsed to chance, out of \vRepetitions{} per cell. The same
+    (a) Cross-ecosystem accuracy spread per cell, over all runs (hollow) and
+    over only the runs that trained (filled); the gap on VGG-16 is the collapsed
+    runs. (b) VGG-16 runs that collapsed to chance, out of \vRepetitions{} per
+    cell, on CIFAR-100 (filled) and Tiny ImageNet (hollow). The same
     figure for the campaign reported here is not drawn: with
     \vCollapseRuns{} collapses its panel (a) plots one set of runs against
     itself and its panel (b) is empty in every cell.}
@@ -1456,20 +1460,28 @@ duration. What the reported duration does distort is power.
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_window_floor.png}
+    \includegraphics[width=\linewidth]{figures/fig_window_floor.pdf}
     \caption{(a) The duration reported alongside each energy figure is not the
-    interval the energy was accumulated over: the excess falls into
-    \vWindowModes{} discrete modes, one per outstanding network lookup in
-    \texttt{stop()}, with a threshold near \vWindowThresholdS\,\si{\second}.
-    (b) Power obtained by dividing reported energy by reported duration is
-    consequently understated for short phases and exact above
-    \vWindowThresholdS\,\si{\second}. Both
-    instruments are compared on the terms both measure.}
+    interval the energy was accumulated over. Each point is one block: the
+    reported duration minus the counter-bracketed phase, against the phase.
+    The excess falls into \vWindowModes{} discrete modes (horizontal lines,
+    labelled with their median and share of blocks); the middle one holds both
+    padded levels of Table~\ref{tab:mechanism}, one and two network lookups
+    outstanding in \texttt{stop()}, and the top one is a single block. The
+    vertical line is the threshold near \vWindowThresholdS\,\si{\second}.
+    (b) Median power per phase-duration bin, from the hardware counters and
+    from reported energy divided by reported duration, on the bins of
+    Table~\ref{tab:power_distortion}; the labels are the median factor by which
+    the second understates the first. Power from the reported fields is
+    understated for short phases and exact above
+    \vWindowThresholdS\,\si{\second}. Both instruments are compared on the terms
+    both measure.}
     \label{fig:window_floor}
 \end{figure*}
 
-The answer is in Figure~\ref{fig:window_floor}. Panel (a) plots the duration
-CodeCarbon reports for each block against the counter-bracketed phase. The
+The answer is in Figure~\ref{fig:window_floor}. Panel (a) plots, for each
+block, how far the duration CodeCarbon reports exceeds the counter-bracketed
+phase, against that phase. The
 excess between them is not continuous: it is concentrated at a few values with
 wide gaps between them. \vWindowModeOnePct\,\% of blocks carry an excess of
 \vWindowModeOneS\,\si{\second} --- that is, none --- and \vWindowModeTwoPct\,\%
@@ -1638,11 +1650,12 @@ what they say about each other.
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_instrument.png}
+    \includegraphics[width=\linewidth]{figures/fig_instrument.pdf}
     \caption{(a) Ratio of CodeCarbon to hardware counters, per block, against
-    phase duration. The measured part agrees; the total does not, by exactly the
-    modelled RAM term. (b) The share of each ecosystem's reported total that is
-    modelled RAM.}
+    phase duration, for the GPU and CPU terms both measure (grey) and for
+    CodeCarbon's total (orange). The measured part agrees; the total does not,
+    by exactly the modelled RAM term. (b) The share of each ecosystem's
+    reported total that is modelled RAM, mean over its blocks.}
     \label{fig:instrument}
 \end{figure*}
 
@@ -1883,12 +1896,29 @@ ResNet-18 and \vSatAccVggMin--\vSatAccVggMax\,\% on VGG-16 over ten classes,
 and the lowest single run of the cell (\vSatAccRunMinEco, \vSatAccRunMinModel)
 ends at \vSatAccRunMin\,\%, far from chance.
 
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_saturation.pdf}
+    \caption{Per-epoch training energy of each stack as a multiple of the
+    cheapest of the seven in the same regime: at $32\times32$ (hollow; the mean
+    over Fashion-MNIST, CIFAR-100 and Tiny ImageNet, each normalised to its own
+    cheapest stack, with their range as a coloured line where it is wider than
+    the marker) and in the saturation cell at $224\times224$, batch 32, on
+    Imagenette (filled). A stack's energy in a regime is the mean over its runs
+    of the run's mean per-epoch counter energy, the definition behind the spread
+    rows of Table~\ref{tab:saturation}. On the logarithmic axis the distance
+    between two stacks is the spread between them. Shaded rows are the LibTorch
+    lineage. The cell changes resolution, batch size and dataset together.}
+    \label{fig:saturation}
+\end{figure*}
+
 \textbf{Within the LibTorch lineage the spread compresses.} The four stacks that
 descend from LibTorch --- PyTorch, C++, Rust and R --- spread by
 \vSatLibtorchRefSpreadTrainResnetMin$\times$--\vSatLibtorchRefSpreadTrainResnetMax$\times$
 in ResNet-18 training over the three $32\times32$ datasets and by
 \vSatLibtorchSpreadTrainResnet$\times$ at $224\times224$; on VGG-16, by
-\vSatLibtorchRefSpreadTrainVggMax$\times$ and \vSatLibtorchSpreadTrainVgg$\times$.
+\vSatLibtorchRefSpreadTrainVggMax$\times$ and \vSatLibtorchSpreadTrainVgg$\times$
+(Figure~\ref{fig:saturation}).
 Inference compresses further, from
 \vSatLibtorchRefSpreadInferResnetMin$\times$--\vSatLibtorchRefSpreadInferResnetMax$\times$
 to \vSatLibtorchSpreadInferResnet$\times$ on ResNet-18 and from
@@ -1921,7 +1951,7 @@ training only.
 by \vSatSpreadTrainResnet$\times$ on ResNet-18 and \vSatSpreadTrainVgg$\times$
 on VGG-16, against
 \vSatRefSpreadTrainResnetMin$\times$--\vSatRefSpreadTrainResnetMax$\times$ and
-\vSatRefSpreadTrainVggMax$\times$ at $32\times32$; the accelerator-only spread
+\vSatRefSpreadTrainVggMax$\times$ at $32\times32$ (Figure~\ref{fig:saturation}); the accelerator-only spread
 is \vSatSpreadGpuTrainResnet$\times$ and \vSatSpreadGpuTrainVgg$\times$, so the
 widening is not a host-side term. The dearest stack for every architecture and
 phase in the cell is \vSatWorstTrainResnet{}; at $32\times32$ the dearest in training was

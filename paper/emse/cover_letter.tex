@@ -1,0 +1,88 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{microtype}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5\baselineskip}
+\pagestyle{empty}
+\AtBeginDocument{\fontsize{10.5}{13}\selectfont}
+\begin{document}
+
+\begin{flushright}
+University of Florence, Italy\\
+4 October 2026
+\end{flushright}
+\vspace{-0.5\baselineskip}
+
+\textbf{To:} The Editors-in-Chief, \textit{Empirical Software Engineering}
+
+{\hyphenpenalty=10000 \textbf{Manuscript:} \textit{Deep Green AI: Energy Efficiency of Deep Learning across
+Language--Framework Ecosystems}\par}
+
+Dear Editors-in-Chief,
+
+We submit the above manuscript for consideration as a regular article in
+\textit{Empirical Software Engineering}.
+
+\textbf{What the paper contributes.} It is a controlled, replicated comparison of
+the energy cost of deep-learning training and inference across seven
+language--framework ecosystems: Python with PyTorch, TensorFlow and JAX; C++ with
+LibTorch; Java with Deeplearning4j; R with \texttt{torch}; and Rust with \texttt{tch}. The
+campaign is 210 runs on one GPU host. A written specification defines what ``the
+same experiment'' means across stacks, and 110 executable checks enforce it
+against the source and the built binaries. Every measurement block is read
+twice, by hardware energy counters and by a widely used software estimator.
+
+Training energy differs across ecosystems by \mbox{7.4$\times$--9.8$\times$}, and by \mbox{1.1$\times$--1.6$\times$} among
+the three stacks that share one exported model and backend build. A declared
+contrast cell of 70 runs at 224$\times$224 shows the spread narrowing within the
+LibTorch lineage (\mbox{1.3$\times$--2.8$\times$}) and widening across all seven stacks
+(\mbox{15.3$\times$--19.1$\times$}). The estimator agrees with the counters on energy to 0.3~\%, but
+its reported duration understates derived power by up to 13.0$\times$. The paper also
+includes a catalogue of the defect classes we found, our own among them.
+
+\textbf{Why EMSE.} The paper is an empirical software-engineering study before it is
+a machine-learning one. Its central methodological claim is that a
+cross-ecosystem comparison is only as good as the specification and enforcement
+behind it. It treats the measurement apparatus as an object of study, reports
+between-run uncertainty from independent replications, and states its threats
+to validity in the terms the field uses. It also contributes to Green software
+engineering. The study is built for open
+science: every number in the manuscript is generated from the raw records by a
+public pipeline, and one command rebuilds the paper.
+
+\textbf{Prior submission.} An earlier version of this study was submitted to the
+\textit{Journal of Systems and Software} and rejected. We took the reviews as a reason
+to redo the study rather than to revise the text:
+\begin{itemize}[nosep,topsep=0.2\baselineskip]
+\item a new measurement campaign on new hardware;
+\item a written experiment specification with an automated conformance checker;
+\item dual-instrument measurement of every block;
+\item the accelerator-saturation contrast cell;
+\item an audit of the defects in the earlier work.
+\end{itemize}
+\vspace{-0.1\baselineskip}
+The earlier reviews and our point-by-point account of how each was addressed
+are in the replication repository (\texttt{REVIEWERS\_RESPONSE.md}), and we will supply
+them directly on request.
+
+\textbf{Data and code availability.} The implementations, the specification, the
+conformance checker, the measurement bridge, the raw per-block records of the
+campaign and of the contrast cell, and the analysis pipeline are public at
+\url{https://github.com/Pampaj7/DeepGreen}. We will deposit an archived copy with a
+DOI before publication.
+
+\textbf{Declarations.} The manuscript is not under consideration elsewhere and has
+not been published. All authors have read and approved the submission. We
+declare no competing interests.
+
+Yours sincerely,
+
+Leonardo Pampaloni and Marco Pagliocca (corresponding authors), Enrico Vicario,
+Roberto Verdecchia\\
+University of Florence, Italy
+
+\end{document}
