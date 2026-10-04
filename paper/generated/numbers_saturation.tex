@@ -20,6 +20,8 @@
 \newcommand{\vSatBestTrainVgg}{TensorFlow}
 \newcommand{\vSatCampaignEnergyKWh}{19.1}
 \newcommand{\vSatCampaignEnergyMJ}{68.9}
+\newcommand{\vSatCompressionInferMax}{1.58}
+\newcommand{\vSatCompressionInferMin}{0.47}
 \newcommand{\vSatCompressionInferResnetCifar}{1.25}
 \newcommand{\vSatCompressionInferResnetFashion}{1.58}
 \newcommand{\vSatCompressionInferResnetMax}{1.58}
@@ -32,6 +34,8 @@
 \newcommand{\vSatCompressionInferVggTiny}{0.48}
 \newcommand{\vSatCompressionMax}{1.58}
 \newcommand{\vSatCompressionMin}{0.39}
+\newcommand{\vSatCompressionTrainMax}{0.64}
+\newcommand{\vSatCompressionTrainMin}{0.39}
 \newcommand{\vSatCompressionTrainResnetCifar}{0.63}
 \newcommand{\vSatCompressionTrainResnetFashion}{0.64}
 \newcommand{\vSatCompressionTrainResnetMax}{0.64}
@@ -42,6 +46,8 @@
 \newcommand{\vSatCompressionTrainVggMax}{0.39}
 \newcommand{\vSatCompressionTrainVggMin}{0.39}
 \newcommand{\vSatCompressionTrainVggTiny}{0.39}
+\newcommand{\vSatCtrlCompressionInferMax}{2.44}
+\newcommand{\vSatCtrlCompressionInferMin}{1.68}
 \newcommand{\vSatCtrlCompressionInferResnetCifar}{2.06}
 \newcommand{\vSatCtrlCompressionInferResnetFashion}{2.44}
 \newcommand{\vSatCtrlCompressionInferResnetMax}{2.44}
@@ -54,6 +60,8 @@
 \newcommand{\vSatCtrlCompressionInferVggTiny}{1.91}
 \newcommand{\vSatCtrlCompressionMax}{2.44}
 \newcommand{\vSatCtrlCompressionMin}{0.92}
+\newcommand{\vSatCtrlCompressionTrainMax}{1.18}
+\newcommand{\vSatCtrlCompressionTrainMin}{0.92}
 \newcommand{\vSatCtrlCompressionTrainResnetCifar}{0.97}
 \newcommand{\vSatCtrlCompressionTrainResnetFashion}{0.92}
 \newcommand{\vSatCtrlCompressionTrainResnetMax}{1.18}
@@ -108,6 +116,8 @@
 \newcommand{\vSatEpochs}{30}
 \newcommand{\vSatInferTimeMax}{247.2}
 \newcommand{\vSatInferTimeMin}{2.0}
+\newcommand{\vSatLibtorchCompressionInferMax}{7.97}
+\newcommand{\vSatLibtorchCompressionInferMin}{6.30}
 \newcommand{\vSatLibtorchCompressionInferResnetCifar}{6.30}
 \newcommand{\vSatLibtorchCompressionInferResnetFashion}{7.97}
 \newcommand{\vSatLibtorchCompressionInferResnetMax}{7.97}
@@ -120,6 +130,8 @@
 \newcommand{\vSatLibtorchCompressionInferVggTiny}{7.75}
 \newcommand{\vSatLibtorchCompressionMax}{7.97}
 \newcommand{\vSatLibtorchCompressionMin}{2.64}
+\newcommand{\vSatLibtorchCompressionTrainMax}{3.48}
+\newcommand{\vSatLibtorchCompressionTrainMin}{2.64}
 \newcommand{\vSatLibtorchCompressionTrainResnetCifar}{3.45}
 \newcommand{\vSatLibtorchCompressionTrainResnetFashion}{3.48}
 \newcommand{\vSatLibtorchCompressionTrainResnetMax}{3.48}
@@ -170,6 +182,8 @@
 \newcommand{\vSatLibtorchSpreadTrainVgg}{1.3}
 \newcommand{\vSatLoaderThreads}{2}
 \newcommand{\vSatModels}{2}
+\newcommand{\vSatNoJavaCompressionInferMax}{6.52}
+\newcommand{\vSatNoJavaCompressionInferMin}{5.15}
 \newcommand{\vSatNoJavaCompressionInferResnetCifar}{5.15}
 \newcommand{\vSatNoJavaCompressionInferResnetFashion}{6.52}
 \newcommand{\vSatNoJavaCompressionInferResnetMax}{6.52}
@@ -182,6 +196,8 @@
 \newcommand{\vSatNoJavaCompressionInferVggTiny}{5.80}
 \newcommand{\vSatNoJavaCompressionMax}{6.52}
 \newcommand{\vSatNoJavaCompressionMin}{2.03}
+\newcommand{\vSatNoJavaCompressionTrainMax}{2.76}
+\newcommand{\vSatNoJavaCompressionTrainMin}{2.03}
 \newcommand{\vSatNoJavaCompressionTrainResnetCifar}{2.73}
 \newcommand{\vSatNoJavaCompressionTrainResnetFashion}{2.76}
 \newcommand{\vSatNoJavaCompressionTrainResnetMax}{2.76}
@@ -280,10 +296,23 @@
 \newcommand{\vSatRefSpreadTrainVggMax}{7.4}
 \newcommand{\vSatRefSpreadTrainVggMin}{7.4}
 \newcommand{\vSatRefSpreadTrainVggTiny}{7.4}
+\newcommand{\vSatRefUtilHighPct}{85}
 \newcommand{\vSatRefUtilMax}{93.8}
 \newcommand{\vSatRefUtilMaxEco}{C++}
+\newcommand{\vSatRefUtilMedian}{64.3}
 \newcommand{\vSatRefUtilMin}{5.5}
 \newcommand{\vSatRefUtilMinEco}{R}
+\newcommand{\vSatRefUtilResnetHighCount}{1}
+\newcommand{\vSatRefUtilResnetMax}{85.1}
+\newcommand{\vSatRefUtilResnetMin}{5.5}
+\newcommand{\vSatRefUtilRuns}{157}
+\newcommand{\vSatRefUtilRunsMax}{15}
+\newcommand{\vSatRefUtilRunsMin}{9}
+\newcommand{\vSatRefUtilRunsOf}{210}
+\newcommand{\vSatRefUtilRunsPerPair}{15}
+\newcommand{\vSatRefUtilVggHighCount}{5}
+\newcommand{\vSatRefUtilVggMax}{93.8}
+\newcommand{\vSatRefUtilVggMin}{14.9}
 \newcommand{\vSatRefWorstTrainResnet}{R}
 \newcommand{\vSatRefWorstTrainVgg}{Java}
 \newcommand{\vSatReps}{5}
@@ -322,6 +351,7 @@
 \newcommand{\vSatUtilMinEco}{R}
 \newcommand{\vSatUtilMinModel}{ResNet-18}
 \newcommand{\vSatUtilRuns}{70}
+\newcommand{\vSatUtilRunsOf}{70}
 \newcommand{\vSatUtilSamples}{137473}
 \newcommand{\vSatWorstInferResnet}{Java}
 \newcommand{\vSatWorstInferVgg}{Java}

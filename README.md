@@ -130,9 +130,9 @@ What "the same experiment" means across stacks is written down in
 [`results/analysis/experiment_spec.md`](./results/analysis/experiment_spec.md)
 (S1 model, S2 optimisation, S3 data pipeline, S4 backend, S5 measurement,
 S6 replication) and enforced against the source, the built binaries and the
-campaign's own metric files by **92 automated checks**
+campaign's own metric files by **110 automated checks**
 <!-- \vConformanceChecks --> in `scripts/check_consistency.py`
-(**92 pass, 0 fail**) <!-- \vConformancePassing, \vConformanceFailing -->.
+(**110 pass, 0 fail**) <!-- \vConformancePassing, \vConformanceFailing -->.
 
 ---
 
@@ -165,8 +165,10 @@ campaign's own metric files by **92 automated checks**
   all 42 configurations <!-- \vConfigurations -->; within a single
   architecture × dataset × phase cell ρ runs **0.68 to 1.00** over the 12 cells
   <!-- \vCellRhoMin, \vCellRhoMax, \vCellRhoCells -->, so it is not an artefact
-  of pooling workloads of different size. The contrary result is reproducible
-  here as an instrument artefact: the two instruments
+  of pooling workloads of different size. On CodeCarbon's own durations ρ is
+  **0.95** and **0.72** <!-- \vRhoTrainReported, \vRhoInferReported -->: weaker
+  for inference, not reversed, so the contrary result is not reproduced as an
+  artefact. What the estimator's duration does distort is power: the two instruments
   agree on *energy* to **0.3 %** <!-- \vCCmeasDisagreementPct -->, but the
   duration the estimator reports beside that energy is not the interval the
   energy was accumulated over — **75 % of blocks** <!-- \vWindowPaddedPct -->
@@ -218,7 +220,8 @@ campaign's own metric files by **92 automated checks**
   <!-- \vLowestGpuUtilVggPct -->, over the 157 of 210 runs the 1 Hz sampler
   covers <!-- \vGpuUtilCoveredRuns, \vRuns -->. The campaign therefore compares
   *whole pipelines* — loading, dispatch and kernels together — rather than
-  saturated kernels. The 224×224 contrast cell measures what saturation does
+  saturated kernels. The 224×224 contrast cell (resolution, batch size and
+  dataset changed together) measures what a heavier per-sample workload does
   (median training-block utilisation **89.2 %** <!-- \vSatUtilMedian -->, a
   different window from the whole-run figures above): the spread within the
   LibTorch family compresses, to **2.8×** and **1.3×** in training
@@ -411,7 +414,7 @@ own source found that the stacks had not been running the same experiment
 data-loader settings), that the instrument had been configured five different
 ways across them, and that energy had been reported in kWh under a Joule label.
 Everything in this repository is the replacement: one written specification,
-92 executable conformance checks, one shared measurement contract, dual
+110 executable conformance checks, one shared measurement contract, dual
 instrumentation, and all 210 runs re-executed with 5 independent repetitions per
 configuration.
 

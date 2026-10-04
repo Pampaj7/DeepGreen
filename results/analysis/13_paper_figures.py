@@ -181,8 +181,16 @@ def fig_window_floor(epochs: pd.DataFrame) -> None:
     # artefact rather than mixing it with the modelled RAM term.
     d["p_hw"] = d.hw_meas_j / d.duration_hw_s
     d["p_cc"] = d.cc_meas_j / d.duration_cc_s
-    d["bin"] = pd.cut(d.duration_hw_s, [0, 0.5, 1, 2, 5, 10, 30, np.inf],
-                      labels=["<0.5", "0.5-1", "1-2", "2-5", "5-10", "10-30", ">30"])
+    # The table's own bins (16_coverage_sensitivity.power_bins), read off the
+    # table rather than restated, so the threshold edge is the same in both.
+    dist = pd.read_csv(TABLES / "v2_coverage_power_distortion.csv")
+    labels = [str(b) for b in dist["bin"]]
+    edges = [0.0]
+    for lab in labels[:-1]:
+        edges.append(float(lab.replace(" s", "").split("-")[-1].lstrip("<")))
+    edges.append(np.inf)
+    d["bin"] = pd.cut(d.duration_hw_s, edges,
+                      labels=[lab.replace(" s", "") for lab in labels])
     t = d.groupby("bin", observed=True).apply(
         lambda g: pd.Series({"p_hw": g.p_hw.median(), "p_cc": g.p_cc.median(),
                              "ratio": (g.p_hw / g.p_cc).median()}),

@@ -53,7 +53,7 @@ the number of runs that were interleaved.
 Verify the whole chain with:
 
 ```bash
-python3 scripts/check_consistency.py            # 92 pass, 0 fail
+python3 scripts/check_consistency.py            # 110 pass, 0 fail
 python3 scripts/consolidate_raw.py --check      # package matches the raw tree
 ./paper/build.sh                                # analysis + numbers + figures + PDF
 ```
@@ -70,7 +70,7 @@ python3 scripts/consolidate_raw.py --check      # package matches the raw tree
   introducing a different tool, Tiny ImageNet to a benchmark that does not use
   it, a language-energy claim to a study measuring no energy, and an electricity
   price to a paper containing none. See `paper/README.md`.
-* The structured abstract runs to about 400 words. Elsevier's guidance is ~250
+* The structured abstract runs to about 400 words (406 as typeset, trimmed for this revision). Elsevier's guidance is ~250
   for an unstructured one; JSS accepts structured abstracts, which run longer.
   Trim if the editor asks.
 

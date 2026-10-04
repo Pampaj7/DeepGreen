@@ -255,7 +255,22 @@ def _hour_range(hours: list[int]) -> str:
     return f"{start:02d}:00-{(end + 1) % 24:02d}:00"
 
 
-def power_distortion(a: pd.DataFrame) -> pd.DataFrame:
+#: Phase-length bins of the power-distortion table and of Figure fig_window_floor
+#: (b), which draws the same bins. The top bins used to be 10-30 s, which
+#: straddles the ~11 s padding threshold (window_model; the probe's no-lookup
+#: level is 12 s): its median read 1.00x because most of its blocks are past
+#: the threshold, while its 10-11 s blocks are understated by 1.3x -- so "exact
+#: above ten seconds" was a reading of a bin edge, not of the data. The bin edge
+#: now sits at the threshold window_model finds.
+def power_bins(threshold_s: float) -> tuple[list[float], list[str]]:
+    t = float(threshold_s)
+    edges = [0, 0.5, 1, 2, 5, 10, t, 30, np.inf]
+    labels = ["<0.5 s", "0.5-1 s", "1-2 s", "2-5 s", "5-10 s",
+              f"10-{t:g} s", f"{t:g}-30 s", ">30 s"]
+    return edges, labels
+
+
+def power_distortion(a: pd.DataFrame, threshold_s: float) -> pd.DataFrame:
     """The consequence, stated without a model.
 
     Whatever governs the padding, its effect on a derived quantity is directly
@@ -270,9 +285,8 @@ def power_distortion(a: pd.DataFrame) -> pd.DataFrame:
     # instruments measure. The RAM term is criticised on its own two pages on.
     g["power_reported_w"] = g.cc_meas_j / g.duration_cc_s
     g["power_measured_w"] = g.hw_meas_j / g.duration_hw_s
-    g["bin"] = pd.cut(g.duration_hw_s, [0, 0.5, 1, 2, 5, 10, 30, np.inf],
-                      labels=["<0.5 s", "0.5-1 s", "1-2 s", "2-5 s", "5-10 s",
-                              "10-30 s", ">30 s"])
+    edges, labels = power_bins(threshold_s)
+    g["bin"] = pd.cut(g.duration_hw_s, edges, labels=labels)
     out = (g.groupby("bin", observed=True)
            .apply(lambda d: pd.Series({
                "n_blocks": len(d),
@@ -358,7 +372,7 @@ def main() -> None:
     save_table(rejected, "v2_coverage_window_rejected_fits",
                "Length-based models of the reported duration, and why they fail")
 
-    dist = power_distortion(a)
+    dist = power_distortion(a, wm.attrs["threshold"])
     print("\n--- power from the reported fields, by phase length ---")
     print(dist.to_string(index=False))
     save_table(dist, "v2_coverage_power_distortion",

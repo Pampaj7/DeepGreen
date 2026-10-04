@@ -62,6 +62,10 @@ def run_totals() -> pd.DataFrame:
         e.groupby(["ecosystem", "model", "dataset", "repetition", "phase"])
         .agg(energy_j=("hw_meas_j", "sum"),
              duration_s=("duration_hw_s", "sum"),
+             # CodeCarbon's own `duration` field over the same blocks. Only
+             # energy_time_reported() reads it; every test here is on
+             # duration_s, the counter-bracketed time.
+             duration_reported_s=("duration_cc_s", "sum"),
              gpu_j=("hw_gpu_j", "sum"),
              cpu_j=("hw_cpu_j", "sum"))
         .reset_index()
@@ -197,6 +201,20 @@ def energy_time(runs: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def energy_time_reported(runs: pd.DataFrame) -> pd.DataFrame:
+    """energy_time(), with only the duration source changed.
+
+    The "faster is not greener" result reported elsewhere was computed on the
+    estimator's reported duration. This is the same statistic on the same
+    configurations, the same counter energy and the same aggregation (run
+    totals, median over repetitions, Spearman across configurations) -- with
+    the counter-bracketed duration replaced by CodeCarbon's ``duration`` field
+    summed per run over the same blocks. Nothing else differs, so any gap
+    between this table and v2_stats_energy_time is the instrument's.
+    """
+    return energy_time(runs.assign(duration_s=runs.duration_reported_s))
+
+
 def cell_energy_time(runs: pd.DataFrame) -> pd.DataFrame:
     """The energy-time relationship inside a single cell, not pooled over cells.
 
@@ -295,6 +313,14 @@ def main() -> None:
     print(et.to_string(index=False))
     save_table(et, "v2_stats_energy_time",
                "Energy-time rank agreement on counter-bracketed durations")
+
+    er = energy_time_reported(runs)
+    print("\n--- energy against CodeCarbon's reported time (same definition) ---")
+    print(er.to_string(index=False))
+    save_table(er, "v2_stats_energy_time_reported",
+               "Energy-time rank agreement as v2_stats_energy_time, with "
+               "CodeCarbon's reported duration in place of the counter-"
+               "bracketed one")
 
     cr = cell_energy_time(runs)
     print("\n--- energy against time within each cell, ecosystems only ---")

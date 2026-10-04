@@ -73,8 +73,10 @@ joinable on `(ecosystem, model, dataset, repetition, phase, epoch)`. The two ran
 phase boundaries: the shared bridge starts CodeCarbon and reads the counters
 inside one synchronous `START`, and stops and reads inside one synchronous
 `STOP`. The counter window is therefore *nested* immediately inside
-CodeCarbon's, not identical to it, which costs a near-constant ~0.5 J offset in
-the CPU term.
+CodeCarbon's, not identical to it, which costs a near-constant offset in the
+CPU term: a median of 0.48 J per block <!-- \vOffsetCpuMedianJ --> (0.49 J
+<!-- \vOffsetMedianJ --> on the GPU-plus-CPU total, the two GPU terms differing
+by a median of 1.2 mJ <!-- \vOffsetGpuMedianMJ -->).
 
 Be aware of what the comparison establishes. Where both counters are exposed —
 as they are on this machine — CodeCarbon reads the same NVML register and the
@@ -92,33 +94,51 @@ RAM energy counter to read.
 
 ## Caveats worth knowing before you use these
 
-* **`duration` in the CodeCarbon table is not the phase.** Two thirds of blocks
-  carry seconds of tracker lifetime in which no energy was drawn, in three
-  discrete modes (0.01 s, 3.27 s, 4.56 s) that block length predicts but does
-  not determine. Power derived from that field is understated by up to 11.2× on
-  blocks under half a second. `duration_s` in the counters table is the phase.
-* **Twelve of the 105 VGG-16 runs never left chance accuracy.** They are here
-  because they happened. The manuscript reports accuracy both with and without
-  them rather than excluding them, and `results/analysis/15_convergence.py`
-  flags them. Filter on `test_acc`, not on the ecosystem.
+Figures below are the manuscript's, from `paper/generated/numbers.tex`; the
+comment beside each names the macro, so a regenerated value can be checked
+against this text.
+
+* **`duration` in the CodeCarbon table is not the phase.** 75 % of blocks
+  <!-- \vWindowPaddedPct --> are filed with a window seconds longer than the
+  interval their energy was accumulated over. The excess falls in three modes:
+  0.01 s <!-- \vWindowModeOneS --> (25 % of blocks, i.e. none
+  <!-- \vWindowModeOnePct -->), 4.57 s <!-- \vWindowModeTwoS --> (75 %
+  <!-- \vWindowModeTwoPct -->; itself two populations a second or so apart),
+  and a single block at 13.38 s <!-- \vWindowModeThreeS -->. The cause is the
+  tracker's blocking network look-ups inside `stop()`, made after the final
+  energy reading (`scripts/probe_reported_window.py`). Power derived from that
+  field is understated by up to 13.0× <!-- \vPowerUnderstatedWorst --> on
+  blocks under half a second <!-- \vPowerUnderstatedWorstBin -->.
+  `duration_s` in the counters table is the phase.
+* **No run collapsed.** None of the 210 runs stayed at chance accuracy
+  (0 collapsed runs <!-- \vCollapseRuns -->; a run counts as collapsed if it
+  never exceeded 1.5× chance <!-- \vCollapseFactor -->, as
+  `results/analysis/15_convergence.py` defines it). The collapses discussed in
+  the manuscript belong to the superseded first campaign, which is not in this
+  package.
 * **`longitude`/`latitude`/`country_name`** are CodeCarbon's IP geolocation of
   the measuring machine, resolved to a region rather than a place. They set the
   grid carbon intensity used for the CO₂e figures — and, less obviously, they
   are why `duration` is wrong: fetching them is a blocking network call inside
   `stop()`. See `scripts/probe_reported_window.py`.
-
-* **`Java/DL4J` has no `test_loss`.** Our Java harness records test accuracy per
-  epoch and not test loss, so that column is empty for all 900 of its rows. The
-  conformance checker reports this as a failing check rather than tolerating
-  it.
-* **The `Rust/tch` runs on five of the six blocks were re-executed later**, in a
-  window five days after the rest of the campaign, on the same machine under the
-  same idle conditions. On one of those blocks (VGG-16 / Fashion-MNIST) the
-  originals trained on all-zero images through a defect of ours and reached
-  chance accuracy; the evidence is kept at
-  `results/revision/record/vgg_fashion_pipeline_defect.csv`. On the others the
-  same loader defect degraded quality without collapsing it. The between-window
-  drift is measured rather than assumed —
-  `results/analysis/17_window_calibration.py`, and
-  `results/revision/tables/v2_window_calibration.*` — at 0.2 % on training
-  energy and 10.6 % on inference.
+* **`train_acc` is not one quantity across the stacks.** Only Python/JAX and
+  Python/TensorFlow write it. `test_acc` (a percentage) and `test_loss` are
+  present for every stack and every epoch, and the conformance checker passes
+  110 of 110 checks <!-- \vConformancePassing, \vConformanceChecks --> with
+  0 failing <!-- \vConformanceFailing -->.
+* **4 runs were replayed 2 days later** <!-- \vLateRuns, \vLateGapDays -->,
+  all JAX <!-- \vLateEcosystems --> on VGG-16, in 3 configurations
+  <!-- \vLateConfigurations -->. The originals failed on their first training
+  batch: the shared classifier head carries a dropout layer, and the JAX
+  training step never passed it a random stream. The defect was fixed before
+  the remaining JAX VGG-16 runs executed, so every JAX VGG-16 run here comes
+  from one source revision; the failed runs were deleted and replayed rather
+  than repaired. The remaining 206 runs <!-- \vInterleavedRuns --> ran
+  interleaved. The replays are not interleaved with the other ecosystems, so
+  between-window drift is measured rather than assumed
+  (`results/analysis/17_window_calibration.py`,
+  `results/revision/tables/v2_window_calibration.*`): re-executing one
+  configuration (PyTorch, ResNet-18 on Fashion-MNIST <!-- \vCalibConfig -->)
+  in a third window moved training energy by 1.2 %
+  <!-- \vCalibTrainDiffPct --> and inference energy by 3.2 %
+  <!-- \vCalibInferDiffPct -->.

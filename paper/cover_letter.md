@@ -53,24 +53,26 @@ distinct seeds, and every ecosystem records per-epoch test accuracy. The result
 is 210 complete runs and 12,600 doubly instrumented blocks, with no failed or
 partial run in the analysis. Four of the 210 were replayed two days after the
 rest, and the between-window drift this exposes them to is measured rather than
-assumed, at −1.25 % of training energy and 1.62 standard deviations of the
+assumed, at −1.2 % of training energy and 1.6 standard deviations of the
 within-window spread.
 
 **What that produced.** Two findings we did not expect, and would not have seen
 under the original design.
 
 The first is that the submitted paper's headline claim — that faster is not
-greener — reproduces here as an artefact of the estimator rather than a property
-of the ecosystems. The duration CodeCarbon reports beside each energy figure is
+greener — does not hold here, and that the estimator's duration field distorts
+power without producing that claim. The duration CodeCarbon reports beside each energy figure is
 not the duration the energy was accumulated over: three quarters of blocks carry
 seconds of tracker lifetime in which no energy was drawn, in three discrete
 modes that block length predicts but does not determine. We can now say what it
 is — the cost of closing the tracker with geolocation lookups still outstanding,
-measured directly on this host. Any energy–time
-analysis built on that field understates power by up to 13.0× on blocks under
-half a second — 20 W where the counters read 216 W — and the bias falls precisely
-on the fastest stacks and the inference phase. Measured against the counters,
-energy and time correlate at ρ = 0.96 in training and 0.92 in inference.
+measured directly on this host. Power derived from that field is understated
+by up to 13.0× on blocks under half a second — 20 W where the counters read
+216 W — and the bias falls precisely on the fastest stacks and the inference
+phase. Energy and time correlate at ρ = 0.96 in training and 0.92 in inference
+on counter durations, and at 0.95 and 0.72 on CodeCarbon's own: the reported
+duration weakens the inference relation but does not reverse it, so we do not
+claim to reproduce the submitted finding as an artefact.
 
 The second is a failure that only replication can see. In our first replicated
 campaign VGG-16 converged to exactly chance accuracy in 12 of 105 runs and never
@@ -101,7 +103,7 @@ We added a declared contrast cell instead — 70 runs on Imagenette at 224 × 22
 where median training-block utilisation is 89 % (Section 6.6). Within the
 LibTorch family the spread compresses; across all seven stacks it widens,
 because the one stack without a cuDNN path moves further away. The ecosystem
-effect is not an artefact of an idle accelerator, and its size depends on the
+effect survives a heavier per-sample workload, and its size depends on the
 regime; the manuscript says both, and what the single point leaves open.
 
 **What remains open.** A wall-meter reference, which would relate our chip-level boundary to

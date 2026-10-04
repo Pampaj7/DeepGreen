@@ -262,6 +262,9 @@ MODEL_LABEL = {"resnet18": "ResNet-18", "vgg16": "VGG-16"}
 DATASET_LABEL = {"fashionmnist": "Fashion-MNIST", "cifar100": "CIFAR-100",
                  "tinyimagenet": "Tiny ImageNet", "imagenette": "Imagenette"}
 
+#: The utilisation the paper calls high, for \vSatRefUtil<Model>HighCount.
+SAT_UTIL_HIGH_PCT = 85.0
+
 #: Macro name fragments. Letters only: TeX has no other kind of macro name.
 PHASE_TAG = {"Training": "Train", "Inference": "Infer"}
 MODEL_TAG = {"resnet18": "Resnet", "vgg16": "Vgg"}
@@ -640,11 +643,18 @@ def v2_utilisation() -> pd.DataFrame:
             "20_saturation: no 32x32 run's training blocks fall inside "
             f"{UTIL_RECORD} or its packaged excerpt; the utilisation contrast "
             "has no reference side.")
-    return (by_run.groupby(["ecosystem", "model"], observed=True)
-            .agg(n_runs_covered=("run", "size"),
-                 util_mean_pct=("util_mean_pct", "mean"),
-                 power_mean_w=("power_mean_w", "mean"))
-            .reset_index())
+    agg = (by_run.groupby(["ecosystem", "model"], observed=True)
+           .agg(n_runs_covered=("run", "size"),
+                util_mean_pct=("util_mean_pct", "mean"),
+                power_mean_w=("power_mean_w", "mean"))
+           .reset_index())
+    # How many runs each pair has to be covered out of (3 datasets x 5), from
+    # the per-block record of the 210 runs, so the coverage can be stated.
+    complete = (v2_blocks().groupby(["ecosystem", "model"], observed=True)
+                [["dataset", "repetition"]].apply(
+                    lambda g: len(g.drop_duplicates()))
+                .rename("n_runs_complete").reset_index())
+    return agg.merge(complete, on=["ecosystem", "model"], how="left")
 
 
 # --------------------------------------------------------------------------
@@ -940,7 +950,8 @@ def utilisation_contrast(by_eco: pd.DataFrame, v2_util: pd.DataFrame) -> pd.Data
     """
     left = v2_util.rename(columns={"util_mean_pct": "util_mean_pct_32",
                                    "power_mean_w": "power_mean_w_32",
-                                   "n_runs_covered": "n_runs_covered_32"})
+                                   "n_runs_covered": "n_runs_covered_32",
+                                   "n_runs_complete": "n_runs_complete_32"})
     right = by_eco[["ecosystem", "model", "util_mean_pct",
                     "sampler_power_mean_w", "util_n_runs_covered",
                     "util_n_samples", "util_coverage"]].rename(
@@ -1067,6 +1078,11 @@ def emit_macros(by_eco: pd.DataFrame, spread: pd.DataFrame,
         macro(f"{prefix}RefSpreadMax", num(frame.spread_32.max(), 1))
         macro(f"{prefix}CompressionMin", num(frame.compression_factor.min(), 2))
         macro(f"{prefix}CompressionMax", num(frame.compression_factor.max(), 2))
+        for phase, g in frame.groupby("phase", observed=True):
+            macro(f"{prefix}Compression{PHASE_TAG[phase]}Min",
+                  num(g.compression_factor.min(), 2))
+            macro(f"{prefix}Compression{PHASE_TAG[phase]}Max",
+                  num(g.compression_factor.max(), 2))
 
     spread_macros(seven, "vSat")
     spread_macros(family, "vSatLibtorch")
@@ -1171,15 +1187,34 @@ def emit_macros(by_eco: pd.DataFrame, spread: pd.DataFrame,
         macro("vSatUtilMedian", num(covered.util_mean_pct_224.median(), 1))
         macro("vSatUtilCells", len(covered))
         macro("vSatUtilRuns", int(covered.n_runs_covered_224.sum()))
+        macro("vSatUtilRunsOf", complete_runs)
         macro("vSatUtilSamples", int(covered.n_samples_224.sum()))
         both = covered.dropna(subset=["util_mean_pct_32"])
         if not both.empty:
             rlo = both.loc[both.util_mean_pct_32.idxmin()]
             rhi = both.loc[both.util_mean_pct_32.idxmax()]
+            # Coverage of the 32x32 side: the record began after the main
+            # campaign did, so each (ecosystem, model) pair is covered by a
+            # subset of its runs.
+            macro("vSatRefUtilRunsMin", int(both.n_runs_covered_32.min()))
+            macro("vSatRefUtilRunsMax", int(both.n_runs_covered_32.max()))
+            macro("vSatRefUtilRunsPerPair", int(both.n_runs_complete_32.max()))
+            macro("vSatRefUtilRuns", int(both.n_runs_covered_32.sum()))
+            macro("vSatRefUtilRunsOf", int(both.n_runs_complete_32.sum()))
             macro("vSatRefUtilMin", num(rlo.util_mean_pct_32, 1))
             macro("vSatRefUtilMax", num(rhi.util_mean_pct_32, 1))
             macro("vSatRefUtilMinEco", SHORT.get(rlo.ecosystem, rlo.ecosystem))
             macro("vSatRefUtilMaxEco", SHORT.get(rhi.ecosystem, rhi.ecosystem))
+            # On the training-block window, over the 14 (ecosystem, model)
+            # pairs, and per architecture.
+            macro("vSatRefUtilMedian", num(both.util_mean_pct_32.median(), 1))
+            for model, g in both.groupby("model", observed=True):
+                tag = MODEL_TAG[model]
+                macro(f"vSatRefUtil{tag}Min", num(g.util_mean_pct_32.min(), 1))
+                macro(f"vSatRefUtil{tag}Max", num(g.util_mean_pct_32.max(), 1))
+                macro(f"vSatRefUtil{tag}HighCount",
+                      int((g.util_mean_pct_32 >= SAT_UTIL_HIGH_PCT).sum()))
+            macro("vSatRefUtilHighPct", num(SAT_UTIL_HIGH_PCT, 0))
             macro("vSatUtilGainMin", num(both.util_increase_pp.min(), 1))
             macro("vSatUtilGainMax", num(both.util_increase_pp.max(), 1))
             macro("vSatUtilGainMedian", num(both.util_increase_pp.median(), 1))
@@ -1306,10 +1341,21 @@ def saturation_table(by_eco: pd.DataFrame, spread: pd.DataFrame,
         r"own per-epoch mean. Utilisation is the 1\,Hz \texttt{nvidia-smi} "
         r"record over each run's training blocks (the counter-bracketed "
         r"interval of every training epoch, excluding start-up, evaluation "
-        r"and tracker overhead), on both sides. The last row is the "
-        r"ratio of the two spreads: above $1\times$ the ecosystem spread "
-        r"narrows when the accelerator is loaded, and the study's conclusion "
-        r"is delimited to the regime it measured.}",
+        r"and tracker overhead), on both sides; the record covers all "
+        r"\vSatUtilRuns{} of the \vSatUtilRunsOf{} runs at 224 and, having "
+        r"started after the main campaign did, "
+        r"\vSatRefUtilRunsMin--\vSatRefUtilRunsMax{} of the "
+        r"\vSatRefUtilRunsPerPair{} runs of each ecosystem and architecture "
+        r"at $32{\times}32$. The last row is the "
+        r"ratio of the two spreads, $32{\times}32$ over 224: above $1\times$ "
+        r"the ecosystem spread is narrower at $224{\times}224$, batch 32, on "
+        r"Imagenette than at $32{\times}32$. In training it narrows within "
+        r"the LibTorch lineage "
+        r"(\vSatLibtorchCompressionTrainMin--\vSatLibtorchCompressionTrainMax"
+        r"$\times$) and widens across all seven ecosystems "
+        r"(\vSatCompressionTrainMin--\vSatCompressionTrainMax$\times$). The "
+        r"cell changes resolution, batch size and dataset together, so neither "
+        r"ratio is attributed to any one of them.}",
         r"\label{tab:saturation}",
         r"\footnotesize",
         r"\setlength{\tabcolsep}{4pt}",

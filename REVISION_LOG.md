@@ -1262,6 +1262,13 @@ taken at 32x32 and not repeated at 224, and the manuscript says so.
   section, the control-group paragraph, the threats section, and one sentence
   in the defect catalogue as a surviving instance of the unenforced-clause
   class.
+- *The spec's S7 text misfiles the batch size.* `experiment_spec.md` says "S1,
+  S2, S4, S5 and S6 hold exactly as written" and "What deviates, and only in
+  S3", then lists batch 32 among the S3 deviations; batch size is an S2 clause.
+  The spec was declared before the cell ran and is left as written. The
+  manuscript states it correctly (S2 changes in the batch size, S3 in data and
+  resolution) and names the three rows of the hyperparameter table that differ:
+  input resolution, batch size, and the evaluation split.
 - *Loader threads.* S7 allows `DEEPGREEN_LOADER_THREADS` to be raised at 224
   and requires it recorded per run. It was never raised: all 70 manifests
   record 2. That keeps the cell's pipeline equal to the campaign's and leaves R
@@ -1289,6 +1296,41 @@ taken at 32x32 and not repeated at 224, and the manuscript says so.
   excerpt of the gitignored 1 Hz GPU record covering them. `run_all.sh` runs
   `20_saturation.py` from the package when there is no raw tree, and that clone
   path was shown to reproduce the raw-tree outputs byte for byte.
+
+**Three corrections from a full read, with new macros.**
+
+- *The energy--time artefact claim is withdrawn.* The manuscript, the cover
+  letter, the README and the response all said that CodeCarbon's reported
+  duration reproduces the submitted "faster is not greener" finding as an
+  instrument artefact. Nobody had run the energy--time analysis on those
+  durations. Run now, on the same definition otherwise: rho 0.95 training and
+  0.72 inference (`\vRhoTrainReported`, `\vRhoInferReported`), discordant
+  pairs 8.9 % and 22.0 %, against 0.96 / 0.92 and 7.1 % / 11.5 % on counter
+  durations. The field weakens the inference relation and roughly doubles its
+  discordant share, but it does not reverse it. The artefact did not reproduce.
+  What stands is narrower: power derived from the reported duration is
+  understated by up to 13.0x, most for the fastest stacks. Every site now says
+  that and no more, and the highlight is rewritten to the power claim. (Its
+  direction: understated power makes fast stacks look *less* power-hungry, not
+  more; the text says "understated", not "power-hungry".)
+- *The energy-to-target table is split by architecture.* The pooled spread
+  and "never reached" count read across two networks that reach the target at
+  different costs. Fashion-MNIST now spans 8.9x on ResNet-18 (C++ to R) and
+  6.3x on VGG-16 (C++ to Java); on Tiny ImageNet 6 of 7 stacks never reach
+  20 % on ResNet-18 and 7 of 7 on VGG-16. The one stack that reaches it does so
+  in every run, so the "partial cell" paragraph was stale and is gone, as is
+  "the cleanest number in this paper".
+- *Constants.* 0.48 J (CPU term) and 0.49 J (accelerator-plus-CPU total) are
+  different quantities and are named apart. 11 s (campaign) and 12 s (probe)
+  are one threshold estimated two ways; the text says it lies between them.
+  The Fig. 5b and `tab_power_distortion` bins were split at 10 s rather than at
+  the threshold, so "exact above ten seconds" was false -- blocks of 10-11 s
+  are understated 1.30x. The bins and the text now split at 11 s. The
+  response's two rejected fits (`max(phase, 3.99 s)`, R^2 0.982, MAE 1.79 s;
+  `phase + 4.58 s`, R^2 0.998, MAE 0.53 s) match
+  `v2_coverage_window_rejected_fits.csv` and are left as they are; 3.99 s is
+  that fit's constant, not `\vWindowFloorS` (4.94 s), which is a different
+  estimate.
 
 **Manuscript.** New subsection 6.6 with `tab_saturation` and a findings box;
 S7 in the specification list; a protocol paragraph in Experimental Execution;

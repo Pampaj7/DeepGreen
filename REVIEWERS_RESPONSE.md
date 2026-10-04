@@ -44,7 +44,8 @@ counter rows over 210 runs, from 13,441 files and 54 MB of per-block CSVs — un
 partial campaign.
 
 **Every quantity in this document is re-derived from that campaign.** It comes
-from `paper/generated/numbers.tex` — 327 generated macros — and from the tables
+from `paper/generated/numbers.tex` — 328 generated macros, with 327 more for the
+saturation cell in `numbers_saturation.tex` — and from the tables
 under `results/revision/tables/`, and nothing here is a number an author typed
 that the pipeline could have produced. `scripts/check_consistency.py` reports
 **110 pass, 0 fail**:
@@ -118,7 +119,7 @@ answers have changed.
    campaign; the calibration was re-executed under the
    current harness on 4 September (`results/calibration/`, five runs; the
    superseded one is kept as `results/calibration_first_harness/`); and the drift
-   it measures is **−1.25 % at 1.62 σ** on training and −3.23 % at 3.95 σ on
+   it measures is **−1.2 % at 1.6 σ** on training and −3.2 % at 4.0 σ on
    inference (`v2_window_calibration.csv`).
 5. **The 4.81× TF32 figure had no script behind it.** The four-cell table in
    `REVISION_LOG.md` §1 has no CSV, script or commit anywhere in this
@@ -130,8 +131,8 @@ answers have changed.
    cell that is a clean contrast puts Python/PyTorch at **3.14×** with three
    control stacks moving ≤ 1.3 %; and as a kernel probe (`scripts/probe_tf32.py`
    → `v2_tf32_ablation`), six cells, where denying TF32 to cuDNN costs **3.62×**
-   the GPU energy and 3.12× the time, and disabling cuDNN outright costs
-   **13.08× the energy and 16.30× the time**. The second figure replaces the
+   the GPU energy and 3.13× the time, and disabling cuDNN outright costs
+   **13.07× the energy and 16.42× the time**. The second figure replaces the
    13.3×/16.7× bound quoted for Deeplearning4j's missing cuDNN path, which had
    the same provenance problem.
 6. **"Faster *is* greener here (ρ ≈ 1)" is stronger than the data.** Over the 42
@@ -161,7 +162,7 @@ answers have changed.
 |---|---|
 | Training spread 4.6× (Rust best, Java worst) | 7.4×–9.8× depending on the block, at a common board-and-package boundary; C++ cheapest on every ResNet-18 block, R and Java the two most expensive |
 | Energy reported in Joules | The submitted figures were kilowatt-hours; a factor of 3.6×10⁶ |
-| "Faster is not greener" | Faster is *mostly* greener here: ρ = 0.96 training and 0.92 inference across configurations, 0.68–1.00 within a block. The contrary result reproduces as an artefact of the estimator's reported duration |
+| "Faster is not greener" | Faster is *mostly* greener here: ρ = 0.96 training and 0.92 inference across configurations, 0.68–1.00 within a cell and phase. On CodeCarbon's own durations ρ = 0.95 and 0.72 (22.0 % of inference pairs discordant, against 11.5 %): weaker, not reversed, so the contrary result is not reproduced as an artefact. The reported duration does understate derived power, by up to 13.0× |
 | Rankings are phase-dependent | Still phase-dependent, but less so: the cheapest stack changes between phases in 3 of 6 blocks and the orderings are identical in none |
 | 30 epochs as repeated measurements | 5 independent runs per configuration; median between-run CV 0.49 % training, 1.17 % inference |
 | Accuracy not recorded | Recorded per epoch by every stack; convergence within 0.3 pp on Fashion-MNIST (91.3–91.6 %) |
@@ -292,10 +293,14 @@ between 09:00 and 21:00, which is the network the lookup goes over.
 Consequently any power or energy-per-second quantity derived by dividing
 CodeCarbon's energy by CodeCarbon's duration is understated by up to **13.0×**
 on blocks under half a second — 20 W reported against 216 W measured — and is
-correct above ten seconds. The bias falls hardest on the fastest ecosystems and
-on the inference phase, which is exactly where a cross-ecosystem comparison
-lives. This is, as far as we can determine, the mechanism behind the submitted
-"faster is not greener" finding.
+correct above 11 s. The bias falls hardest on the fastest ecosystems and on the
+inference phase, which is exactly where a cross-ecosystem comparison lives. An
+earlier version of this response called it the mechanism behind the submitted
+"faster is not greener" finding. We re-ran the energy–time analysis on
+CodeCarbon's reported durations to test that, and it does not hold: ρ is 0.95 in
+training and 0.72 in inference, against 0.96 and 0.92 on counter durations. The
+field weakens the inference relation without reversing it, and we withdraw the
+claim.
 
 Reproduce with `results/analysis/11_instrument_comparison.py`.
 
@@ -417,7 +422,7 @@ as a case study throughout, consistent with the abstract.
 
 ### Comment 2 — Workload choice
 
-**REQUIRES RE-EXECUTION, and it is the one item re-execution did not close.**
+**MEASURED in a contrast cell; re-execution alone could not close it.**
 Accepted as a limitation and addressed in the protocol.
 `results/analysis/repetition_protocol.md` §5 requires at least one configuration
 that actually loads the accelerator — native resolution, larger batch,
@@ -814,7 +819,7 @@ across eight stacks, four of which share a backend.
 
 ### Comment 15 — The workload does not exercise the GPU
 
-**REQUIRES RE-EXECUTION for the workload; FIXED for the measurement of it.**
+**MEASURED for the workload in a contrast cell (Section 6.6); FIXED for the measurement of it.**
 Confirmed and quantified. In the submitted campaign, mean GPU power derived from
 the energy counter was 83–197 W against a 350 W board limit — 24–56% — and never
 approached the limit in any configuration; GPU energy was 30–69% of the measured
@@ -844,8 +849,10 @@ closes on C++; the three stacks sharing one module barely move. Across all seven
 it widens, to 15.3× and 19.1×, because Java/DL4J — the one stack without a
 cuDNN path, and busy on the accelerator at 224 — moves further away; without
 Java the other six compress to 3.6× and 2.0×. So the objection is right about
-R and does not hold for the headline: the spread is not an artefact of an idle
-accelerator, but its size and its cheapest stack depend on the regime.
+R and does not hold for the headline: the spread survives a heavier
+per-sample workload, but its size and its cheapest stack depend on the regime.
+The cell changes resolution, batch size and dataset together, so it does not
+isolate accelerator loading.
 Faster-is-greener holds there too (ρ = 0.93 training, 1.00 inference). What
 remains open — other model families, transformers, a resolution and batch
 sweep, server-class hardware, and a cuDNN-off bound at 224 — is in Future Work.
@@ -882,8 +889,8 @@ Four of the 210 runs were not part of the interleaved schedule: the JAX/VGG-16
 runs that predate the Flax dropout fix, replayed two days after the campaign
 finished. The between-window drift this exposes them to is measured rather than
 assumed — one configuration re-executed in a third window under the current
-harness gives **−1.25 % at 1.62 standard deviations** of the within-window spread
-on training and −3.23 % at 3.95 σ on inference (`v2_window_calibration.csv`).
+harness gives **−1.2 % at 1.6 standard deviations** of the within-window spread
+on training and −3.2 % at 4.0 σ on inference (`v2_window_calibration.csv`).
 
 ### Major comment 3 — No accuracy or convergence
 
@@ -929,9 +936,12 @@ CodeCarbon's `duration` column as the time axis. That column is not the interval
 the energy was accumulated over: 75 % of blocks carry seconds of tracker
 lifetime in which no energy was drawn. Every such block — which is every
 inference phase in the faster stacks, and many of the training epochs — was
-therefore recorded with a *stretched* time and a *correct* energy. That is
-precisely the shape of a "fast but energy-hungry" data point, and it is
-manufactured entirely by the instrument.
+therefore recorded with a *stretched* time and a *correct* energy, which
+understates the power derived from it. It does not reverse the energy–time
+ranking: on the reported durations ρ is 0.95 in training and 0.72 in inference,
+with 8.9 % and 22.0 % of pairs discordant, against 7.1 % and 11.5 % on counter
+durations. An earlier version of this response said the field manufactured the
+contrary finding; the re-analysis does not support that, and it is withdrawn.
 
 Recomputed on counter-bracketed durations, energy and time rank the
 configurations at Spearman ρ = 0.96 in training and 0.92 in inference — not the
@@ -1059,7 +1069,7 @@ Every quantity the manuscript quotes is **generated**, not transcribed.
 time. This is a direct response to how the unit error occurred: a number that no
 author types is a number no author can mislabel.
 
-It builds, at 36 pages in the `cas-dc` two-column format.
+It builds, at 39 pages in the `cas-dc` two-column format.
 
 Figures are regenerated by `results/analysis/13_paper_figures.py`. The four
 submitted figures are replaced by seven: the instrument's duration floor and its
