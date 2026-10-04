@@ -35,7 +35,7 @@ Rust & Tiny ImageNet & 3379 & 2367 & 1.43$\times$ & data$^{\mathrm{f}}$ \\
 \bottomrule
 \end{tabular}
 \par\vspace{2pt}
-\begin{minipage}{\columnwidth}\footnotesize\raggedright
+\begin{minipage}{\linewidth}\footnotesize\raggedright
 $^{\mathrm{a}}$~PyTorch's harness also moved from eager torchvision to the exported TorchScript module between the executions, so this ratio bounds the precision effect from above.\par$^{\mathrm{b}}$~Java/DL4J built its graph by hand, with truncated convolution padding and a bias on every convolution.\par$^{\mathrm{c}}$~Python/JAX was measured through a window that did not force completion in the first execution and does in this one.\par$^{\mathrm{d}}$~Python/TensorFlow ran a Model Garden ResNet-18 with a projection shortcut the other stacks do not have, and dropped its last partial batch.\par$^{\mathrm{e}}$~Fashion-MNIST training images were re-encoded $28\to32$ on disk between the executions, so every stack's loader does different work.\par$^{\mathrm{f}}$~Tiny ImageNet training images were re-encoded $64\to32$ on disk between the executions, so every stack's loader does different work.
 \end{minipage}
 \end{table}

@@ -1,0 +1,123 @@
+% Shared preamble of the manuscript: the packages, macros and generated numbers
+% both front ends use. Read by paper/paper.tex (Elsevier, cas-dc) and by
+% paper/emse/main.tex (Springer Nature, sn-jnl). Each front end defines, before
+% \input-ing this file:
+%   \paperroot  the path from its own directory to paper/ ("" or "../")
+%   \gendir     where the generated macros and tables are (\paperroot generated/)
+% and loads its own citation package: cas-dc takes natbib with numbers here;
+% sn-jnl loads natbib itself (author-year under sn-basic), and a second
+% \usepackage{natbib} with other options is an option clash.
+
+\usepackage{balance}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{stfloats}
+\usepackage{comment}
+\usepackage{siunitx}
+\usepackage{eurosym}
+
+\ExplSyntaxOn
+\ExplSyntaxOff
+
+% For displaying urls
+\usepackage{url}
+
+% For graphic inclusion
+\usepackage{graphicx} % Required for inserting images
+\graphicspath{{\paperroot images/}{\paperroot}}
+
+% For boxed environment of RQs
+\usepackage{tcolorbox}
+
+\usepackage{enumitem} % Provides more control over list formatting
+
+% Every quantity quoted in this manuscript is generated from the analysis
+% pipeline by results/analysis/12_paper_numbers.py and read in here. Nothing is
+% transcribed by hand: an earlier version of this paper reported CodeCarbon
+% kilowatt-hours under a Joule label, and the surest way not to repeat that is
+% for no author to type a number.
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\input{\gendir numbers.tex}
+% The accelerator-saturation cell (spec S7), a separate campaign directory, by
+% results/analysis/20_saturation.py. Every macro there is prefixed \vSat.
+\input{\gendir numbers_saturation.tex}
+
+\usepackage{xcolor}
+\usepackage{framed} % Required for the highlight environment
+\definecolor{formalshadelight}{RGB}{242,242,242}
+\definecolor{formalshadedark}{RGB}{50,50,50}
+
+\newenvironment{highlight}{%
+  \def\FrameCommand{%
+    \hspace{2pt}%
+    {\color{formalshadedark}\vrule width 2pt}%
+    {\color{formalshadelight}\vrule width 3pt}%
+    \colorbox{formalshadelight}%
+  }%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}%
+  \noindent\begin{minipage}{\linewidth}\noindent\hspace{-4.55pt}% disable indenting first paragraph
+}
+{%
+  \vspace{2pt}\vspace{-2pt}\end{minipage}\endMakeFramed%
+}
+
+% for \paragraph as \subsubsubsection
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{5}
+
+\makeatletter
+\newcommand\subsubsubsection{\@startsection{paragraph}{4}{\z@}{-1ex\@plus -1ex \@minus -.25ex}{0.1ex \@plus .25ex}{\normalfont\normalsize\bfseries}}
+\newcommand\subsubsubsubsection{\@startsection{subparagraph}{5}{\z@}{-2.5ex\@plus -1ex \@minus -.25ex}{1.25ex \@plus .25ex}{\normalfont\normalsize\bfseries}}
+\makeatother
+
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{tabularx}
+% Right-aligned wrapping column, for generated tables whose headers are wider
+% than their cells. These used to be squeezed to fit with \resizebox, which set
+% one of them at 3.9 pt.
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+
+% for \todo command
+\usepackage{pifont}
+\newcommand{\todo}[1]{\textcolor{blue}{\ding{46}~#1}}
+\newcommand{\tocheck}[1]{\textcolor{orange}{#1}}
+\newcommand{\new}[1]{#1}
+\newcommand{\neew}[1]{#1}
+\newcommand{\last}[1]{\textcolor{black}{#1}}
+%\newcommand{\last}[1]{#1}
+
+\usepackage{tikz}
+\newcommand*\encircle[1]{\tikz[baseline=(char.base)]{
+            \node[shape=circle,draw,inner sep=0.8pt] (char) {#1};}}
+
+\newcommand{\concept}[2]{\vspace{3pt}\sloppy\noindent\textbf{{#1}:~}{#2}\vspace{3pt}}
+
+% for boxed text in results
+\usepackage{tcolorbox}
+
+\usepackage{xspace}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\etc}{\emph{etc.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+
+\renewcommand{\quote}{\list{}{\rightmargin=\leftmargin\topsep=3pt}\item\relax}
+
+
+% for automated search query listing
+\usepackage{listings}
+\lstset{
+    escapeinside={(*}{*)}
+}
+
+\usepackage{xcolor}
+
+% enable sloppy to avoid overfull
+\usepackage{microtype}
+% Two narrow columns and identifiers like nvmlDeviceGetTotalEnergyConsumption do
+% not coexist at 2pt of slack: fifteen lines punched through the margin. 3em lets
+% TeX loosen a line rather than overrun it.
+\setlength{\emergencystretch}{2em}

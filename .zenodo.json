@@ -1,0 +1,15 @@
+{
+  "title": "DeepGreen AI: replication package for \"Deep Green AI: Energy Efficiency of Deep Learning across Language-Framework Ecosystems\"",
+  "upload_type": "software",
+  "license": "MIT",
+  "creators": [
+    {"name": "Pampaloni, Leonardo", "affiliation": "University of Florence"},
+    {"name": "Pagliocca, Marco", "affiliation": "University of Florence"},
+    {"name": "Vicario, Enrico", "affiliation": "University of Florence"},
+    {"name": "Verdecchia, Roberto", "affiliation": "University of Florence", "orcid": "0000-0001-9206-6637"}
+  ],
+  "keywords": ["green software", "deep learning", "energy efficiency", "programming languages", "empirical software engineering"],
+  "related_identifiers": [
+    {"identifier": "10.5281/zenodo.17734883", "relation": "isNewVersionOf", "scheme": "doi"}
+  ]
+}

@@ -1,0 +1,69 @@
+% The back-matter statements, shared by both front ends: paper.tex sets them as
+% Elsevier's sections, emse/main.tex as Springer Nature's Declarations. One
+% copy, so the two submissions cannot state different things.
+
+\newcommand{\CreditStatement}{%
+\textbf{Leonardo Pampaloni:} Conceptualization, Methodology, Software,
+Validation, Formal analysis, Investigation, Data curation, Writing --- original
+draft, Visualization.
+\textbf{Marco Pagliocca:} Methodology, Software, Validation, Investigation,
+Data curation, Writing --- original draft, Visualization.
+\textbf{Enrico Vicario:} Resources, Supervision, Funding acquisition, Writing
+--- review \& editing.
+\textbf{Roberto Verdecchia:} Conceptualization, Methodology, Validation,
+Writing --- review \& editing, Supervision, Project administration.%
+}
+
+\newcommand{\CompetingInterestStatement}{%
+The authors declare that they have no known competing financial interests or
+personal relationships that could have appeared to influence the work reported
+in this paper.%
+}
+
+\newcommand{\DataAvailabilityStatement}{%
+All data and code underlying this study are public. The replication package
+contains the implementations for all \vEcosystems{} ecosystems, the shared
+measurement bridge, the experiment specification and its conformance checker,
+the campaign driver, the per-block dual-instrument records for all \vRuns{}
+runs and \vBlocks{} blocks, and the analysis pipeline that turns those records
+into every table, figure and quoted number in this manuscript. The
+saturation cell's records --- the same per-block dual-instrument readings,
+per-epoch metrics, run manifests and data fingerprints for its \vSatRuns{}
+runs, with the excerpt of the utilisation record that covers them --- are in a
+directory of the package of their own, built by the same pipeline and never
+merged with the campaign's. A single command
+regenerates the manuscript from the raw records, so any number here can be
+traced to the measurement it came from.
+
+The package is an output of that pipeline and is built at the end of it, so it
+cannot be older than the tree it flattens --- which it had quietly been, for a
+fortnight, while part of the analysis read it as an input. It refuses to build
+from a campaign that is not complete, on two conditions rather than one: the
+campaign must have produced every run it planned, and every run directory
+present must be whole. A package that silently omits or silently includes runs
+is worse than one that will not build. A restore script rebuilds the original
+run tree from the package and diffs it file by file, so the claim that the
+package is a copy is itself checkable, and every field is carried as text,
+because parsing a float and writing it back is not a copy.%
+}
+
+\newcommand{\GenerativeAIStatement}{%
+During the preparation of this work the authors used generative AI assistants
+(ChatGPT and Claude) in three distinct capacities, which we separate because
+they carry different weight.
+
+For \emph{writing}, the tools were used to improve the readability of the
+manuscript text. For \emph{software engineering}, they were used to repair and
+refactor the experimental implementations, to write the shared measurement
+bridge, the conformance checker and the analysis pipeline, and to diagnose
+defects in the ecosystems' data loaders and build configurations. For
+\emph{analysis}, they were used to write the scripts that produce the tables and
+figures; the scripts, not the assistants, produce the numbers, and the numbers
+are injected into this manuscript from those scripts rather than transcribed.
+
+No experimental measurement was produced, adjusted or selected by an AI
+assistant. The authors reviewed and edited all generated content and code,
+verified the findings against the raw data, and take full responsibility for the
+content of the article.%
+}
+

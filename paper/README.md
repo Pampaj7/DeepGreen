@@ -1,7 +1,19 @@
 # Manuscript
 
-`paper.tex` is the revised manuscript, in the Elsevier `cas-dc` class it was
-originally submitted in.
+The manuscript is one body with two front ends:
+
+| File | What it is |
+|---|---|
+| `body.tex` | Introduction through Conclusion, Future Work and the Carbon Footprint section — the text both versions share |
+| `preamble.tex` | packages, macros and the generated numbers, shared |
+| `abstract.tex`, `statements.tex` | the abstract and the back-matter statements (CRediT, competing interests, data availability, generative AI), shared as macros |
+| `emse/main.tex` | **the submission**: *Empirical Software Engineering*, Springer Nature `sn-jnl`, author–year — see `emse/README.md` |
+| `paper.tex` | the fallback: Elsevier `cas-dc`, in which the paper was originally submitted |
+
+`./build.sh` builds `emse/main.pdf`, `emse/submission.zip` (the standalone
+source package for EMSE's system, verified by compiling it from an empty
+directory) and `paper.pdf`. Edit the text in `body.tex`; a front end holds only
+its class, title block, abstract wrapper and back matter.
 
 ## Build inputs that are not in this repository
 

@@ -1,0 +1,103 @@
+% Empirical Software Engineering (Springer Nature) front end of the manuscript.
+%
+% The body, preamble, abstract and back-matter statements are shared with the
+% Elsevier front end, paper/paper.tex: this file holds only what differs -- the
+% class, the title and author block, and Springer Nature's Declarations. Built
+% by paper/build.sh into paper/emse/main.pdf; paper/emse/submission.zip is the
+% flat, standalone source EMSE's system asks for (paper/emse/make_submission.sh).
+%
+% Template: sn-jnl, Springer Nature LaTeX template 3.1 (December 2024), basic
+% author-year reference style. Provenance in paper/emse/README.md.
+\documentclass[pdflatex,sn-basic]{sn-jnl}
+
+% Paths, relative to this file: see ../preamble.tex. The submission build
+% rewrites this one line to {} so the flattened source compiles standalone.
+\newcommand{\paperroot}{../}
+\newcommand{\gendir}{\paperroot generated/}
+
+% The one line the authors must supply before submission: no funding source is
+% documented in the repository, and the CRediT statement lists Funding
+% acquisition, so "no funding" would very likely be false.
+\newcommand{\FundingStatement}{\textbf{[Funding statement to be completed by the authors before submission.]}}
+
+% sn-jnl calls \allowdisplaybreaks at \begin{document} (amsmath) and its
+% template loads booktabs; cas-dc loads both itself. natbib is loaded by the
+% class (author-year under sn-basic) and must not be loaded again.
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+
+% The tables were set for cas-dc's two-column page, whose table* spans about
+% 505 pt; sn-jnl's single column is 372 pt. sn-jnl sets its own table
+% environment in \tablebodyfont (8 bp) but leaves table* at the body size, so
+% here every table float -- starred or not -- gets the class's table font and a
+% tighter column gap: one type-size choice for the whole EMSE layout rather
+% than a \resizebox per table, which would set each at a different size. It
+% goes into \@floatboxreset because that resets the font after any
+% environment hook has run.
+\makeatletter
+\g@addto@macro\@floatboxreset{%
+  \def\@tempa{table}%
+  \ifx\@captype\@tempa\tablebodyfont\setlength{\tabcolsep}{4pt}\fi}
+\makeatother
+
+\input{\paperroot preamble}
+\input{\paperroot abstract}
+\input{\paperroot statements}
+
+\begin{document}
+
+\title{Deep Green AI: Energy Efficiency of Deep Learning across Language--Framework Ecosystems}
+
+\author*[1]{\fnm{Leonardo} \sur{Pampaloni}}\email{leonardo.pampaloni1@edu.unifi.it}
+\author*[1]{\fnm{Marco} \sur{Pagliocca}}\email{marco.pagliocca@edu.unifi.it}
+\author[1]{\fnm{Enrico} \sur{Vicario}}\email{enrico.vicario@unifi.it}
+\author[1]{\fnm{Roberto} \sur{Verdecchia}}\email{roberto.verdecchia@unifi.it}
+
+\affil[1]{\orgname{University of Florence}, \orgaddress{\city{Florence}, \country{Italy}}}
+
+\abstract{\AbstractText}
+
+\keywords{Machine Learning, Deep Learning, Green AI, Energy Efficiency, Sustainability, Green IT}
+
+\maketitle
+
+\input{\paperroot body}
+
+% The shared preamble numbers sections to depth 5 for the body's
+% \subsubsubsection; \bmhead is built on \paragraph and would be numbered too.
+\setcounter{secnumdepth}{3}
+
+\backmatter
+
+\section*{Declarations}
+
+\bmhead{Funding}
+\FundingStatement
+
+\bmhead{Competing interests}
+\CompetingInterestStatement
+
+\bmhead{Ethics approval and consent to participate}
+Not applicable.
+
+\bmhead{Consent for publication}
+Not applicable.
+
+\bmhead{Data availability}
+\DataAvailabilityStatement
+
+\bmhead{Code availability}
+The implementations for all \vEcosystems{} ecosystems, the shared measurement
+bridge, the experiment specification and its conformance checker, the campaign
+driver and the analysis pipeline are part of the public replication package
+described under Data availability, \url{https://github.com/Pampaj7/DeepGreen}.
+
+\bmhead{Author contributions}
+\CreditStatement
+
+\bmhead{Use of generative AI and large language models}
+\GenerativeAIStatement
+
+\bibliography{\paperroot bibliography}
+
+\end{document}

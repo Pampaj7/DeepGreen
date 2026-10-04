@@ -1,126 +1,68 @@
 # Cover letter
 
+**To:** The Editors-in-Chief, *Empirical Software Engineering*
+
 **Manuscript:** *Deep Green AI: Energy Efficiency of Deep Learning across
 Language–Framework Ecosystems*
 
-**Previous submission:** JSSOFTWARE-D-26-00842 (rejected, 15 August 2026). This
-is a new submission of a re-executed study, declared here so the editors can
-route it to the same reviewers if they wish.
+Dear Editors-in-Chief,
 
-Dear Editors,
+We submit the above manuscript for consideration as a regular article in
+*Empirical Software Engineering*.
 
-We are submitting a manuscript that shares a title and a research question with
-JSSOFTWARE-D-26-00842 and almost nothing else. The reviewers of that submission
-identified faults that could not be answered by rewriting: the measurements
-themselves were not sound. We agreed, discarded the campaign, rebuilt the
-apparatus, and ran the study again. Every result comes from the re-executed
-campaign; nothing is carried over from the submitted one. Two quantities are
-reported from an intermediate campaign, labelled as such, and only because their
-disappearance from the current one is the finding.
+**What the paper contributes.** It is a controlled, replicated comparison of
+the energy cost of deep-learning training and inference across seven
+language–framework ecosystems: Python with PyTorch, TensorFlow and JAX; C++ with
+LibTorch; Java with Deeplearning4j; R with `torch`; and Rust with `tch`. The
+campaign is 210 runs on one GPU host. A written specification defines what "the
+same experiment" means across stacks, and 110 executable checks enforce it
+against the source and the built binaries. Every measurement block is read
+twice, by hardware energy counters and by a widely used software estimator.
 
-**What the reviewers found, and what we did about it.** Three faults were
-decisive. Energy was reported in joules but recorded in kilowatt-hours, a factor
-of 3.6 × 10⁶. Thirty epochs of one run were treated as thirty repeated
-measurements, so the reported intervals described an effective sample size of
-one. And the eight ecosystems were not running the same experiment: they
-differed in learning rate, input shape, evaluation batching, data-loader
-parallelism, and in two cases evaluated in training mode. Any one of these
-invalidates a cross-ecosystem energy comparison; together they made the
-submitted result an artefact of its own apparatus.
+Training energy differs across ecosystems by 7.4×–9.8×, and by 1.1×–1.6× among
+the three stacks that share one exported model and backend build. A declared
+contrast cell of 70 runs at 224×224 shows the spread narrowing within the
+LibTorch lineage (1.3×–2.8×) and widening across all seven stacks
+(15.3×–19.1×). The estimator agrees with the counters on energy to 0.3 %, but
+its reported duration understates derived power by up to 13.0×. The paper also
+includes a catalogue of the defect classes we found, our own among them.
 
-We also record two corrections we made to our own re-execution during internal
-review, because both are the kind of thing this paper argues cannot be caught by
-care alone. The headline energy tables were being computed from the software
-estimator's total, modelled RAM term included, under captions saying hardware
-counters --- the same class of error as the unit mislabelling, committed by us,
-in the paper that catalogues it. And our model of the estimator's reported
-duration was wrong twice before it was right: a floor, then a threshold, both
-fitted to a predictor that does not govern the phenomenon and both carrying a
-persuasive R². The manuscript now reports the consequence without any model.
+**Why EMSE.** The paper is an empirical software-engineering study before it is
+a machine-learning one. Its central methodological claim is that a
+cross-ecosystem comparison is only as good as the specification and enforcement
+behind it. It treats the measurement apparatus as an object of study, reports
+between-run uncertainty from independent replications, and states its threats
+to validity in the terms the field uses. It also contributes to Green software
+engineering. The study is built for open
+science: every number in the manuscript is generated from the raw records by a
+public pipeline, and one command rebuilds the paper.
 
-We rebuilt accordingly. A written specification now states what "the same
-experiment" means across stacks — model, optimisation, data pipeline, backend,
-measurement, replication — and 110 automated checks enforce it against the source
-code, all 110 passing, so a divergence fails a check instead of quietly changing a
-number. Energy is read from hardware counters (NVML's accumulated-energy
-register and the RAPL package counters) with CodeCarbon running over the
-identical window as a second reading, so every block carries two readings that
-can be held against each other. We are careful in the manuscript about what that
-comparison establishes: where both counters are exposed CodeCarbon reads the same
-registers, so the agreement certifies the window and the arithmetic, not the
-accuracy. Each configuration runs five independent interleaved times with
-distinct seeds, and every ecosystem records per-epoch test accuracy. The result
-is 210 complete runs and 12,600 doubly instrumented blocks, with no failed or
-partial run in the analysis. Four of the 210 were replayed two days after the
-rest, and the between-window drift this exposes them to is measured rather than
-assumed, at −1.2 % of training energy and 1.6 standard deviations of the
-within-window spread.
+**Prior submission.** An earlier version of this study was submitted to the
+*Journal of Systems and Software* and rejected. We took the reviews as a reason
+to redo the study rather than to revise the text:
 
-**What that produced.** Two findings we did not expect, and would not have seen
-under the original design.
+- a new measurement campaign on new hardware;
+- a written experiment specification with an automated conformance checker;
+- dual-instrument measurement of every block;
+- the accelerator-saturation contrast cell;
+- an audit of the defects in the earlier work.
 
-The first is that the submitted paper's headline claim — that faster is not
-greener — does not hold here, and that the estimator's duration field distorts
-power without producing that claim. The duration CodeCarbon reports beside each energy figure is
-not the duration the energy was accumulated over: three quarters of blocks carry
-seconds of tracker lifetime in which no energy was drawn, in three discrete
-modes that block length predicts but does not determine. We can now say what it
-is — the cost of closing the tracker with geolocation lookups still outstanding,
-measured directly on this host. Power derived from that field is understated
-by up to 13.0× on blocks under half a second — 20 W where the counters read
-216 W — and the bias falls precisely on the fastest stacks and the inference
-phase. Energy and time correlate at ρ = 0.96 in training and 0.92 in inference
-on counter durations, and at 0.95 and 0.72 on CodeCarbon's own: the reported
-duration weakens the inference relation but does not reverse it, so we do not
-claim to reproduce the submitted finding as an artefact.
+The earlier reviews and our point-by-point account of how each was addressed
+are in the replication repository (`REVIEWERS_RESPONSE.md`), and we will supply
+them directly on request.
 
-The second is a failure that only replication can see. In our first replicated
-campaign VGG-16 converged to exactly chance accuracy in 12 of 105 runs and never
-trained, in four ecosystems independently and never for ResNet-18, consuming
-10.7 % of that campaign's training energy for nothing; excluding those runs
-collapsed the cross-ecosystem accuracy spread on VGG-16/CIFAR-100 from 20.2 to
-1.3 percentage points. The cause was not the ecosystems but the weight
-initialisers their frameworks ship by default — holding everything else fixed
-gives 0 collapses in 6 trials under He, 2 under Glorot and 4 under Xavier — so we
-aligned every stack onto one exported set of weights. It does not recur: **0 of
-105 VGG-16 runs**. We report both, because a single-run design averages such a
-run in and reports it as an ecosystem effect, and because the disappearance is
-the measurement that identifies the cause. This is, we think, the clearest
-possible vindication of Reviewer 3's insistence on run-level repetitions.
+**Data and code availability.** The implementations, the specification, the
+conformance checker, the measurement bridge, the raw per-block records of the
+campaign and of the contrast cell, and the analysis pipeline are public at
+<https://github.com/Pampaj7/DeepGreen>. We will deposit an archived copy with a
+DOI before publication.
 
-**On the catalogue of defects.** The manuscript reports thirty-four measurement
-defects that silently change a cross-ecosystem energy number. Twelve of them are
-ours, introduced during this revision and caught by the checks we had just
-built; they are marked as such in the table. We report them because a catalogue
-of other people's mistakes would be worth less than one that includes the
-authors', and because one of the twelve was produced by two changes that are each
-correct in isolation and destructive together — which is the failure mode a
-specification catches and review does not.
-
-**What we measured rather than argued.** One reviewer comment could not be
-closed by re-running: at 32 × 32 the workload does not saturate the accelerator.
-We added a declared contrast cell instead — 70 runs on Imagenette at 224 × 224,
-where median training-block utilisation is 89 % (Section 6.6). Within the
-LibTorch family the spread compresses; across all seven stacks it widens,
-because the one stack without a cuDNN path moves further away. The ecosystem
-effect survives a heavier per-sample workload, and its size depends on the
-regime; the manuscript says both, and what the single point leaves open.
-
-**What remains open.** A wall-meter reference, which would relate our chip-level boundary to
-whole-system energy, needed hardware we do not have; we report the chip boundary
-consistently and decline to extrapolate.
-
-**Artefacts.** The specification, the conformance checker, the shared
-measurement bridge, the seven implementations, the per-block dual-instrument
-records for all 210 runs, and the analysis pipeline are public. Every quantity
-in the manuscript is generated from that pipeline and injected into the LaTeX
-source; no number is typed by an author, which is how kilowatt-hours came to be
-labelled as joules the first time. A single command rebuilds the manuscript from
-the raw records.
-
-A point-by-point response to every reviewer comment accompanies this letter.
+**Declarations.** The manuscript is not under consideration elsewhere and has
+not been published. All authors have read and approved the submission. We
+declare no competing interests.
 
 Yours sincerely,
 
-Leonardo Pampaloni, Marco Pagliocca, Enrico Vicario, Roberto Verdecchia
-University of Florence
+Leonardo Pampaloni and Marco Pagliocca (corresponding authors), Enrico Vicario,
+Roberto Verdecchia
+University of Florence, Italy

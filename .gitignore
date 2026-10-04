@@ -55,6 +55,15 @@ paper/*.out
 paper/*.bbl
 paper/*.blg
 paper/*.synctex.gz
+# The same for the EMSE front end, and the staging copy of its source package
+# (paper/emse/make_submission.sh rebuilds it, and the zip, on every build).
+paper/emse/*.log
+paper/emse/*.aux
+paper/emse/*.out
+paper/emse/*.bbl
+paper/emse/*.blg
+paper/emse/*.synctex.gz
+paper/emse/submission/
 # The rejection letter: a private editorial communication that names a
 # co-author's address. Kept locally, not published with the repository.
 paper/reviewer.tex

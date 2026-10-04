@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this replication package, please cite it as below."
+title: "DeepGreen AI: replication package for 'Deep Green AI: Energy Efficiency of Deep Learning across Language-Framework Ecosystems'"
+type: software
+license: MIT
+repository-code: "https://github.com/Pampaj7/DeepGreen"
+authors:
+  - family-names: Pampaloni
+    given-names: Leonardo
+    affiliation: "University of Florence"
+  - family-names: Pagliocca
+    given-names: Marco
+    affiliation: "University of Florence"
+  - family-names: Vicario
+    given-names: Enrico
+    affiliation: "University of Florence"
+  - family-names: Verdecchia
+    given-names: Roberto
+    affiliation: "University of Florence"
+    orcid: "https://orcid.org/0000-0001-9206-6637"
+keywords:
+  - green software
+  - deep learning
+  - energy efficiency
+  - programming languages
+  - empirical software engineering

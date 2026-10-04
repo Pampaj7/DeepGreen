@@ -32,9 +32,14 @@ REPLACEMENTS = [
 
 
 def main() -> int:
-    numbers = dict(re.findall(
-        r"\\newcommand\{\\(\w+)\}\{(.*?)\}\n",
-        (REPO_ROOT / "paper" / "generated" / "numbers.tex").read_text()))
+    # Both generated macro files: a bullet may quote the saturation cell (S7),
+    # whose numbers live in numbers_saturation.tex, not numbers.tex.
+    numbers = {}
+    for name in ("numbers.tex", "numbers_saturation.tex"):
+        path = REPO_ROOT / "paper" / "generated" / name
+        if path.exists():
+            numbers.update(re.findall(
+                r"\\newcommand\{\\(\w+)\}\{(.*?)\}\n", path.read_text()))
     tex = (REPO_ROOT / "paper" / "paper.tex").read_text()
     block = tex[tex.index(r"\begin{highlights}"):tex.index(r"\end{highlights}")]
 

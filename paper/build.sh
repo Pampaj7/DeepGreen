@@ -64,22 +64,37 @@ for name, (bbox, kind) in icons.items():
     img.save(path, quality=92)
 PY
 
-echo "=== compiling ==="
-cd paper
-"$TECTONIC" -X compile paper.tex --keep-intermediates --synctex 2>&1 | tail -n 25 || {
-  echo
-  echo "Build failed. The usual causes, in order:"
-  echo "  * cas-dc.cls -- fetched from the TeX Live bundle by tectonic; a first"
-  echo "    build needs network access."
-  echo "  * bibliography.bib -- reconstructed here, see paper/README.md."
-  echo "  * paper/generated/ -- run without --no-data to rebuild it."
-  exit 1
+# Two front ends over one body (paper/body.tex, preamble.tex, abstract.tex,
+# statements.tex): paper/emse/main.tex for Empirical Software Engineering
+# (Springer Nature sn-jnl) -- the submission -- and paper/paper.tex for Elsevier
+# (cas-dc), kept building as the fallback.
+compile() {  # <directory> <file.tex> <what failed, for the message>
+  (cd "$1" && "$TECTONIC" -X compile "$2" --keep-intermediates --synctex 2>&1 | tail -n 25) || {
+    echo
+    echo "Build of $1/$2 failed. The usual causes, in order:"
+    echo "  * $3 -- fetched or vendored, see the README beside it; a first"
+    echo "    build needs network access for tectonic's bundle."
+    echo "  * bibliography.bib -- reconstructed here, see paper/README.md."
+    echo "  * paper/generated/ -- run without --no-data to rebuild it."
+    exit 1
+  }
 }
-cd ..
+
+echo "=== compiling: EMSE (Springer Nature) ==="
+compile paper/emse main.tex "sn-jnl.cls (vendored in paper/emse/)"
+echo "=== compiling: Elsevier fallback (cas-dc) ==="
+compile paper paper.tex "cas-dc.cls (TeX Live bundle)"
+
+# The flat source package EMSE's system wants, compiled once more from an empty
+# directory before it is written (paper/emse/make_submission.sh).
+echo "=== EMSE source package ==="
+paper/emse/make_submission.sh
+
 # Elsevier collects highlights through the submission form as a separate file,
 # not from the PDF. Expand the manuscript's own environment so the uploaded text
 # cannot drift from the typeset one.
 "$PY" scripts/emit_highlights.py
 
 echo
-echo "Built paper/paper.pdf"
+echo "Built paper/emse/main.pdf (EMSE submission), paper/emse/submission.zip"
+echo "and paper/paper.pdf (Elsevier fallback)"
