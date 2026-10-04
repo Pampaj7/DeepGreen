@@ -39,7 +39,6 @@ from the statements shared with the Elsevier build (`paper/statements.tex`).
 
 | Declaration | In `paper/emse/main.tex` | State |
 |---|---|---|
-| Funding | `\FundingStatement`, a bold placeholder | **authors: state funding or "none"** |
 | Competing interests | `\CompetingInterestStatement` | **confirm** |
 | Ethics approval and consent to participate | "Not applicable" | ready |
 | Consent for publication | "Not applicable" | ready |
@@ -55,8 +54,8 @@ from the statements shared with the Elsevier build (`paper/statements.tex`).
    that record holds an earlier campaign. Deposit the repository with
    `results/replication/` and `results/replication_saturation/`, and put the
    DOI into the footnote and the data-availability statement.
-2. **Confirm the author contributions, the competing-interest statement and the
-   funding statement** above.
+2. **Confirm the author contributions and the competing-interest statement**
+   above. The Declarations carry no funding statement, by the authors' choice.
 
 ## Verify the chain
 

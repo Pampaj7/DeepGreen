@@ -63,8 +63,7 @@ hyperref's remote-link page is reset per link, so links to the other PDF do not
 warn about page 0. The Elsevier front end (`../paper.tex`) inputs the same
 `appendix.tex` after `\appendix`, and there the same macros read "Appendix D.2".
 
-`\FundingStatement` at the top of `main.tex` is the one line the authors must
-supply before submission; it typesets a bold placeholder until they do.
+The Declarations carry no funding statement, by the authors' choice.
 
 ## Building
 
