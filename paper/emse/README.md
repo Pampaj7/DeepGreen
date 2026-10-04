@@ -31,23 +31,56 @@ style.
 | File | |
 |---|---|
 | `main.tex` | the EMSE front end: class, title and author block, abstract, Declarations; inputs `../preamble.tex`, `../abstract.tex`, `../statements.tex`, `../body.tex` |
+| `esm.tex` | **Online Resource 1**, the Electronic Supplementary Material: same class and preamble, title "Online Resource 1 — Supplementary material for: …", sections A–J; inputs `../appendix.tex` |
 | `sn-jnl.cls`, `sn-basic.bst` | the template, unmodified (above) |
-| `make_submission.sh` | builds `submission.zip`, the standalone source package, and verifies it |
+| `make_submission.sh` | builds `submission.zip`, the standalone source package, verifies it, and copies `esm.pdf` to `Online_Resource_1.pdf` beside it |
 | `main.pdf` | the built manuscript (`paper/build.sh`) |
+| `esm.pdf`, `Online_Resource_1.pdf` | the built Online Resource 1, and the copy to upload |
+
+## The article and Online Resource 1
+
+EMSE's length is met by keeping the article to what each research question
+needs and moving the rest to Online Resource 1 (`../appendix.tex`): the
+related-work table, the specification clause by clause, execution detail, the
+collapsed-run and precision-policy analyses, the reported-window mechanism and
+its probe, instrument detail and coverage, the saturation cell in full, the
+industrial scenario, the full defect catalogue and the extended threats to
+validity. The article keeps a summary of each, with its headline numbers, and a
+pointer.
+
+Pointers are references, not typed text. The body writes `\esmsec{app:collapse}`,
+`\esmtab{tab:mechanism}` or `\esmfig{…}`; `main.tex` defines them as "Online
+Resource 1, Sect./Table/Fig. \ref{…}" and reads the numbers from `esm.aux`
+through `xr-hyper` (`\externaldocument[][nocite]{esm}`), and `esm.tex` reads
+`main.aux` the same way, so the supplement's "Section 6.4" is the article's. The
+two documents' labels are disjoint, so no prefix is needed. Three details in
+the front ends make this work under `sn-jnl`, which loads `hyperref` before
+`xr-hyper` can be: the label import is installed by hand with every field kept
+unexpanded (captions in the other document use `\si{\second}` and the number
+macros, which would otherwise be expanded in the preamble); `nocite` keeps the
+other document's citations out, since both cite one bibliography; and
+hyperref's remote-link page is reset per link, so links to the other PDF do not
+warn about page 0. The Elsevier front end (`../paper.tex`) inputs the same
+`appendix.tex` after `\appendix`, and there the same macros read "Appendix D.2".
 
 `\FundingStatement` at the top of `main.tex` is the one line the authors must
 supply before submission; it typesets a bold placeholder until they do.
 
 ## Building
 
-`paper/build.sh` compiles `main.tex` (and the Elsevier fallback,
-`paper/paper.tex`), then runs `make_submission.sh`, which stages
-`submission/` and writes `submission.zip`: `main.tex` with its one path line
-(`\paperroot`) rewritten from `../` to nothing, the shared sources, `main.bbl`,
-the class and style, `generated/` and the figures the body includes. It then
-unzips the package into an empty directory and compiles it there with
-tectonic, and fails if that compile fails or leaves an undefined reference or
-citation.
+`paper/build.sh` compiles `main.tex`, then `esm.tex`, then `main.tex` again
+(each reads the other's `.aux`; neither's numbering depends on the other, so
+three passes settle it), then the Elsevier fallback, `paper/paper.tex`, and
+then runs `make_submission.sh`. That script refuses to run if `esm.pdf` is
+older than `esm.tex` or `../appendix.tex`, stages `submission/` and writes
+`submission.zip`: `main.tex` with its one path line (`\paperroot`) rewritten
+from `../` to nothing, the shared sources, `main.bbl`, `esm.aux` (so the
+pointers into Online Resource 1 resolve), the class and style, `generated/` and
+the figures the body includes. It then unzips the package into an empty
+directory and compiles it there with tectonic, and fails if that compile fails,
+leaves an undefined reference or citation, or typesets a "??". Finally it
+copies `esm.pdf` to `Online_Resource_1.pdf` beside the zip; Online Resource 1
+is uploaded as a PDF, not as source.
 
 ## What sn-jnl needs that cas-dc did not
 
@@ -69,7 +102,9 @@ manuscript loads, and handled in `main.tex`:
   column gap (through `\@floatboxreset`, which runs after any environment
   hook). The remaining overflows were fixed at the source so both layouts fit:
   see the generators (`tab_saturation`, `tab_instrument`,
-  `tab_precision_contrast`) and `body.tex` (Tables 1, 2, the protocol table,
-  the energy-to-target table, and the defect catalogue, now four floats).
+  `tab_precision_contrast`) and the shared sources: `body.tex` (the framework,
+  hyperparameter and energy-to-target tables) and `appendix.tex` (the related-
+  work and protocol tables and the defect catalogue, four floats, all now in
+  Online Resource 1).
 * `caption` warns "Unknown document class, standard defaults will be used";
   harmless (`subcaption` needs it). hyperref is loaded by the class.

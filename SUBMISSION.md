@@ -11,9 +11,21 @@ before uploading, and edit nothing by hand.
 
 | EMSE item | File | State |
 |---|---|---|
-| Manuscript PDF | `paper/paper.pdf` | ready in `cas-dc`; **port to Springer `sn-jnl` pending** |
-| LaTeX source (zip) | `paper/paper.tex`, `paper/bibliography.bib`, `paper/generated/`, `paper/figures/` | zip after the port |
+| Manuscript PDF | `paper/emse/main.pdf` | ready, Springer `sn-jnl`, 41 pages including references and Declarations |
+| LaTeX source (zip) | `paper/emse/submission.zip` | ready; compiles standalone from an empty directory (`paper/emse/make_submission.sh`) |
+| Electronic Supplementary Material: **Online Resource 1** | `paper/emse/Online_Resource_1.pdf` (a copy of `paper/emse/esm.pdf`) | ready, 39 pages; upload as a separate supplementary file named "Online Resource 1" |
 | Cover letter | `paper/cover_letter.md` | ready |
+
+The article was cut from 71 to 41 pages for EMSE. What left the main text went
+to Online Resource 1 (`paper/appendix.tex`): the related-work table, the full
+specification and execution detail, the collapsed-run and precision-policy
+analyses, the reported-window mechanism, the instrument detail and coverage, the
+saturation cell in full, the industrial scenario, the complete defect catalogue
+and the extended threats to validity. The article points into it as "Online
+Resource 1, Sect. D.2"; those pointers are resolved references (xr-hyper against
+`esm.aux`, which the zip carries), so rebuild both together with
+`./paper/build.sh` and upload the `Online_Resource_1.pdf` built beside the zip.
+The Elsevier fallback carries the same material as an inline appendix.
 
 EMSE uses neither highlights nor author photographs. The earlier reviews and
 the point-by-point account (`REVIEWERS_RESPONSE.md`) are not uploaded. The
@@ -21,19 +33,19 @@ cover letter offers them on request.
 
 ## Declarations section (Springer template)
 
-The `sn-jnl` template expects one *Declarations* section. Its content exists in
-the manuscript under Elsevier headings; the port should move it as follows.
+`paper/emse/main.tex` sets one *Declarations* section, as `sn-jnl` expects,
+from the statements shared with the Elsevier build (`paper/statements.tex`).
 
-| Declaration | Source in `paper.tex` now | State |
+| Declaration | In `paper/emse/main.tex` | State |
 |---|---|---|
-| Funding | none stated; a commented-out LEAP note sits in the front matter | **authors: state funding or "none"** |
-| Competing interests | *Declaration of Competing Interest* | **confirm** |
-| Ethics approval | none; no human participants | write "Not applicable" |
-| Consent to participate / publish | none | write "Not applicable" |
-| Data availability | *Data Availability* | ready; add the DOI |
-| Code availability | inside *Data Availability* | split out at the port |
-| Author contributions | *CRediT Authorship Contribution Statement* | **confirm the roles** |
-| Use of LLMs | *Declaration of Generative AI…* | ready |
+| Funding | `\FundingStatement`, a bold placeholder | **authors: state funding or "none"** |
+| Competing interests | `\CompetingInterestStatement` | **confirm** |
+| Ethics approval and consent to participate | "Not applicable" | ready |
+| Consent for publication | "Not applicable" | ready |
+| Data availability | `\DataAvailabilityStatement` | ready; add the DOI |
+| Code availability | its own heading, pointing at the replication package | ready |
+| Author contributions | `\CreditStatement` | **confirm the roles** |
+| Use of generative AI and LLMs | `\GenerativeAIStatement` | ready |
 
 ## What remains for the authors
 
@@ -59,11 +71,15 @@ pipeline. No author types a number.
 
 ## Known state of the build
 
-* 39 pages in `cas-dc`; 0 undefined references, citations or macros.
+* EMSE: `main.pdf` 41 pages, `esm.pdf` (Online Resource 1) 39 pages; 0
+  undefined references, citations or macros in either, and no "??" in the
+  typeset text (`make_submission.sh` checks the standalone compile for both).
+* Elsevier fallback: `paper.pdf` 44 pages in `cas-dc`, with the supplementary
+  material as an inline appendix; 0 undefined references, citations or macros.
 * The structured abstract (Context / Objective / Method / Results /
   Conclusions) is 246 words as typeset, within EMSE's 150–250.
-* 1 overfull hbox in the `cas-dc` e-mail block (the class's own box). It goes
-  away with the port.
+* 1 overfull hbox in the `cas-dc` e-mail block (the class's own box), in the
+  Elsevier build only; the EMSE article has none.
 * 57 bibliography entries, each with a DOI or arXiv identifier where the source
   has one; see `paper/README.md`.
 

@@ -5,15 +5,20 @@ The manuscript is one body with two front ends:
 | File | What it is |
 |---|---|
 | `body.tex` | Introduction through Conclusion, Future Work and the Carbon Footprint section — the text both versions share |
+| `appendix.tex` | the supplementary material cut from the article to keep it within EMSE's length: *Online Resource 1* for EMSE (`emse/esm.tex` → `emse/esm.pdf`), an inline appendix for Elsevier |
 | `preamble.tex` | packages, macros and the generated numbers, shared |
 | `abstract.tex`, `statements.tex` | the abstract and the back-matter statements (CRediT, competing interests, data availability, generative AI), shared as macros |
 | `emse/main.tex` | **the submission**: *Empirical Software Engineering*, Springer Nature `sn-jnl`, author–year — see `emse/README.md` |
 | `paper.tex` | the fallback: Elsevier `cas-dc`, in which the paper was originally submitted |
 
-`./build.sh` builds `emse/main.pdf`, `emse/submission.zip` (the standalone
+`./build.sh` builds `emse/main.pdf`, `emse/esm.pdf` (Online Resource 1, also
+copied to `emse/Online_Resource_1.pdf`), `emse/submission.zip` (the standalone
 source package for EMSE's system, verified by compiling it from an empty
-directory) and `paper.pdf`. Edit the text in `body.tex`; a front end holds only
-its class, title block, abstract wrapper and back matter.
+directory) and `paper.pdf`. Edit the text in `body.tex` and `appendix.tex`; a
+front end holds only its class, title block, abstract wrapper and back matter.
+Point from the body into the supplement with `\esmsec{label}`,
+`\esmtab{label}` and `\esmfig{label}`, which each front end phrases for itself
+("Online Resource 1, Sect. D.2" for EMSE, "Appendix D.2" for Elsevier).
 
 ## Build inputs that are not in this repository
 

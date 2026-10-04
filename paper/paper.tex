@@ -10,6 +10,13 @@
 \input{abstract}
 \input{statements}
 
+% The supplementary material (appendix.tex) is Online Resource 1 in the EMSE
+% build; here it is an inline appendix, so the pointers resolve internally.
+\newcommand{\ESMname}{the Appendix}
+\newcommand{\esmsec}[1]{Appendix~\ref{#1}}
+\newcommand{\esmtab}[1]{Table~\ref{#1}}
+\newcommand{\esmfig}[1]{Figure~\ref{#1}}
+
 
 % allow to end columns with 1-2 lines
 \flushbottom
@@ -89,6 +96,13 @@ Machine Learning \sep Deep Learning \sep Green AI \sep Energy Efficiency \sep Su
 \maketitle
 \input{body}
 
+% Online Resource 1 of the EMSE build, inline: lettered sections, tables and
+% figures numbered within them (A.1, D.2), as in emse/esm.pdf.
+\appendix
+\counterwithin{table}{section}
+\counterwithin{figure}{section}
+\input{appendix}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{CRediT Authorship Contribution Statement}
 
@@ -109,7 +123,10 @@ Machine Learning \sep Deep Learning \sep Green AI \sep Energy Efficiency \sep Su
 \GenerativeAIStatement
 
 \balance
-\bibliographystyle{IEEEtran}
+% Elsevier's numeric style with author names: the body cites with \citet where
+% the prose names the authors ("Georgiou et al. [26]") and \citep elsewhere,
+% and IEEEtran gives natbib no names for \citet to print.
+\bibliographystyle{elsarticle-num-names}
 \bibliography{bibliography}
 
 

@@ -64,8 +64,8 @@ for name, (bbox, kind) in icons.items():
     img.save(path, quality=92)
 PY
 
-# Two front ends over one body (paper/body.tex, preamble.tex, abstract.tex,
-# statements.tex): paper/emse/main.tex for Empirical Software Engineering
+# Two front ends over one body (paper/body.tex, appendix.tex, preamble.tex,
+# abstract.tex, statements.tex): paper/emse/main.tex for Empirical Software Engineering
 # (Springer Nature sn-jnl) -- the submission -- and paper/paper.tex for Elsevier
 # (cas-dc), kept building as the fallback.
 compile() {  # <directory> <file.tex> <what failed, for the message>
@@ -80,7 +80,16 @@ compile() {  # <directory> <file.tex> <what failed, for the message>
   }
 }
 
+# The EMSE article and its Online Resource 1 (emse/esm.tex, the content of
+# appendix.tex) refer to each other through xr-hyper, each reading the other's
+# .aux: main first (esm reads its section numbers), then esm, then main again
+# so that its "Online Resource 1, Sect. D.2" pointers resolve. Neither
+# document's numbering depends on the other, so three passes settle it.
 echo "=== compiling: EMSE (Springer Nature) ==="
+compile paper/emse main.tex "sn-jnl.cls (vendored in paper/emse/)"
+echo "=== compiling: EMSE Online Resource 1 ==="
+compile paper/emse esm.tex "sn-jnl.cls (vendored in paper/emse/)"
+echo "=== compiling: EMSE (Springer Nature), against Online Resource 1 ==="
 compile paper/emse main.tex "sn-jnl.cls (vendored in paper/emse/)"
 echo "=== compiling: Elsevier fallback (cas-dc) ==="
 compile paper paper.tex "cas-dc.cls (TeX Live bundle)"
@@ -96,5 +105,7 @@ paper/emse/make_submission.sh
 "$PY" scripts/emit_highlights.py
 
 echo
-echo "Built paper/emse/main.pdf (EMSE submission), paper/emse/submission.zip"
-echo "and paper/paper.pdf (Elsevier fallback)"
+echo "Built paper/emse/main.pdf (EMSE submission), paper/emse/esm.pdf"
+echo "(Online Resource 1, also copied to paper/emse/Online_Resource_1.pdf),"
+echo "paper/emse/submission.zip and paper/paper.pdf (Elsevier fallback, with"
+echo "the supplementary material as an inline appendix)"

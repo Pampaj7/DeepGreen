@@ -206,9 +206,14 @@ def catalogue_facts() -> None:
     quotes is circular only in appearance: the table is the source, the
     sentence is derived from it, and this makes that direction explicit.
     """
-    # The body both front ends share (paper.tex for Elsevier, emse/main.tex
-    # for Springer Nature) -- the catalogue lives there, not in either front end.
-    tex = (REPO_ROOT / "paper" / "body.tex").read_text()
+    # The sources both front ends share (paper.tex for Elsevier, emse/main.tex
+    # for Springer Nature). The catalogue's tables moved from the body to the
+    # supplementary material, paper/appendix.tex (Online Resource 1 for EMSE,
+    # an inline appendix for Elsevier), when the article was cut to length; the
+    # body keeps a prose summary and no catalogue float. Read both, so the
+    # count follows the tables wherever they live.
+    tex = "\n".join((REPO_ROOT / "paper" / name).read_text()
+                    for name in ("body.tex", "appendix.tex"))
 
     # Every table* float whose caption mentions the catalogue, not just the one
     # carrying \label{tab:catalogue}. The catalogue outgrew a single float and
@@ -223,7 +228,7 @@ def catalogue_facts() -> None:
         caption = block[block.index(r"\caption{"):] if r"\caption{" in block else ""
         if "catalogue" in caption[:400].lower() or r"\label{tab:catalogue}" in block:
             floats.append(block)
-    assert floats, "no catalogue float found in paper/body.tex"
+    assert floats, "no catalogue float found in paper/body.tex or paper/appendix.tex"
 
     total = ours = 0
     for block in floats:
