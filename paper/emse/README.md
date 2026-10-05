@@ -33,7 +33,8 @@ style.
 | `main.tex` | the EMSE front end: class, title and author block, abstract, Declarations; inputs `../preamble.tex`, `../abstract.tex`, `../statements.tex`, `../body.tex` |
 | `esm.tex` | **Online Resource 1**, the Electronic Supplementary Material: same class and preamble, title "Online Resource 1 — Supplementary material for: …", sections A–J; inputs `../appendix.tex` |
 | `sn-jnl.cls`, `sn-basic.bst` | the template, unmodified (above) |
-| `make_submission.sh` | builds `submission.zip`, the standalone source package, verifies it, and copies `esm.pdf` to `Online_Resource_1.pdf` beside it |
+| `make_submission.sh` | builds `submission.zip`, the flat, single-directory source package Springer's system asks for, verifies it, and copies `esm.pdf` to `Online_Resource_1.pdf` beside it |
+| `flatten_submission.py` | the helper it calls: writes the flattened `main.tex` and the package's other files into `submission/`, and compares the package's PDF text with `main.pdf` |
 | `main.pdf` | the built manuscript (`paper/build.sh`) |
 | `esm.pdf`, `Online_Resource_1.pdf` | the built Online Resource 1, and the copy to upload |
 
@@ -63,6 +64,12 @@ hyperref's remote-link page is reset per link, so links to the other PDF do not
 warn about page 0. The Elsevier front end (`../paper.tex`) inputs the same
 `appendix.tex` after `\appendix`, and there the same macros read "Appendix D.2".
 
+This is the local build only. The submitted source does not use `xr-hyper`:
+`make_submission.sh` writes each pointer into the packaged `main.tex` as the
+literal number `esm.aux` records ("Online Resource~1, Sect.~D.3"), so the
+package needs neither `esm.aux` nor the label-import code, and the typeset text
+is the same.
+
 The Declarations carry no funding statement, by the authors' choice.
 
 ## Building
@@ -71,15 +78,33 @@ The Declarations carry no funding statement, by the authors' choice.
 (each reads the other's `.aux`; neither's numbering depends on the other, so
 three passes settle it), then the Elsevier fallback, `paper/paper.tex`, and
 then runs `make_submission.sh`. That script refuses to run if `esm.pdf` is
-older than `esm.tex` or `../appendix.tex`, stages `submission/` and writes
-`submission.zip`: `main.tex` with its one path line (`\paperroot`) rewritten
-from `../` to nothing, the shared sources, `main.bbl`, `esm.aux` (so the
-pointers into Online Resource 1 resolve), the class and style, `generated/` and
-the figures the body includes. It then unzips the package into an empty
-directory and compiles it there with tectonic, and fails if that compile fails,
-leaves an undefined reference or citation, or typesets a "??". Finally it
-copies `esm.pdf` to `Online_Resource_1.pdf` beside the zip; Online Resource 1
-is uploaded as a PDF, not as source.
+older than `esm.tex` or `../appendix.tex`, or `main.pdf` older than any of its
+sources, and then builds the package to Springer's LaTeX rules (all files in one
+directory, no subfolders; `\includegraphics` with local names; the `.bbl` and the
+`.bib` with its `.bst`; the `pdflatex` class option; special characters as TeX
+code). `submission.zip` holds exactly these files, at top level:
+
+| File | |
+|---|---|
+| `main.tex` | **one** file: `main.tex` with `../preamble.tex`, `../abstract.tex`, `../statements.tex`, `../body.tex` and every generated macro and table file it reads inlined, comments stripped; no `\input` remains. Pointers into Online Resource 1 are literal numbers from `esm.aux`; the `xr-hyper` block, `\externaldocument`, `\paperroot`, `\gendir` and `\graphicspath` are gone, and figures are included by local name (`\includegraphics{fig_energy_ci}`) |
+| `main.bbl` | the bibliography as BibTeX builds it from the two files below |
+| `bibliography.bib` | `../bibliography.bib` with its accented letters as TeX accents (`Br{\'\i}tez`, `Jo{\~a}o`); the source file keeps UTF-8 |
+| `sn-basic.bst`, `sn-jnl.cls` | the template, unmodified |
+| `fig_*.pdf` | the six figures the article includes, and only those |
+
+The script then unzips the package into an empty directory and compiles it
+there with tectonic, once as shipped and once without `main.bbl` (tectonic runs
+BibTeX itself, so it cannot typeset from the `.bbl` alone; instead the `.bbl`
+BibTeX regenerates from the shipped `.bib` must equal the shipped one, byte for
+byte). It fails if a compile fails or leaves an undefined reference or
+citation, a "??" or "(?)"; if `main.tex` keeps an `\input` or `\include`; if the
+zip holds a subdirectory or any file not listed above, or a text file with raw
+non-ASCII characters; if the page count differs from `main.pdf`'s; or if the
+PDF's text (`pdftotext`, whitespace, line-end hyphenation and ligatures
+normalised) differs from `main.pdf`'s at all. The stage copy is in
+`submission/`. Finally it copies `esm.pdf` to `Online_Resource_1.pdf` beside the
+zip; Online Resource 1 is uploaded as a PDF, not as source, and so is the cover
+letter (`cover_letter.pdf`, typeset by hand from `cover_letter.tex`).
 
 ## What sn-jnl needs that cas-dc did not
 

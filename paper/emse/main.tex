@@ -26,9 +26,9 @@
 % from the article. Its section, table and figure numbers come from its own
 % .aux through xr-hyper, so a pointer such as "Online Resource 1, Sect. D.2"
 % is a resolved reference and not typed text. paper/build.sh compiles main,
-% then esm, then main again; the submission zip ships esm.aux beside main.tex
-% for the same reason it ships main.bbl. The labels of the two documents are
-% disjoint, so no prefix is needed.
+% then esm, then main again. The submission zip does not use xr at all:
+% flatten_submission.py writes each pointer as its resolved number. The labels
+% of the two documents are disjoint, so no prefix is needed.
 \newcommand{\ESMname}{Online Resource~1}
 \newcommand{\esmsec}[1]{Online Resource~1, Sect.~\ref{#1}}
 \newcommand{\esmtab}[1]{Online Resource~1, Table~\ref{#1}}
