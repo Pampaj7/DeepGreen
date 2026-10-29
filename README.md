@@ -316,7 +316,8 @@ it, restore the run directories first:
 
 ```bash
 .venv-deepgreen/bin/python scripts/restore_from_replication.py --all --dry-run
-.venv-deepgreen/bin/python scripts/restore_from_replication.py --all
+.venv-deepgreen/bin/python scripts/restore_from_replication.py --all                        # results/campaign_v2/
+.venv-deepgreen/bin/python scripts/restore_from_replication.py --all --campaign saturation  # results/campaign_saturation/
 ```
 
 ### 4. Check conformance
@@ -330,7 +331,18 @@ python3 scripts/verify_data_parity.py           # same pixels, all 7 stacks
 ```
 
 The checker prints its own pass / fail / warn / skip counts; a conforming
-repository ends with **0 fail**. Run it under the campaign interpreter, not the
+repository ends with **0 fail**. All 110 checks run only where their inputs
+exist. A check whose input is absent is reported as a skip, with the reason,
+and still counts towards the 110:
+
+| Where | Result |
+|---|---|
+| author's machine (campaign, Imagenette, Rust release build present) | 110 pass, 0 fail, 0 skip |
+| fresh clone, after the two restore commands above | 106 pass, 0 fail, 4 skip (Imagenette: 3; Rust build: 1) |
+| fresh clone, before restoring | 103 pass, 0 fail, 7 skip (also the 3 checks that read the restored run tree) |
+
+The Imagenette checks need `dataloader/download_convert_imagenette.py` run
+first, and the Rust check needs `scripts/build_rust_cuda.sh`. Run it under the campaign interpreter, not the
 system `python3`: three of its checks read the campaign's records through
 pandas, and without pandas it declines to run and would otherwise report a clean
 result on a repository it has not finished checking. The same applies to

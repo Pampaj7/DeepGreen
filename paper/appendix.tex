@@ -66,8 +66,8 @@ TF32 to all \vEcosystems{}. Mixed precision is a separate axis and is enabled in
 no stack here.
 
 The policy belongs to the specification of Section~\ref{subsec:spec} rather than
-to each ecosystem, and it is there because of what happened when it was not. A
-first execution of this campaign pinned TF32 \emph{off} in the shared harness;
+to each ecosystem, and it is there because of what happened when it was not. The
+superseded campaign pinned TF32 \emph{off} in the shared harness;
 the pin reached one stack of \vEcosystems{} and no other, and that single
 difference was worth more than any difference between bindings this study
 measures. Section~\ref{app:tf32} reports it as an ablation.
@@ -104,8 +104,8 @@ experiment outside the campaign.
         three Python stacks, R and Java assert it at startup and refuse to train
         if it does not match. C++ receives it and does not check it, and neither
         do the Rust binaries of the $32\times32$ campaign; the Rust binaries
-        written for the saturation cell of S7 do. We found this after both
-        campaigns had run, and we report it rather than patch a harness that has
+        written for the saturation cell of S7 do. We found this after the campaign and the
+        saturation cell had run, and we report it rather than patch a harness that has
         already produced the data. C++ and Rust load the same exported module
         file as PyTorch, which does assert it, so what they lack is the startup
         assertion, not a verified architecture. Counting parameters is the weak form of the check --- two
@@ -117,8 +117,8 @@ experiment outside the campaign.
         all six cells. R links a LibTorch of its own and its binding cannot
         switch a script module between training and evaluation mode, so it
         builds the architecture rather than loading the module; it belongs to
-        the LibTorch lineage but not to the control group. In an earlier version
-        of this study this clause asserted the parameter check and nothing
+        the LibTorch lineage but not to the control group. In the audited
+        campaign this clause asserted the parameter check and nothing
         implemented it;
         Section~\ref{app:catalogue} records what that cost, and the C++ and
         Rust gap above is where it is still not implemented.
@@ -132,10 +132,10 @@ experiment outside the campaign.
         images in raw $[0,1]$ with no per-stack normalisation, resized once
         offline so that no framework's resampler enters the comparison; a
         bounded and equal number of loader workers; batched evaluation at the
-        training batch size; and the whole 10,000-image test split evaluated in
+        training batch size; and the whole \num{10000}-image test split evaluated in
         every stack, with no final partial batch dropped and no step count
         rounded down. Every run writes a fingerprint of the split it decoded ---
-        mean, standard deviation and range over its \vDataFpValues{} pixel
+        mean, standard deviation and range over its \num{\vDataFpValues} pixel
         values --- so the pipelines are demonstrated to agree rather than
         asserted to.
   \item \textbf{S4 --- Backend.} One LibTorch build across the \vCtrlStacks{}
@@ -241,14 +241,14 @@ own redistributable ships. The specification document in the replication
 package carries the rest of the evidence. It is the only stack of \vEcosystems{} that
 reaches no cuDNN kernel, and a conformance check now watches that library and
 fails if a future version gains one, so the claim cannot quietly stop being true.
-Because it cannot be fixed, we bound it: disabling cuDNN in a stack that has it,
-holding hardware, model and data constant, costs
+It cannot be fixed, and we have one reference point for what it may cost:
+disabling cuDNN in PyTorch, holding hardware, model and data constant, costs
 \vCudnnOffEnergyRatio$\times$ the energy and \vCudnnOffTimeRatio$\times$ the
-time on ResNet-18 at batch 128. That is an upper bound on what losing cuDNN can cost
-rather than an estimate of this stack's own penalty --- nd4j's im2col path is not
-PyTorch's non-cuDNN fallback --- but it is large enough that Java's cost in this
-study is in part a statement about a missing convolution backend rather than
-about a language, and we repeat the qualification wherever that cost is reported.
+time on ResNet-18 at batch 128. That is PyTorch's own non-cuDNN fallback, not
+nd4j's im2col path, so it neither estimates nor bounds this stack's penalty; it
+shows only that a missing convolution backend can cost a great deal, so Java's
+cost in this study may in part reflect that backend rather than a language, and
+we repeat the qualification wherever that cost is reported.
 Third, the R \texttt{torch} binding cannot switch a script module between
 training and evaluation mode, so R alone cannot consume the shared TorchScript
 module of S1 and builds the same architecture instead; its shapes are verified
@@ -261,8 +261,9 @@ are in play.
 \subsection{Measurement procedure, in detail}
 \label{app:measurement}
 
-The two halves of that sum are not at the same boundary, and the sum is not
-``the chip''. NVML's register is a \emph{board} quantity: it includes the GPU
+The reported energy is the sum of the NVML and RAPL readings
+(Section~\ref{subsec:measurement}). Its two halves are not at the same boundary,
+and the sum is not ``the chip''. NVML's register is a \emph{board} quantity: it includes the GPU
 die, its GDDR6X and the card's voltage regulators. RAPL's package domain is the
 CPU package alone. Host DRAM is in neither --- this platform exposes no
 \texttt{dram} RAPL domain, so its energy, of order ten watts, is not measurable
@@ -306,8 +307,8 @@ significance.
 Each run receives a seed from the run contract, and that seed reaches both the
 data order and the model initialisation in every stack. Two of the three ways a
 stack can ignore the seed it is handed are now checked against the stacks' own
-source, which is two more than an earlier version of this study checked: in an
-earlier campaign of this design
+source, which is two more than the audited campaign checked: in that
+campaign
 \vSeedDivergentStacks{} stacks of \vEcosystems{} were handed a distinct seed per
 repetition and did not use it --- one hardcoded its shuffle seed, so all
 \vRepetitions{} repetitions saw the same data order; one never forwarded the seed
@@ -321,7 +322,7 @@ about.
 Nevertheless, full determinism cannot be guaranteed across all stacks due to non-deterministic GPU kernels and differences in backend execution engines; this is one reason the design replicates rather than relying on a single execution per configuration.
 
 A complete replication package is provided (see replication package link in Section~\ref{sec:intro}), including: (i) source code for all implementations, (ii) scripts to reproduce runs, (iii) environment specifications (e.g. virtual environments, Maven, CMake), and (iv) collected raw data~\citep{cruz2025greening,verdecchia2023systematic}.
-Configurations are standardized across languages where feasible, with deviations documented when framework-specific requirements arise~\citep{pereira2021ranking,gordillo2024ranking}.
+Configurations are standardised across languages where feasible, with deviations documented when framework-specific requirements arise~\citep{pereira2021ranking,gordillo2024ranking}.
 This package enables replication, validation, and extension under different hardware or software conditions~\citep{feldt2010validity,sjoberg2023construct}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -396,8 +397,8 @@ Deeplearning4j 1.0.0-M2.1 links against the CUDA 11.6 runtime, resolves its
 convolutions without cuDNN, and has had no subsequent release; the stack now
 carries its own redistributables through
 \texttt{org.bytedeco:cuda-platform-redist}, which makes it reproducible without
-making it contemporary, and Section~\ref{subsec:spec} bounds what the missing
-convolution backend can be worth. R's \texttt{torch} 0.17.0 bundles its own
+making it contemporary, and Section~\ref{subsec:spec} gives one reference
+point for what the missing convolution backend may be worth. R's \texttt{torch} 0.17.0 bundles its own
 LibTorch and
 resolves CUDA at load time. We report these as documented divergences rather
 than normalising them away, and Section~\ref{subsec:rq1} reports the LibTorch
@@ -414,13 +415,13 @@ During a preliminary pilot phase, the Julia programming language (using \texttt{
 Specification S7 adds one contrast cell, executed
 after the campaign and on the same host:
 Imagenette\footnote{\url{https://github.com/fastai/imagenette}}, ten easily
-separated ImageNet classes, 9,469 training and 3,925 test images, resized once offline by the
+separated ImageNet classes, \num{9469} training and \num{3925} test images, resized once offline by the
 shorter side to 224 and centre-cropped to $224\times224$ so that, as in the
 campaign, no stack's resampler enters the comparison. Three rows of
 Table~\ref{tab:hyperparams} differ for the cell: input resolution; batch size,
 32 in both phases, because VGG-16 at $224\times224$ does not fit the card's
 24\,GB at batch 128 --- a hardware limit, not a preference; and evaluation, which
-still batches at the training batch size but covers the 3,925-image test split.
+still batches at the training batch size but covers the \num{3925}-image test split.
 The classifier has ten outputs, as on Fashion-MNIST, so the parameter counts the
 stacks receive are that pair's. The
 cell is \vSatEcosystems{} ecosystems $\times$ \vSatModels{} architectures
@@ -490,8 +491,10 @@ this design:
 Every quantity this manuscript reports from the campaign is generated from
 those records by the analysis pipeline and injected into the source at build
 time. The exceptions are stated where they occur: figures recovered from the
-audited campaign, and one-off diagnostics reproduced from the record
-that established them. Two limits on that provenance are worth stating rather
+audited campaign (the boundary contrast of Section~\ref{subsec:interpretation}
+and the protocol of Table~\ref{tab:protocol}), and one-off diagnostics
+reproduced from the record that established them (the initialiser trials of
+Section~\ref{app:collapse}). Two limits on that provenance are worth stating rather
 than leaving for a replicator to find. Every run's manifest records the machine
 state it ran under --- driver, power limit, clocks, persistence mode, governor,
 boost and the precision policy in force --- but every run of this campaign
@@ -504,6 +507,17 @@ directory until the expected number of runs is complete. Neither changes a numbe
 reported here, and both are the kind of thing a reproducibility claim has to be
 able to survive being asked about.
 
+The replication package is itself an output of the pipeline and is built at the
+end of it, so it cannot be older than the tree it flattens --- which it had
+quietly been, for a fortnight, while part of the analysis read it as an input.
+It refuses to build from a campaign that is not complete, on two conditions
+rather than one: the campaign must have produced every run it planned, and every
+run directory present must be whole. A package that silently omits or silently
+includes runs is worse than one that will not build. A restore script rebuilds
+the original run tree from the package and diffs it file by file, so the claim
+that the package is a copy is itself checkable, and every field is carried as
+text, because parsing a float and writing it back is not a copy.
+
 \subsection{The configuration, and what verifies it}
 \label{app:config}
 
@@ -514,21 +528,17 @@ universally rather than by one file that happens to match; the precision policy
 is verified as a campaign-wide export and by a negative check that no stack pins
 it privately; the other rows are asserted by the specification and were checked
 by reading. Section~\ref{app:checks} reports why that distinction is not
-pedantic. Each block is logged with dataset, model, ecosystem, repetition, seed,
-phase, epoch, both energy readings, the duration and the test accuracy reached
-(Section~\ref{app:bridge}). Section~\ref{subsec:rq1} reports the LibTorch
-control group separately so that a reader can see how much of the total spread
-survives when the backend is held fixed.
+pedantic.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{RQ1: supplementary analyses}
 \label{app:rq1}
 
 Section~\ref{subsec:rq1} answers RQ1 and summarises the analyses given in full
-here: the training energy behind Figure~\ref{fig:energy_ci}, what an earlier
-version of this study read into the control group,
-the runs that collapsed in the first execution of this design, and the precision
-policy that separated the two executions.
+here: the training energy behind Figure~\ref{fig:energy_ci}, what the
+superseded campaign's control group seemed to show, the runs that collapsed in
+the superseded campaign, and the precision policy that separated it from the
+reported campaign.
 
 \subsection{Training energy per epoch, tabulated}
 \label{app:train-energy}
@@ -544,26 +554,29 @@ the cheapest and the dearest stack of each cell.
 \input{\gendir tab_train_energy.tex}
 \end{table*}
 
-\subsection{What an earlier version read into the control group}
+\subsection{What the superseded campaign's control group seemed to show}
 \label{app:control}
 
-An earlier version of this study read a mechanism out of Table~\ref{tab:libtorch_control}, and it was
-wrong. It argued that whatever separates those three cannot be the kernels,
-because the kernels are the same code, and it put about half of the ResNet-18
-log spread under binding overhead, data movement and host-side dispatch. Sharing
-a build is not sharing a kernel configuration. Specification S4 asked for fp32
-with TF32 disabled, and exactly one stack of \vEcosystems{} was given it, the
-other six taking cuDNN's Ampere default --- so the two campaigns hold that
-ablation between them. Python/PyTorch's own ResNet-18 training energy is
-\vPrecisionPytorchRatioMin$\times$ higher in the campaign that denied it TF32
-than in this one, on \vPrecisionGapDataset{} --- the one cell the two campaigns
-leave comparable --- while the \vPrecisionControlStacks{} stacks of that cell
+Read from the superseded campaign, the comparison of
+Table~\ref{tab:libtorch_control} invites a mechanism, and the mechanism is
+wrong. The argument runs that whatever separates those three cannot be the
+kernels, because the kernels are the same code, and it puts about half of the
+ResNet-18 log spread under binding overhead, data movement and host-side
+dispatch. Sharing a build is not sharing a kernel configuration. Specification
+S4 then asked for fp32 with TF32 disabled, and exactly one stack of
+\vEcosystems{} received it: TensorFlow was handed a mixed-precision policy,
+Java reaches no cuDNN kernel, and the rest took their framework's default, which
+lets cuDNN use TF32 on this card --- so the superseded and reported campaigns
+hold that ablation between them. Python/PyTorch's own ResNet-18 accelerator
+energy per training epoch is \vPrecisionPytorchRatioMin$\times$ higher in the
+superseded campaign, which denied it TF32, than in the reported one, on
+\vPrecisionGapDataset{} --- the one cell the two campaigns leave comparable --- while the \vPrecisionControlStacks{} stacks of that cell
 whose precision policy did not change move by at most
 \vPrecisionOthersMaxChangePct\,\%; an isolated kernel probe puts the same flag
 pair at \vPrecisionKernelDetEnergyRatio$\times$ on the accelerator alone
 (Section~\ref{app:tf32}). The
-PyTorch-versus-C++ gap the earlier campaign measured there,
-\vPrecisionGapBefore$\times$, is \vPrecisionGapAfter$\times$ in this one, and
+PyTorch-versus-C++ gap the superseded campaign measured there,
+\vPrecisionGapBefore$\times$, is \vPrecisionGapAfter$\times$ in the reported one, and
 it was nearly absent on VGG-16, whose classifier is GEMM rather than convolution
 --- which no account of binding overhead predicts. Two further premises were
 false: the three stacks did not begin from identical parameters
@@ -578,7 +591,7 @@ the cost of guessing is on the record above.
 \label{app:collapse}
 
 Replicating each configuration surfaced something a single run cannot show. In
-the first campaign of this design VGG-16 did not always train. We call a run
+the superseded campaign VGG-16 did not always train. We call a run
 \emph{collapsed} when its final test accuracy never exceeds
 \vCollapseFactor$\times$ chance for its dataset; the multiplier is generous on
 purpose, because every collapsed run sat at chance exactly --- 1/100 on
@@ -592,7 +605,7 @@ reported here --- and neither architecture does it on Fashion-MNIST.
 \begin{figure*}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/fig_convergence_first_campaign.pdf}
-    \caption{The superseded first campaign, from that campaign's own records.
+    \caption{The superseded campaign, from that campaign's own records.
     (a) Cross-ecosystem accuracy spread per cell, over all runs (hollow) and
     over only the runs that trained (filled); the gap on VGG-16 is the collapsed
     runs. (b) VGG-16 runs that collapsed to chance, out of \vRepetitions{} per
@@ -613,12 +626,12 @@ gradient signal is reaching it. VGG-16 as shipped carries no batch
 normalisation, and a plain sixteen-layer network driven by Adam at $10^{-4}$
 over a hundred or two hundred classes can start there and never leave.
 
-What decides whether a run does so is the initial weights. The previous
-version of this section said the opposite, and the premise it rested on was
-false: we argued that the \vCollapseSharedStacks{} stacks described as loading
-a byte-identical exported module began from identical parameters and still
-disagreed about which repetitions collapsed, so the deciding factor had to be
-the stochastic path. They did not begin from identical parameters. Python's
+What decides whether a run does so is the initial weights. It is tempting to
+argue the opposite: that the \vCollapseSharedStacks{} stacks described as
+loading a byte-identical exported module began from identical parameters and
+still disagreed about which repetitions collapsed, so the deciding factor must
+be the stochastic path. The premise is false. They did not begin from identical
+parameters. Python's
 PyTorch harness built torchvision's network fresh and loaded no module at all,
 and the C++ and Rust harnesses each loaded a module from a separate, unseeded
 export.
@@ -627,8 +640,10 @@ A controlled side experiment outside the campaign reverses the reading. VGG-16
 on the many-class datasets, one framework, \vInitCollapseTrials{} runs per
 initialiser, with framework, optimiser, learning rate and data order held
 fixed and only the initialiser varied: \vInitCollapseHe{} runs collapse under
-He initialisation, \vInitCollapseGlorot{} under Glorot and
-\vInitCollapseXavier{} under Xavier. The stacks were not drawing from one
+He initialisation, and \vInitCollapseGlorot{} and \vInitCollapseXavier{} under
+two variants of Glorot initialisation (the same family, also called Xavier;
+the trial record labels them ``Glorot'' and ``Xavier'' without recording which
+of the uniform and normal forms each was). The stacks were not drawing from one
 distribution and diverging afterwards; they were drawing from different
 distributions. Deeplearning4j, the one stack with a hand-rolled initialiser
 --- a truncated normal scaled by fan-in where torchvision scales, untruncated,
@@ -723,15 +738,18 @@ Two consequences matter here.
 \textbf{The stacks agree on what they compute.} No cell shows a
 cross-ecosystem accuracy spread above \vCondSpreadMax{} percentage points, and
 the widest of them, on \vCondBlockName{}, is a spread between runs that all
-trained. In the first campaign the same measurement had two arms --- over all
+trained. In the superseded campaign the same measurement had two arms --- over all
 runs, and over the runs that trained --- and almost the entire apparent
 disagreement between stacks sat in the gap between them
 (Figure~\ref{fig:convergence_first}a). There is no gap now: every run in this
 campaign trained, the two arms coincide, and the spread is what the stacks
-compute rather than what failed to train.
+compute rather than what failed to train. Pooled over both architectures ---
+the one place we quote a pooled accuracy, because the comparison here is with
+and without collapsed runs rather than between stacks --- the CIFAR-100 spread
+is \vAccSpreadCifar{} points either way.
 
 \textbf{A collapse breaks fixed-budget energy comparison, invisibly.} A
-collapsed run costs full energy and produces nothing: in the first campaign
+collapsed run costs full energy and produces nothing: in the superseded campaign
 \vCollapseFirstWastedPct\,\% of the training energy went on runs that learned
 nothing, against \vWastedPct\,\% of the \vTrainingEnergyMJ~MJ spent here. An
 ecosystem whose default initialiser differed from the recipe's looks equally
@@ -745,32 +763,34 @@ quality.
 \subsection{The precision policy, and what it was worth}
 \label{app:tf32}
 
-This campaign was executed twice, and the difference between the two executions
-is a measurement. The first pinned TF32 off --- \code{cudnn.allow\_tf32} and
+The present design was executed twice, and the difference between the
+superseded and the reported campaign is a measurement. The superseded campaign
+pinned TF32 off --- \code{cudnn.allow\_tf32} and
 \code{matmul.allow\_tf32} false, \code{cudnn.deterministic} true --- in the
 harness the Python stacks import. Only those three stacks import it, and of
 those only PyTorch reached cuDNN through it: TensorFlow was handed a
 mixed-precision policy, which is a different axis, and JAX was handed nothing.
-So one stack of \vEcosystems{} trained true-fp32 convolutions while the other
-six took cuDNN's Ampere default, which is TF32. The re-execution reported
-throughout this paper runs all \vEcosystems{} under the single policy of
-Section~\ref{subsec:spec}. Because the two executions differ in the precision
-policy of exactly one stack, over the same \vConfigurations{} configurations,
-they are between them an ablation of that policy against a control group whose
-precision policy did not change, and we report them as one. (The audited campaign that
+Java reaches no cuDNN kernel at all, and the remaining stacks took their
+framework's default, which lets cuDNN use TF32 on this card. So one stack of
+\vEcosystems{} trained true-fp32 convolutions. The reported campaign runs all
+\vEcosystems{} under the single policy of Section~\ref{subsec:spec}. Over the
+same \vConfigurations{} configurations, the two campaigns are therefore an
+ablation of PyTorch's policy against a control group --- C++, Rust and R ---
+whose precision policy did not change, and we report them as one; TensorFlow's
+policy changed too, and it is excluded on other grounds below. (The audited campaign that
 motivated this design, in Section~\ref{sec:catalogue}, is a different thing again
 and ran on different hardware; nothing here is compared against it.)
 
-Table~\ref{tab:precision_contrast} puts the two executions side by side, per
-epoch of training, and says of every ResNet-18 training cell whether anything
+Table~\ref{tab:precision_contrast} puts the two campaigns side by side, in
+accelerator energy per epoch of training, and says of every ResNet-18 training cell whether anything
 other than the precision policy changed between them. On
 \vPrecisionGapDataset{}, where nothing else did, Python/PyTorch's ResNet-18
-training energy is \vPrecisionPytorchRatioMin$\times$ higher with TF32 denied
+accelerator training energy is \vPrecisionPytorchRatioMin$\times$ higher with TF32 denied
 than with it allowed, while the \vPrecisionControlStacks{} stacks that are
 comparable beside it --- C++, Rust and R, whose precision policy did not change
-and whose remaining differences between the executions cannot move per-epoch
+and whose remaining differences between the two campaigns cannot move per-epoch
 energy --- move by at most \vPrecisionOthersMaxChangePct\,\%. And the
-quantity an earlier version of this study leaned on hardest, the
+quantity that most invites a binding-overhead reading, the
 Python/PyTorch-versus-C++ training gap on ResNet-18, falls from
 \vPrecisionGapBefore$\times$ to \vPrecisionGapAfter$\times$. Each side of that
 comparison is \vRepetitions{} runs of thirty epochs, on real data, on the
@@ -779,27 +799,28 @@ instrument this paper uses throughout.
 \input{\gendir tab_precision_contrast.tex}
 
 Most cells are not a precision contrast, and the table says which and why. Three
-of the six stacks that kept their policy are excluded for reasons of their own:
+of the other stacks are excluded for reasons of their own:
 Python/TensorFlow ran a Model Garden ResNet-18 with a projection shortcut the
 other stacks do not have and dropped its last partial batch, Java/DL4J built its
 graph by hand with truncated convolution padding and a bias on every
 convolution, and Python/JAX was measured through a window that did not force
-completion in the first execution and does in this one. VGG-16 is excluded
-entirely, since the first execution ran four different networks under that name,
-so a VGG-16 ratio between the two executions is mostly architecture.
+completion in the superseded campaign and does in the reported one. VGG-16 is
+excluded entirely, since the superseded campaign ran four different networks
+under that name, so a VGG-16 ratio between the two campaigns is mostly
+architecture.
 Fashion-MNIST and Tiny ImageNet were re-encoded to the common $32\times32$
 resolution on disk between the two, so on those datasets every stack's loader
 does different work; CIFAR-100 was already at that resolution and did not move.
 One caveat survives inside the cells that remain, and we state it rather than
-remove it: the first execution built PyTorch's ResNet-18 fresh from torchvision
-and this one loads the exported module of S1, so PyTorch's ratio contains
+remove it: the superseded campaign built PyTorch's ResNet-18 fresh from
+torchvision and the reported one loads the exported module of S1, so PyTorch's ratio contains
 whatever TorchScript execution is separately worth. The control group cannot
-separate the two, because the other stacks loaded a module in both executions.
+separate the two, because the other stacks loaded a module in both campaigns.
 The ratio therefore bounds the precision effect from above, and we do not
 partition it. The kernel probe below reports a larger ratio for the same flag
 pair, and the two are not in tension: the probe measures accelerator energy per
-step on a resident batch, where this figure is board-and-package per epoch and
-carries the loader and the CPU package with it.
+step on a resident batch, where this figure is accelerator energy per epoch of
+real training, loader and data movement included.
 
 Underneath that contrast we ran a kernel-level probe on an idle host
 (\code{scripts/probe\_tf32.py}): ResNet-18 built from the definition the campaign
@@ -807,8 +828,8 @@ exports, batch 128, one resident batch of synthetic input, and the flags set
 directly. Synthetic input is the point rather than a compromise, since which
 convolution algorithm cuDNN selects does not depend on what the pixels are, and
 holding one batch resident takes the loader out of the comparison identically in
-every cell. Every ratio here is against the configuration the other six stacks
-ran in the first execution: TF32 allowed to cuDNN, determinism unpinned, the
+every cell. Every ratio here is against the configuration the stacks on their
+framework default ran in the superseded campaign: TF32 allowed to cuDNN, determinism unpinned, the
 matrix-multiply path at its framework default of fp32 --- the cuDNN-disabled
 cell excepted, which is taken against this campaign's own default, the only
 configuration whose matrix-multiply flag it shares. A thousand training steps
@@ -819,32 +840,32 @@ cells are reshuffled from a recorded seed within each repeat, so drift over the
 run cannot alias onto one of them, and we report medians over the repeats.
 Denying TF32 to the convolutions costs \vPrecisionKernelEnergyRatio$\times$ the
 accelerator energy per step. Denying it and pinning \code{cudnn.deterministic}
-as well --- the first execution's configuration for PyTorch, exactly --- costs
+as well --- the superseded campaign's configuration for PyTorch, exactly --- costs
 \vPrecisionKernelDetEnergyRatio$\times$. Determinism on its own costs
 \vPrecisionKernelDetOnlyRatio$\times$, which is to say nothing we can measure; it
 is pinned nowhere in this campaign, and it is not expressible in the
 Deeplearning4j or R bindings at all. Allowing TF32 in the matrix-multiply path
 on top of the convolution path changes nothing we can measure on ResNet-18
 either, because the network's only general matrix multiply is the $512\to100$
-classifier head. One further cell disables cuDNN altogether, to bound what
-Deeplearning4j's absent cuDNN path can cost; that belongs with the cost of the
+classifier head. One further cell disables cuDNN altogether, as one reference
+point for what Deeplearning4j's absent cuDNN path may cost; that belongs with the cost of the
 Java stack rather than here. And the probe diverges from the campaign in one
 respect, which we state because it caps what the probe can be used for: it runs
 the eager module rather than the TorchScript export the campaign executes, so it
 measures cuDNN algorithm selection under the eager path.
 
 That the matrix-multiply path is where ResNet-18's arithmetic does \emph{not} go
-is also why the first execution showed nothing on VGG-16. Python/PyTorch, C++
-and Rust all ran torchvision's VGG-16 head in that execution, so a comparison
+is also why the superseded campaign showed nothing on VGG-16. Python/PyTorch,
+C++ and Rust all ran torchvision's VGG-16 head in that campaign, so a comparison
 between them within it is like-for-like even though a comparison of VGG-16
-across the two executions is not; and there the PyTorch-versus-C++ gap sat close
+across the two campaigns is not; and there the PyTorch-versus-C++ gap sat close
 to one, against \vPrecisionGapBefore$\times$ on ResNet-18. VGG-16's head is
 GEMM-dominated and the matrix-multiply path ran fp32 in every binding, so the
 gap disappeared exactly where the workload stopped being convolution.
 
-What this costs the study is a claim it once made. An earlier version measured the
-ResNet-18 gap between Python/PyTorch and the two stacks sharing its backend,
-found it large, and called it binding overhead. It was one configuration flag,
+The gap a study of this shape would naturally call binding overhead --- the
+superseded campaign's ResNet-18 gap between Python/PyTorch and the two stacks
+sharing its backend --- was one configuration flag,
 in exactly one stack of \vEcosystems{}, and we would not have found it without a
 control group of stacks that could not import the harness the flag lived in. The
 correction changes the finding's category rather than removing it: what was an
@@ -880,8 +901,12 @@ group is two populations rather than one, a second or so apart and
 \vWindowModeWidestS\,\si{\second} across end to end; the blocks scattered
 between them are why the mode-finder we use, which cuts the sorted excess at
 gaps wider than half a second, reports the pair as one.
-\vWindowModeThreeBlocks{} of the \vBlocks{} blocks sits far above both, at
-\vWindowModeThreeS\,\si{\second}.
+\vWindowModeThreeBlocks{} of the \num{\vBlocks} blocks sits far above both, at
+\vWindowModeThreeS\,\si{\second}. These clusters of the campaign's excess are
+the \emph{modes} of Figure~\ref{fig:window_floor}a; the cost of \texttt{stop()}
+measured directly, below, comes in three \emph{levels}. The lowest mode is the
+no-lookup level, the middle mode holds the two padded levels, and the top mode
+matches no level.
 \vWindowPaddedPct\,\% of the campaign's blocks are therefore reported with a
 window seconds longer than the interval over which their energy was
 accumulated.
@@ -926,13 +951,13 @@ zero outstanding network lookups. The probe's threshold of
 \subsection{Where the padding lands}
 \label{app:padding}
 
-This explains the campaign. All \vShortBlocks{} blocks shorter than
+This explains the campaign. All \num{\vShortBlocks} blocks shorter than
 \SI{9}{\second} are padded, \vShortBlocksPaddedPct\,\% of them; the shortest
 unpadded block in the campaign is \vPaddedShortestUnpaddedS\,\si{\second} and
 the longest padded one \vPaddedLongestPaddedS\,\si{\second}, so the two
 populations meet only in that interval. A single threshold at
 \vWindowThresholdS\,\si{\second} classifies \vThresholdAccuracyPct\,\% of the
-\vBlocks{} blocks correctly. It misses \vThresholdMisses{} --- nearly all of
+\num{\vBlocks} blocks correctly. It misses \vThresholdMisses{} --- nearly all of
 them \vThresholdMissEco{} training blocks, which are padded at durations where
 every other stack is not, and which we cannot account for --- and it wrongly
 predicts padding for \vThresholdFalsePos{} blocks that sit just under the
@@ -988,25 +1013,23 @@ medians beside it.}
 {\footnotesize\setlength{\tabcolsep}{3pt}\input{\gendir tab_power_distortion.tex}}
 \end{table}
 
-\subsection{How we arrived at the explanation}
+\subsection{Fitted models of the window, and why the mechanism settles it}
 \label{app:route}
 
-We arrived at that explanation late, and the route is worth reporting because it
-is this paper's own argument applied to this paper. We first fitted a floor,
-$\max(\text{phase},\ \vWindowFloorS\,\text{s})$, and reported
-$R^2 = \vWindowModelNaiveRsq$. That is wrong in the middle of the range, so we
-refitted two regimes --- phase plus a constant below a threshold ---
-and reported $R^2 = \vWindowModelBestRsq$ at a third of the error. Then we found
-the three modes and the exceptions above the threshold, concluded that no
-length-based model could be right, and said so.
+A length-based model of the reported window is tempting, and its fit statistics
+mislead in both directions. A floor, $\max(\text{phase},\
+\vWindowFloorS\,\text{s})$, fits at $R^2 = \vWindowModelNaiveRsq$ and is wrong in
+the middle of the range; two regimes --- phase plus a constant below a
+threshold --- fit at $R^2 = \vWindowModelBestRsq$ with a third of the error. The
+three modes and the exceptions above the threshold then suggest that no
+length-based model can be right.
 
-That last step was an over-correction. A curve fitted to a predictor can be
+That conclusion over-corrects. A curve fitted to a predictor can be
 right for the wrong reason, and it can also be right: what settles it is the
 mechanism, not the fit statistic, and until we measured
 \texttt{stop()} directly we had no mechanism and were arguing from residuals in
 both directions. The threshold is real, it has a cause, and the cause predicts
-where the threshold sits. The general lesson we would draw is narrower than the
-one we first drew: a high $R^2$ on a skewed predictor is not evidence of the
+where the threshold sits. The general lesson is narrow: a high $R^2$ on a skewed predictor is not evidence of the
 right functional form, and neither is a scatter of exceptions evidence against
 one.
 
@@ -1037,9 +1060,8 @@ the accelerator-plus-CPU total, against \vOffsetCpuMedianJ\,\si{\joule} on the
 CPU term alone --- grows without bound as
 blocks shorten: the mean per-block error is \vAgreeLongPct\,\% above
 \SI{30}{\second} and \vAgreeShortPct\,\% below one second. That is arithmetic on
-a constant, not a degradation of the instrument, and we withdraw the reading ---
-which we reported in an earlier draft of this analysis --- that the transition
-marks the sampling interval. There is no transition: the absolute residual is
+a constant, not a degradation of the instrument, and it does not mark the
+sampling interval. There is no transition: the absolute residual is
 flat across every duration decile of the campaign's blocks, from the shortest
 inference phase to the longest training one.
 
@@ -1247,9 +1269,9 @@ applies here with more force. At $224\times224$ its accelerator is busy on both
 architectures (Table~\ref{tab:saturation}), so its cost in this cell is device
 work rather than host waiting. That is consistent with the account of
 Section~\ref{subsec:spec}, in which a convolution path without cuDNN is what
-separates Java from the other six. It does not measure it: the bound of
-Section~\ref{subsec:spec}, \vCudnnOffEnergyRatio$\times$, was taken at
-$32\times32$ on ResNet-18 at batch 128 and we did not repeat it at
+separates Java from the other six. It does not measure it: the reference point
+of Section~\ref{subsec:spec}, \vCudnnOffEnergyRatio$\times$, was taken with
+PyTorch at $32\times32$ on ResNet-18 at batch 128 and we did not repeat it at
 $224\times224$, so we cannot say how much of Java's distance in this cell the
 missing backend accounts for. Java's cost here is in part a statement about a
 convolution path, not about a language.
@@ -1281,7 +1303,7 @@ statement about its regime.
 This section is a projection, not a measurement, and is kept out of the main text
 for that reason.
 
-To contextualize our empirical results in a hyperscale setting, we present an illustrative industrial scenario that translates our \emph{relative} ecosystem-level energy differences into approximate energy and cost impacts.
+To contextualise our empirical results in a hyperscale setting, we present an illustrative industrial scenario that translates our \emph{relative} ecosystem-level energy differences into approximate energy and cost impacts.
 This scenario is not intended as a direct estimate for any specific production system, model family, or hardware stack; rather, it shows how small per-workload gaps can compound at scale.
 
 \textbf{Relative multipliers.}
@@ -1319,8 +1341,7 @@ rather than assuming one: PyTorch's inference blocks measure
 \vScenarioBaselineMWh~MWh/day, or \vScenarioBaselineCost~\euro{} per day at
 100\,\euro/MWh.
 
-Scaling that to another ecosystem takes two measured quantities, not one, and an
-earlier version of this scenario used only the first. At a fixed service target
+Scaling that to another ecosystem takes two measured quantities, not one. At a fixed service target
 a less efficient stack needs more \emph{accelerator-hours}, so the fleet scales
 with the time multiplier; and it draws its own power while doing so, which is
 not the baseline's. Both matter here, and they do not move together.
@@ -1331,8 +1352,7 @@ energy multiplier is \vScenarioWorstMult$\times$, larger than either factor
 alone. They do not always compound: in Table~\ref{tab:industrial_inference} the
 ordering by fleet size is not the ordering by daily energy, because each fleet
 is multiplied by its own measured draw.
-Multiplying energy at a fixed fleet and a fixed per-card draw --- as we did ---
-would have asserted a draw for \vScenarioWorst{} that its own measurements
+Multiplying energy at a fixed fleet and a fixed per-card draw would assert a draw for \vScenarioWorst{} that its own measurements
 contradict, and one several times the board limit of the card.
 
 Table~\ref{tab:industrial_inference} therefore gives fleet size, measured draw
@@ -1585,7 +1605,7 @@ planner rather than the stacks &
 no \\
 \addlinespace
 \code{drop\_remainder} silently changes the test set &
-Two stacks took fewer gradient steps per epoch and were scored on 9,984 of 10,000
+Two stacks took fewer gradient steps per epoch and were scored on \num{9984} of \num{10000}
 test images, always the same 16; detectable in the released accuracies, since
 \(\text{test\_acc}\times N/100\) is an integer only for the true \(N\) &
 yes \\
@@ -1747,9 +1767,13 @@ and a clause enforced against both still cannot tell you that the code takes a
 step. One unenforced clause survives in the campaigns reported here: C++, and
 Rust in the $32\times32$ campaign, are handed the expected parameter count and
 never check it, and the conformance check for that clause does not look at
-either. We found it after both
-campaigns had run and report it rather than patch a harness that has already
+either. We found it after the campaign and the
+saturation cell had run and report it rather than patch a harness that has already
 produced the data (Section~\ref{subsec:spec}).
+
+% The catalogue's tables are floats; set them here, before Section J and
+% the references, rather than wherever the float queue empties.
+\FloatBarrier
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Threats to validity: the extended discussion}
@@ -1762,8 +1786,8 @@ As with any empirical study, our work is subject to threats to validity. We
 group them conventionally, and note where a threat that would ordinarily be
 speculative is one we can quantify from the data.
 
-\textbf{This campaign replaces one of our own, and we say what changed.} An
-earlier campaign of exactly this design ran to completion and produced a
+\textbf{The reported campaign replaces one of our own, and we say what
+changed.} The superseded campaign, of exactly this design, ran to completion and produced a
 coherent set of numbers. Auditing it against its own source afterwards found
 that three of its headline claims were confounded: one numerical-precision
 policy was in force for some stacks and not for others, the \vEcosystems{}
@@ -1775,10 +1799,9 @@ measurement window, restored the test set two stacks had been scored on, brought
 three incompatible batch-normalisation conventions together, and threaded the
 seeds that three stacks had been handed and did not use. Every ecosystem
 comparison in this paper is measured after that alignment. Where the paper
-reports an earlier campaign of this design --- the protocol read from its source
-in Table~\ref{tab:protocol}, and the defects it contributed to the catalogue ---
-it is the campaign behind an earlier version of this study, the audited
-campaign, and it is named as such.
+reports the campaign behind an earlier version of this study --- the protocol
+read from its source in Table~\ref{tab:protocol}, and the defects it
+contributed to the catalogue --- it is named the audited campaign.
 
 What the re-execution leaves standing is the apparatus, and it leaves the
 findings rather than the figures. The instrument comparison of
@@ -1819,7 +1842,7 @@ of this shape, and it is the one this design attacks directly. Under
 specification S1 the \vCtrlStacks{} stacks of the control group load the same
 exported module rather than independent reimplementations, five stacks assert
 their parameter count at startup --- C++ and the campaign's Rust binaries
-receive it and do not check it, which we found after both campaigns had run ---
+receive it and do not check it, which we found after the campaign and the saturation cell had run ---
 and all \vEcosystems{} agree
 shape for shape on both architectures; S2 and S3 fix the optimisation and the data
 pipeline; and \vConformanceChecks{} automated checks verify the source-level
@@ -1858,7 +1881,7 @@ We can say what that duty cycle is. The accelerator was sampled at
 of \vRuns{} runs the sampler covered, \vLowestGpuEco{}'s reads
 \vLowestGpuUtilResnetPct\,\% utilisation on ResNet-18 and
 \vLowestGpuUtilVggPct\,\% on VGG-16, with
-\vLowestGpuMemMinMiB--\vLowestGpuMemMaxMiB\,MiB of device memory
+\num{\vLowestGpuMemMinMiB}--\num{\vLowestGpuMemMaxMiB}\,MiB of device memory
 held by the \vLowestGpuEco{} interpreter: the card is attached, resident and
 computing, and idle most of the time. These figures are taken over each run's
 whole wall clock, start-up and evaluation included; the utilisation contrast of
@@ -1966,7 +1989,7 @@ subtract it.
 
 The more interesting construct threat is one we can measure. A software
 estimator's output is a mixture of measured and modelled terms, and the mixture
-is not stated in the output. Over \vBlocks{} blocks, CodeCarbon agrees with the
+is not stated in the output. Over \num{\vBlocks} blocks, CodeCarbon agrees with the
 counters to \vCCmeasDisagreementPct\,\% on the terms both measure, while its
 total exceeds them by \vCCtotalRatio$\times$ --- the difference being a RAM term
 derived from installed capacity, \vCCramSharePct\,\% of the reported total here
@@ -2000,7 +2023,7 @@ changes resolution, batch size and dataset together, so it cannot attribute a
 change to any one of them. It is one point, with batch 32 forced by VGG-16's
 memory at $224\times224$. It ran at \vSatLoaderThreads{} loader workers only,
 and R stays short of saturation there for a reason the cell does not isolate.
-And the cuDNN bound of Section~\ref{subsec:spec} was not repeated at
+And the cuDNN reference point of Section~\ref{subsec:spec} was not repeated at
 $224\times224$, so the part of Java's distance owed to its missing convolution
 backend is not separated there.
 
@@ -2050,7 +2073,7 @@ thing.
 
 Where the sample is genuinely too small we say so rather than reach, and the
 collapse rates of Section~\ref{app:collapse} are where we did not. In the
-first campaign those rates differed across ecosystems; we tested that table with
+superseded campaign those rates differed across ecosystems; we tested that table with
 a $\chi^2$ test and with a permutation test and reported both, because they
 disagreed. The disagreement was a property of the two statistics rather than
 evidence about the data. $\chi^2$ wants five expected observations per cell and
@@ -2064,8 +2087,8 @@ measuring the initialiser rather than the ecosystem.
 The table warranted an exact test. Freeman--Halton, the $r \times c$
 generalisation of Fisher's exact test, conditions on both margins and sums the
 probability of every table no more likely than the one observed: a few thousand
-terms, no approximation and no seed. On the first campaign's table it returns
-$p = \vCollapseFirstExactP$. On this campaign's it returns
+terms, no approximation and no seed. On the superseded campaign's table it
+returns $p = \vCollapseFirstExactP$. On the reported campaign's it returns
 $p = \vCollapseExactP$, because no ecosystem collapsed a run and there is
 nothing left to be inhomogeneous --- with zero events in every cell the question
 is not which ecosystems differ but how tightly the rate is bounded, which is the

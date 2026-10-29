@@ -27,8 +27,8 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import (CAMPAIGN_DIR, MacroSet, REPO_ROOT, announce_scope,  # noqa: E402
-                    campaign_energy, campaign_is_partial, num,
+from common import (CAMPAIGN_DIR, ECOSYSTEM_ORDER, MacroSet, REPO_ROOT,  # noqa: E402
+                    announce_scope, campaign_energy, campaign_is_partial, num,
                     read_campaign_metrics,
                     TABLES_RESOLVER, tables_dir)
 
@@ -59,6 +59,27 @@ FIRST_CAMPAIGN = REPO_ROOT / "results" / "campaign_v2_first_campaign"
 DATASET = {"fashionmnist": "Fashion-MNIST", "cifar100": "CIFAR-100",
            "tinyimagenet": "Tiny ImageNet"}
 MODEL = {"resnet18": "ResNet-18", "vgg16": "VGG-16"}
+
+#: One order for every table, the figures' order (common.ECOSYSTEM_ORDER) and
+#: datasets from the easiest to the hardest, as the manuscript introduces them.
+#: Row order is presentation only: no macro is computed from it.
+DATASET_ORDER = ["fashionmnist", "cifar100", "tinyimagenet"]
+
+
+def eco_rank(eco: str) -> int:
+    """Position of a long ecosystem name in common.ECOSYSTEM_ORDER."""
+    long = {"Cpp/LibTorch": "C++/LibTorch"}.get(eco, eco)
+    return ECOSYSTEM_ORDER.index(long)
+
+
+def short_rank(short: str) -> int:
+    """Position of a short label (SHORT's values) in common.ECOSYSTEM_ORDER."""
+    return min(eco_rank(k) for k, v in SHORT.items() if v == short)
+
+
+def thin(x: float, fmt: str = ",.0f") -> str:
+    """A number with thin-space thousands, the manuscript's one format."""
+    return f"{x:{fmt}}".replace(",", "\\,")
 
 #: Every value this script emits, and the refusal that keeps a NaN out of the
 #: manuscript. Both live in common.MacroSet now, because 20_saturation emits a
@@ -462,7 +483,7 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
         r"& \textbf{block length} & \textbf{padded} \\",
         r"\midrule",
     ]
-    for eco in piv.sort_values("Training").index:
+    for eco in sorted(piv.index, key=eco_rank):
         cells = []
         for ph in ("Training", "Inference"):
             lo, hi = length.loc[(eco, ph), "min"], length.loc[(eco, ph), "max"]
@@ -546,7 +567,7 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
     ]
     for _, r in pdist.iterrows():
         label = str(r["bin"]).replace("<", "$<$").replace(">", "$>$").replace("-", "--")
-        lines.append(f"{label} & {int(r.n_blocks)} & {r.reported_power_w:.0f}\\,W & "
+        lines.append(f"{label} & {thin(r.n_blocks)} & {r.reported_power_w:.0f}\\,W & "
                      f"{r.measured_power_w:.0f}\\,W & {r.understated_by:.2f}$\\times$ \\\\")
     lines += [r"\bottomrule", r"\end{tabularx}"]
     (OUT / "tab_power_distortion.tex").write_text("\n".join(lines) + "\n")
@@ -560,7 +581,7 @@ def instrument_facts(epochs: pd.DataFrame) -> None:
         r"& \textbf{Of the untracked rest, the instrument} \\",
         r"\midrule",
     ]
-    for _, row in cov.sort_values("coverage_pct").iterrows():
+    for _, row in cov.iloc[sorted(range(len(cov)), key=lambda i: eco_rank(cov.ecosystem.iat[i]))].iterrows():
         # Unclamped: the manuscript says this column prints the above-100%
         # cell rather than rounding it away, and it has to be true.
         share = row.untracked_that_is_instrument_pct
@@ -617,6 +638,9 @@ def energy_facts(stats: pd.DataFrame) -> None:
             }
         )
     spread = pd.DataFrame(ratios)
+    order = {DATASET[d]: i for i, d in enumerate(DATASET_ORDER)}
+    spread = (spread.assign(_o=spread.dataset.map(order))
+              .sort_values(["model", "_o"]).drop(columns="_o"))
     macro("vSpreadTrainMin", num(spread.ratio.min(), 1))
     macro("vSpreadTrainMax", num(spread.ratio.max(), 1))
     macro("vSpreadTrainBest", spread.best.mode().iat[0])
@@ -652,7 +676,10 @@ def write_energy_table(stats: pd.DataFrame, phase: str, stem: str) -> None:
     g["dataset_label"] = g.dataset.map(DATASET)
     pivot = g.pivot_table(index="Ecosystem", columns=["model_label", "dataset_label"],
                           values="mean_energy_J")
-    pivot = pivot.sort_values(pivot.columns[0])
+    cols = [(MODEL[m], DATASET[d]) for m in ("resnet18", "vgg16") for d in DATASET_ORDER
+            if (MODEL[m], DATASET[d]) in pivot.columns]
+    pivot = pivot[cols]
+    pivot = pivot.loc[sorted(pivot.index, key=short_rank)]
 
     models = list(dict.fromkeys(m for m, _ in pivot.columns))
     spans, rule, cursor = [], [], 2
@@ -803,7 +830,7 @@ def quality_facts() -> None:
         r"\midrule",
     ]
     tp = tgt.set_index(["ecosystem", "model", "dataset"])
-    for eco in sorted(tgt.ecosystem.unique()):
+    for eco in sorted(tgt.ecosystem.unique(), key=eco_rank):
         cells = []
         for m in models:
             for d in datasets:
@@ -867,7 +894,7 @@ def quality_facts() -> None:
     ]
     blk_ok = ok_block.set_index(["model", "dataset", "ecosystem"]).final_test_acc_pct
     blk_all = per_block.set_index(["model", "dataset", "ecosystem"]).final_test_acc_pct
-    for eco in summ.ecosystem.drop_duplicates():
+    for eco in sorted(summ.ecosystem.drop_duplicates(), key=eco_rank):
         cells = []
         for d in datasets:
             for m in models:
@@ -993,6 +1020,8 @@ def statistics_facts() -> None:
         + r")} & \textbf{Share of log spread} \\",
         r"\midrule",
     ]
+    ct = (ct.assign(_o=ct.dataset.map({d: i for i, d in enumerate(DATASET_ORDER)}))
+          .sort_values(["model", "_o"]).drop(columns="_o"))
     for _, r in ct.iterrows():
         lines.append(
             f"{MODEL[r.model]} & {DATASET[r.dataset]} & {r.spread_all:.1f}$\\times$ & "
@@ -1687,10 +1716,13 @@ def precision_table(ct: pd.DataFrame) -> None:
     # One footnote letter per distinct note, in the order the rows use them, so
     # the list under the table reads top to bottom with the rows.
     letters, notes = {}, []
-    ordered = pd.concat([rows[rows.comparable == "yes"].sort_values(
-                             ["dataset", "ecosystem"]),
-                         rows[rows.comparable != "yes"].sort_values(
-                             ["dataset", "ecosystem"])])
+    def in_order(frame: pd.DataFrame) -> pd.DataFrame:
+        key = [(DATASET_ORDER.index(d), eco_rank(e))
+               for d, e in zip(frame.dataset, frame.ecosystem)]
+        return frame.iloc[sorted(range(len(frame)), key=key.__getitem__)]
+
+    ordered = pd.concat([in_order(rows[rows.comparable == "yes"]),
+                         in_order(rows[rows.comparable != "yes"])])
     body = []
     for _, r in ordered.iterrows():
         key, note, _ok = short(r.comparability_note)
@@ -1704,7 +1736,7 @@ def precision_table(ct: pd.DataFrame) -> None:
         name = SHORT[r.ecosystem]
         body.append(
             ((r"\textbf{" + name + r"}") if cited else name)
-            + f" & {DATASET[r.dataset]} & {r.value_v1:.0f} & {r.value_v2:.0f} & "
+            + f" & {DATASET[r.dataset]} & {thin(r.value_v1)} & {thin(r.value_v2)} & "
             + ((r"\textbf{" + f"{r.ratio_v1_v2:.2f}" + r"$\times$}") if cited
                else f"{r.ratio_v1_v2:.2f}$\\times$")
             + f" & {key}{mark} \\\\")
@@ -1714,12 +1746,12 @@ def precision_table(ct: pd.DataFrame) -> None:
         r"% generated by results/analysis/12_paper_numbers.py -- do not edit",
         r"\begin{table}[t]",
         r"\centering",
-        r"\caption{Mean GPU energy per training epoch, ResNet-18, in the "
-        r"superseded campaign (TF32 denied for Python/PyTorch alone) against "
-        r"the current one (TF32 allowed for all seven). Five repetitions and "
+        r"\caption{Mean accelerator (GPU) energy per training epoch, ResNet-18, "
+        r"in the superseded campaign (TF32 denied for Python/PyTorch alone) "
+        r"against the reported one (TF32 allowed for all seven). Five repetitions and "
         r"150 epochs per cell on each side. \textbf{Python/PyTorch on "
         r"CIFAR-100 is the contrast the text cites}; the cells above the rule "
-        r"are the ones the two executions leave comparable, and each cell "
+        r"are the ones the two campaigns leave comparable, and each cell "
         r"below it is excluded for the stated reason rather than for its "
         r"value.}",
         r"\label{tab:precision_contrast}",

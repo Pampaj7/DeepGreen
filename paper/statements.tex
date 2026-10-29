@@ -21,30 +21,21 @@ in this paper.%
 }
 
 \newcommand{\DataAvailabilityStatement}{%
-All data and code underlying this study are public. The replication package
-contains the implementations for all \vEcosystems{} ecosystems, the shared
-measurement bridge, the experiment specification and its conformance checker,
-the campaign driver, the per-block dual-instrument records for all \vRuns{}
-runs and \vBlocks{} blocks, and the analysis pipeline that turns those records
-into every table, figure and quoted number in this manuscript. The
-saturation cell's records --- the same per-block dual-instrument readings,
-per-epoch metrics, run manifests and data fingerprints for its \vSatRuns{}
-runs, with the excerpt of the utilisation record that covers them --- are in a
-directory of the package of their own, built by the same pipeline and never
-merged with the campaign's. A single command
-regenerates the manuscript from the raw records, so any number here can be
-traced to the measurement it came from.
-
-The package is an output of that pipeline and is built at the end of it, so it
-cannot be older than the tree it flattens --- which it had quietly been, for a
-fortnight, while part of the analysis read it as an input. It refuses to build
-from a campaign that is not complete, on two conditions rather than one: the
-campaign must have produced every run it planned, and every run directory
-present must be whole. A package that silently omits or silently includes runs
-is worse than one that will not build. A restore script rebuilds the original
-run tree from the package and diffs it file by file, so the claim that the
-package is a copy is itself checkable, and every field is carried as text,
-because parsing a float and writing it back is not a copy.%
+All data and code underlying this study are public in the replication package at
+\url{https://github.com/Pampaj7/DeepGreen}; an archived copy with a DOI will
+accompany the published version. The package contains the implementations for
+all \vEcosystems{} ecosystems, the shared measurement bridge, the experiment
+specification and its conformance checker, the campaign driver, the per-block
+dual-instrument records for all \vRuns{} runs and \num{\vBlocks} blocks, and the
+analysis pipeline that turns those records into the tables, figures and quoted
+numbers in this manuscript. The saturation cell's records --- the same per-block
+dual-instrument readings, per-epoch metrics, run manifests and data fingerprints
+for its \vSatRuns{} runs, with the excerpt of the utilisation record that covers
+them --- are in a directory of the package of their own, built by the same
+pipeline and never merged with the campaign's. A single command regenerates the
+manuscript from the raw records, so every number here can be traced to the
+measurement it came from, except where stated; \ESMname{} lists the
+exceptions (Sects.~\ref{app:repro} and~\ref{app:collapse}).%
 }
 
 \newcommand{\GenerativeAIStatement}{%

@@ -3,8 +3,7 @@
 % an \input there is never read; \AbstractText is.
 \newcommand{\AbstractText}{%
 \textbf{Context.}
-Does the choice of language--framework ecosystem carry an energy price in deep
-learning? A fair answer needs every ecosystem to run the same experiment,
+Does the language--framework ecosystem carry an energy price in deep learning? A fair answer needs every ecosystem to run the same experiment,
 measured the same way.
 
 \textbf{Objective.}
@@ -15,17 +14,16 @@ what the measurement apparatus must guarantee.
 ResNet-18 and VGG-16 are trained on three datasets at $32\times32$ in
 \vEcosystems{} ecosystems (Python with PyTorch, TensorFlow and JAX; C++ with
 LibTorch; Java with Deeplearning4j; R with \texttt{torch}; Rust with
-\texttt{tch}), \vRepetitions{} runs per configuration. A written
-specification, enforced by \vConformanceChecks{} automated checks, fixes the
-experiment. Energy is read from hardware counters, with CodeCarbon as a second
-instrument. A declared contrast cell of \vSatRuns{} runs repeats both networks
-at $224\times224$.
+\texttt{tch}), \vRepetitions{} runs per configuration. A specification enforced
+by \vConformanceChecks{} automated checks fixes the experiment. Hardware
+counters measure energy, with CodeCarbon as a second instrument. A contrast cell of \vSatRuns{} runs repeats both networks at
+$224\times224$.
 
 \textbf{Results.}
 Training energy differs across ecosystems by \vSpreadTrainMin$\times$ to
 \vSpreadTrainMax$\times$ per cell (median between-run CV
-\vCVTrainMedian\,\%); among the \vCtrlStacks{} stacks that share one
-exported module and backend build the spread is
+\vCVTrainMedian\,\%); among the \vCtrlStacks{} stacks sharing one exported
+module and backend build it is
 \vCtrlSpreadMin$\times$--\vCtrlSpreadMax$\times$. At $224\times224$ the spread
 within the four LibTorch-lineage stacks compresses to
 \vSatLibtorchSpreadTrainVgg$\times$--\vSatLibtorchSpreadTrainResnet$\times$,
@@ -38,6 +36,6 @@ window in \vWindowPaddedPct\,\% of blocks, understating derived power up to
 
 \textbf{Conclusions.}
 Ecosystem choice materially affects DL energy, by a workload-dependent amount.
-The apparatus decides the duration and power fields reported beside energy, not
-the energy. Specification, checker and raw records are public.
+The apparatus distorts the duration and power reported beside energy, not the
+energy. Specification, checker and raw records are public.
 }

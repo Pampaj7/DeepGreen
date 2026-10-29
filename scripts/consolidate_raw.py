@@ -407,6 +407,17 @@ def main() -> int:
     global RAW, OUT, EXPECTED, EXTRA_TABLES
     RAW, OUT, EXPECTED, EXTRA_TABLES = CAMPAIGNS[args.campaign]
 
+    if not RAW.is_dir() or not any(d.is_dir() for d in RAW.iterdir()):
+        # A fresh clone: the raw tree is not versioned, the package is. Say so,
+        # rather than let the completeness gate call it a campaign in flight.
+        restore = "python scripts/restore_from_replication.py --all" + (
+            f" --campaign {args.campaign}" if args.campaign != "v2" else "")
+        print(f"{RAW.relative_to(REPO_ROOT)} is absent or empty: the raw run "
+              f"tree is not in the repository,\nonly its replication package "
+              f"({OUT.relative_to(REPO_ROOT)}/). Rebuild the tree with\n\n"
+              f"    {restore}\n\nand run this again; nothing was compared.",
+              file=sys.stderr)
+        return 2
     print(f"reading {RAW.relative_to(REPO_ROOT)} ...")
     tables = collect()
     if args.check:

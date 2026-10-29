@@ -508,10 +508,16 @@ def _check_saturation_cell() -> list[Result]:
     bad: list[str] = []
     sampled = 0
     if not data_root.is_dir():
-        out.append(Result("all", "S7 images on disk are 224x224 RGB", FAIL,
-                          f"{data_root} missing; run {conv}"))
+        # The dataset is downloaded, not versioned, so a fresh clone does not
+        # have it. A check whose input is absent has not run: SKIP with the
+        # reason, as the Rust build check does, rather than FAIL. The three are
+        # the three the branch below runs, so the total stays EXPECTED_CHECKS.
+        why = f"{data_root} absent; run {conv} to check it"
+        out.append(Result("all", "S7 images on disk are 224x224 RGB", SKIP, why))
+        out.append(Result("all", "S7 one alphabetical order for the class names",
+                          SKIP, why))
         out.append(Result("C++/LibTorch", "S7 declared sample counts match the disk",
-                          FAIL, f"{data_root} missing"))
+                          SKIP, why))
     else:
         try:
             from PIL import Image
@@ -1159,11 +1165,16 @@ def main() -> int:
     counts = {s: sum(1 for x in results if x.status == s) for s in (PASS, FAIL, WARN, SKIP)}
     print("\n" + "-" * 100)
     print(f"  {counts[PASS]} pass, {counts[FAIL]} fail, {counts[WARN]} warn, {counts[SKIP]} skip")
+    # A skipped check is accounted for: it ran, found its input absent and said
+    # so. What this guards against is a check that disappears without a word.
     miscount = len(results) != EXPECTED_CHECKS
+    if counts[SKIP]:
+        print(f"  {len(results)} checks accounted for, {counts[SKIP]} of them skipped "
+              f"because an input is absent (see the [skip] lines).")
     if miscount:
-        print(f"\n  {len(results)} checks ran, {EXPECTED_CHECKS} expected. A check that "
-              f"stops running is\n  indistinguishable from one that passes; treat this "
-              f"as a failure.")
+        print(f"\n  {len(results)} checks accounted for (run or skipped), "
+              f"{EXPECTED_CHECKS} expected. A check that\n  stops running is "
+              f"indistinguishable from one that passes; treat this as a failure.")
     if counts[FAIL] or counts[WARN] or counts[SKIP]:
         print("\n  Anything not PASS is an inconsistency between ecosystems and invalidates")
         print("  a cross-ecosystem comparison until it is resolved or explicitly justified.")

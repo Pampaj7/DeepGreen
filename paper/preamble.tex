@@ -14,6 +14,10 @@
 \usepackage{stfloats}
 \usepackage{comment}
 \usepackage{siunitx}
+% One number format throughout, prose and generated tables alike: thousands
+% grouped with a thin space from four digits up (9\,469, 12\,600), which is
+% what the table generators emit. Integers in prose go through \num.
+\sisetup{group-separator={\,}, group-minimum-digits=4}
 \usepackage{eurosym}
 
 \ExplSyntaxOn

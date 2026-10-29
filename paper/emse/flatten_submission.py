@@ -248,11 +248,17 @@ def stage(out):
         resolved.append(f"{how}{{{label}}} -> {num}")
         return num
 
-    tex = re.sub(r"\\esm(sec|tab|fig)\s*\{([^{}]*)\}",
-                 lambda m: f"{ESM_NAME}, {ESM_PREFIX[m.group(1)]}~{number(m.group(2), '\\esm' + m.group(1))}",
-                 tex)
-    # \ESMname, like any control word, swallows the spaces after it.
-    tex = re.sub(r"\\ESMname(?![A-Za-z@])(\{\})?[ \t]*", lambda m: ESM_NAME, tex)
+    def pointer(m):
+        # A function rather than one f-string: a backslash inside an f-string
+        # expression is a SyntaxError before Python 3.12, and the build must
+        # run under the campaign interpreter (3.11) as well.
+        how = "\\esm" + m.group(1)
+        return f"{ESM_NAME}, {ESM_PREFIX[m.group(1)]}~{number(m.group(2), how)}"
+
+    tex = re.sub(r"\\esm(sec|tab|fig)\s*\{([^{}]*)\}", pointer, tex)
+    # \ESMname, like any control word, swallows the spaces after it -- unless it
+    # is written \ESMname{}, where the braces end it and the space stays.
+    tex = re.sub(r"\\ESMname(?:\{\}|(?![A-Za-z@])[ \t]*)", lambda m: ESM_NAME, tex)
 
     def ref(m):
         cmd, label = m.group(1), m.group(2)

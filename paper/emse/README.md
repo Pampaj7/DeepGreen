@@ -34,7 +34,7 @@ style.
 | `esm.tex` | **Online Resource 1**, the Electronic Supplementary Material: same class and preamble, title "Online Resource 1 — Supplementary material for: …", sections A–J; inputs `../appendix.tex` |
 | `sn-jnl.cls`, `sn-basic.bst` | the template, unmodified (above) |
 | `make_submission.sh` | builds `submission.zip`, the flat, single-directory source package Springer's system asks for, verifies it, and copies `esm.pdf` to `Online_Resource_1.pdf` beside it |
-| `flatten_submission.py` | the helper it calls: writes the flattened `main.tex` and the package's other files into `submission/`, and compares the package's PDF text with `main.pdf` |
+| `flatten_submission.py` | the helper it calls: writes the flattened `main.tex` and the package's other files into `submission/`, and compares the package's PDF text with `main.pdf`. Runs on Python 3.10 or later, so the campaign interpreter (`.venv-deepgreen`, 3.11) and the system `python3` both work; `make_submission.sh` uses `$PYTHON` if set |
 | `main.pdf` | the built manuscript (`paper/build.sh`) |
 | `esm.pdf`, `Online_Resource_1.pdf` | the built Online Resource 1, and the copy to upload |
 

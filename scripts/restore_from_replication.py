@@ -190,6 +190,14 @@ def check_roundtrip(tables: dict[str, pd.DataFrame]) -> int:
                     if differ <= 5:
                         print(f"  differs: {run}/{f.name}")
     total = same + differ + missing + eol
+    if total == 0:
+        # No raw tree to compare against: in a fresh clone the campaign exists
+        # only as this package. "0 of 0 identical" would read as a pass.
+        print(f"\n  nothing compared: no raw run directories under "
+              f"{CAMPAIGN.relative_to(REPO_ROOT) if CAMPAIGN.is_relative_to(REPO_ROOT) else CAMPAIGN}.\n"
+              f"  The round trip needs the original tree; a restored one would be\n"
+              f"  compared with itself.")
+        return 1
     print(f"\n  {same:,} of {total:,} files identical, {differ:,} differ, "
           f"{missing:,} missing")
     if eol:

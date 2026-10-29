@@ -42,11 +42,18 @@
 # Electronic Supplementary Material, not inside the zip; this script copies it
 # to paper/emse/Online_Resource_1.pdf, beside submission.zip.
 set -euo pipefail
+# The interpreter, resolved before the cd below: paper/build.sh passes a path
+# relative to the repository root (./.venv-deepgreen/bin/python), which would
+# not resolve from paper/emse/. Python 3.10 or later; the flattener avoids 3.12
+# syntax so the campaign interpreter (3.11) can run it.
+PY="${PYTHON:-python3}"
+case "$PY" in
+  */*) [[ "$PY" = /* ]] || PY="$PWD/$PY" ;;
+esac
 cd "$(dirname "$0")"
 EMSE="$PWD"
 PAPER="$(cd .. && pwd)"
 TECTONIC="${TECTONIC:-$HOME/miniforge3/envs/dg-tectonic/bin/tectonic}"
-PY="${PYTHON:-python3}"
 ZIP="$EMSE/submission.zip"
 
 fail() { echo "make_submission: $*" >&2; exit 1; }

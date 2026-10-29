@@ -13,7 +13,7 @@ before uploading, and edit nothing by hand.
 |---|---|---|
 | Manuscript PDF (reference) | `paper/emse/main.pdf` | ready, Springer `sn-jnl`, 37 pages including references and Declarations |
 | LaTeX source | `paper/emse/submission.zip`, unpacked: 11 files in one flat directory (below) | ready; compiles standalone from an empty directory to the same 37 pages and the same text as `main.pdf` (`paper/emse/make_submission.sh`) |
-| Electronic Supplementary Material: **Online Resource 1** | `paper/emse/Online_Resource_1.pdf` (a copy of `paper/emse/esm.pdf`) | ready, 39 pages; upload as a separate supplementary file named "Online Resource 1" |
+| Electronic Supplementary Material: **Online Resource 1** | `paper/emse/Online_Resource_1.pdf` (a copy of `paper/emse/esm.pdf`) | ready, 40 pages; upload as a separate supplementary file named "Online Resource 1" |
 | Cover letter | `paper/emse/cover_letter.pdf` (typeset from `paper/emse/cover_letter.tex`; text as `paper/cover_letter.md`) | ready, 1 page |
 
 The source package follows Springer Nature's LaTeX rules: every file in one
@@ -96,22 +96,32 @@ from the statements shared with the Elsevier build (`paper/statements.tex`).
 ## Verify the chain
 
 ```bash
-python3 scripts/check_consistency.py            # 110 pass, 0 fail
-python3 scripts/consolidate_raw.py --check      # package matches the raw tree
-./paper/build.sh                                # analysis + numbers + figures + PDF
+.venv-deepgreen/bin/python scripts/check_consistency.py        # 110 pass, 0 fail (see below)
+.venv-deepgreen/bin/python scripts/consolidate_raw.py --check  # package matches the raw tree
+./paper/build.sh                                               # analysis + numbers + figures + PDF
 ```
 
-Every quantity in the text is a macro from `paper/generated/numbers.tex` (328)
-or `paper/generated/numbers_saturation.tex` (327), written by the analysis
-pipeline. No author types a number.
+Use the campaign interpreter: the system `python3` has no pandas, and the
+checker refuses to run without it. On the authors' machine the checker reports
+110 pass. A fresh clone shows fewer passes and some skips, never a failure:
+after `scripts/restore_from_replication.py --all` (and `--all --campaign
+saturation`) it reports 106 pass and 4 skip, because the Imagenette images
+(`dataloader/download_convert_imagenette.py`) and the Rust release build
+(`scripts/build_rust_cuda.sh`) are not in the repository. Without the restore,
+`consolidate_raw.py --check` says the raw tree is absent and names the restore
+command.
+
+Every quantity in the text is a macro from `paper/generated/numbers.tex` or
+`paper/generated/numbers_saturation.tex`, written by the analysis pipeline. No
+author types a number.
 
 ## Known state of the build
 
-* EMSE: `main.pdf` 37 pages, `esm.pdf` (Online Resource 1) 39 pages; 0
+* EMSE: `main.pdf` 37 pages, `esm.pdf` (Online Resource 1) 40 pages; 0
   undefined references, citations or macros in either, and no "??" in the
   typeset text (`make_submission.sh` checks this, and the text against
   `main.pdf`, for the standalone compile of the article).
-* Elsevier fallback: `paper.pdf` 42 pages in `cas-dc`, with the supplementary
+* Elsevier fallback: `paper.pdf` 44 pages in `cas-dc`, with the supplementary
   material as an inline appendix; 0 undefined references, citations or macros.
 * The structured abstract (Context / Objective / Method / Results /
   Conclusions) is 246 words as typeset, within EMSE's 150–250.
