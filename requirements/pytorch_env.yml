@@ -63,4 +63,3 @@ dependencies:
       - typing-extensions==4.14.1
       - urllib3==2.4.0
       - wrapt==1.14.1
-prefix: /home/pampaj/miniconda3/envs/deep

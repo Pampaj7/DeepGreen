@@ -184,4 +184,3 @@ dependencies:
       - toml==0.10.2
       - uritemplate==4.2.0
       - webencodings==0.5.1
-prefix: /home/pampaj/miniconda3/envs/tf
